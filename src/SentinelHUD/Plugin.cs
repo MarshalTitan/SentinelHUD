@@ -29,6 +29,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IClientState ClientState { get; private set; } = null!;
     [PluginService] internal static ICondition Condition { get; private set; } = null!;
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
+    [PluginService] internal static IFramework Framework { get; private set; } = null!;
 
     private readonly PluginLifetime lifetime;
     private readonly WindowSystem windows = new("SentinelHUD");
@@ -53,17 +54,25 @@ public sealed class Plugin : IDalamudPlugin
             static value => HudConfigurationMigrator.Normalize(value)));
 
         var data = new HudDataService(ObjectTable, TargetManager, DataManager);
-        var highlight = new SelfHighlightRenderer(ClientState, Condition, GameGui, data);
+        var highlight = lifetime.Add<ISelfHighlightService>(
+            new NativeSelfHighlightService(ClientState, Condition, GameGui, data));
+        var positionMarker = new PlayerPositionMarkerRenderer(GameGui);
+        var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
+            new ExtendedCameraZoomService(PluginInterface, ClientState, Condition));
         hudRenderer = new HudRenderer(
             configuration,
             data,
             highlight,
+            positionMarker,
+            cameraZoom,
             GameGui,
-            diagnostics,
-            diagnosticTracker);
+            diagnostics);
         configurationWindow = new ConfigurationWindow(configuration, hudRenderer, diagnostics);
         windows.AddWindow(configurationWindow);
         lifetime.Add(() => windows.RemoveAllWindows());
+
+        Framework.Update += OnFrameworkUpdate;
+        lifetime.Add(() => Framework.Update -= OnFrameworkUpdate);
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
@@ -109,6 +118,22 @@ public sealed class Plugin : IDalamudPlugin
         }
     }
 
+    private void OnFrameworkUpdate(IFramework _)
+    {
+        try
+        {
+            hudRenderer.UpdateGameState();
+        }
+        catch (Exception exception)
+        {
+            if (diagnosticTracker.Throttled("game-state-update-failure", TimeSpan.FromSeconds(15)))
+            {
+                diagnostics.Error("An awareness/camera update failed; it will retry automatically.", exception);
+                logger.Error("Sentinel HUD awareness/camera update failed; retrying.", exception);
+            }
+        }
+    }
+
     private void OnCommand(string _, string arguments)
     {
         switch (arguments.Trim().ToLowerInvariant())
@@ -138,7 +163,8 @@ public sealed class Plugin : IDalamudPlugin
                 ChatGui.Print(
                     $"[Sentinel HUD] enabled={configuration.Current.Enabled}, locked={configuration.Current.Locked}, "
                     + $"target={hudRenderer.TargetResolved}, focus={hudRenderer.FocusTargetResolved}, "
-                    + $"highlight={configuration.Current.SelfHighlight.Mode}/{hudRenderer.SelfHighlightActive}.");
+                    + $"highlight={configuration.Current.SelfHighlight.Mode}/{hudRenderer.SelfHighlightActive}, "
+                    + $"marker={hudRenderer.PositionMarkerActive}, camera={hudRenderer.CameraZoomActive}.");
                 break;
             case "help":
                 ChatGui.Print("[Sentinel HUD] /shud | lock | unlock | reset | enable | disable | status");

@@ -16,26 +16,31 @@ public sealed class HudRenderer
 
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudDataService data;
-    private readonly SelfHighlightRenderer selfHighlight;
+    private readonly ISelfHighlightService selfHighlight;
+    private readonly PlayerPositionMarkerRenderer positionMarker;
+    private readonly IExtendedCameraZoomService cameraZoom;
     private readonly IGameGui gameGui;
     private readonly DiagnosticBuffer diagnostics;
-    private readonly DiagnosticTracker diagnosticTracker;
     private readonly Dictionary<HudModuleKind, LayoutRuntimeState> layoutStates = new();
+    private HudDiagnosticState lastDiagnosticState;
+    private bool hasDiagnosticState;
 
     public HudRenderer(
         ConfigurationCoordinator<Configuration> configuration,
         HudDataService data,
-        SelfHighlightRenderer selfHighlight,
+        ISelfHighlightService selfHighlight,
+        PlayerPositionMarkerRenderer positionMarker,
+        IExtendedCameraZoomService cameraZoom,
         IGameGui gameGui,
-        DiagnosticBuffer diagnostics,
-        DiagnosticTracker diagnosticTracker)
+        DiagnosticBuffer diagnostics)
     {
         this.configuration = configuration;
         this.data = data;
         this.selfHighlight = selfHighlight;
+        this.positionMarker = positionMarker;
+        this.cameraZoom = cameraZoom;
         this.gameGui = gameGui;
         this.diagnostics = diagnostics;
-        this.diagnosticTracker = diagnosticTracker;
         foreach (var kind in Enum.GetValues<HudModuleKind>())
             layoutStates[kind] = new LayoutRuntimeState();
     }
@@ -49,20 +54,35 @@ public sealed class HudRenderer
     public bool TargetOfTargetResolved { get; private set; }
     public bool SelfHighlightActive => selfHighlight.IsActive;
     public string SelfHighlightState => selfHighlight.StateReason;
+    public string SelfHighlightAppliedColour => selfHighlight.AppliedColourName;
+    public bool SelfHighlightSupportsArbitraryColour => selfHighlight.SupportsArbitraryColour;
+    public bool PositionMarkerActive => positionMarker.IsActive;
+    public bool PositionMarkerUsedTerrainProjection => positionMarker.UsedTerrainProjection;
+    public string PositionMarkerState => positionMarker.StateReason;
+    public bool CameraZoomActive => cameraZoom.IsActive;
+    public string CameraZoomState => cameraZoom.StateReason;
+    public string? CameraConflict => cameraZoom.ConflictingPluginName;
+    public float CameraCurrentMaximum => cameraZoom.CurrentMaximum;
+
+    public void UpdateGameState()
+    {
+        var config = configuration.Current;
+        cameraZoom.Update(config.Camera, config.Enabled);
+        selfHighlight.Update(config.SelfHighlight, config.Enabled);
+    }
 
     public void Draw()
     {
         var config = configuration.Current;
         ResetVisibilityState();
+        var player = config.Enabled ? data.LocalPlayer : null;
+        positionMarker.Draw(config.PlayerPositionMarker, config.Enabled, player);
         if (!config.Enabled || gameGui.GameUiHidden)
         {
             RecordState(config);
             return;
         }
 
-        selfHighlight.Draw(config.SelfHighlight);
-
-        var player = data.LocalPlayer;
         var target = data.Target;
         var focus = data.FocusTarget;
         var targetOfTarget = data.ResolveTargetOfTarget(target);
@@ -125,6 +145,10 @@ public sealed class HudRenderer
         });
         RequestRepositionAll();
     }
+
+    public void RestoreCameraDefaults() => cameraZoom.Restore();
+
+    public void RetryCameraZoom() => cameraZoom.RetryAfterConflict();
 
     private void DrawModule(
         HudModuleKind kind,
@@ -385,8 +409,7 @@ public sealed class HudRenderer
 
     private void RecordState(Configuration config)
     {
-        var signature = string.Join(
-            '|',
+        var state = new HudDiagnosticState(
             config.Enabled,
             PlayerVisible,
             TargetVisible,
@@ -397,14 +420,24 @@ public sealed class HudRenderer
             TargetOfTargetResolved,
             config.SelfHighlight.Mode,
             SelfHighlightActive,
-            SelfHighlightState);
-        if (diagnosticTracker.Changed("hud-visibility", signature))
-        {
-            diagnostics.Debug(
-                $"HUD state changed: player={PlayerVisible}, target={TargetVisible}/{TargetResolved}, "
-                + $"focus={FocusTargetVisible}/{FocusTargetResolved}, target-of-target={TargetOfTargetVisible}/{TargetOfTargetResolved}, "
-                + $"highlight={config.SelfHighlight.Mode}/{SelfHighlightActive} ({SelfHighlightState}).");
-        }
+            SelfHighlightState,
+            config.PlayerPositionMarker.Enabled,
+            PositionMarkerActive,
+            PositionMarkerState,
+            config.Camera.Enabled,
+            CameraZoomActive,
+            CameraZoomState);
+        if (hasDiagnosticState && state == lastDiagnosticState)
+            return;
+
+        lastDiagnosticState = state;
+        hasDiagnosticState = true;
+        diagnostics.Debug(
+            $"HUD state changed: player={PlayerVisible}, target={TargetVisible}/{TargetResolved}, "
+            + $"focus={FocusTargetVisible}/{FocusTargetResolved}, target-of-target={TargetOfTargetVisible}/{TargetOfTargetResolved}, "
+            + $"highlight={config.SelfHighlight.Mode}/{SelfHighlightActive} ({SelfHighlightState}), "
+            + $"marker={config.PlayerPositionMarker.Enabled}/{PositionMarkerActive} ({PositionMarkerState}), "
+            + $"camera={config.Camera.Enabled}/{CameraZoomActive} ({CameraZoomState}).");
     }
 
     private void ResetVisibilityState()
@@ -443,4 +476,23 @@ public sealed class HudRenderer
         public Vector2 LastViewportPosition { get; set; } = new(float.NaN, float.NaN);
         public Vector2 LastViewportSize { get; set; } = new(float.NaN, float.NaN);
     }
+
+    private readonly record struct HudDiagnosticState(
+        bool HudEnabled,
+        bool PlayerVisible,
+        bool TargetVisible,
+        bool FocusTargetVisible,
+        bool TargetOfTargetVisible,
+        bool TargetResolved,
+        bool FocusTargetResolved,
+        bool TargetOfTargetResolved,
+        SelfHighlightMode HighlightMode,
+        bool HighlightActive,
+        string HighlightState,
+        bool MarkerEnabled,
+        bool MarkerActive,
+        string MarkerState,
+        bool CameraEnabled,
+        bool CameraActive,
+        string CameraState);
 }

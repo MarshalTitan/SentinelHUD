@@ -1,113 +1,136 @@
-using System.Numerics;
-using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using SentinelHUD.Core;
 
 namespace SentinelHUD.Services;
 
-public sealed class SelfHighlightRenderer(
+public interface ISelfHighlightService : IDisposable
+{
+    bool IsActive { get; }
+    string StateReason { get; }
+    string AppliedColourName { get; }
+    bool SupportsArbitraryColour { get; }
+    void Update(SelfHighlightConfiguration configuration, bool hudEnabled);
+    void Disable();
+}
+
+/// <summary>
+/// Applies FFXIV's native draw-object outline directly to the local actor. This changes only render state;
+/// no hard, soft, mouseover, controller, interaction, or action target is read or written.
+/// </summary>
+public sealed unsafe class NativeSelfHighlightService(
     IClientState clientState,
     ICondition condition,
     IGameGui gameGui,
-    HudDataService data)
+    HudDataService data) : ISelfHighlightService
 {
     private readonly IClientState clientState = clientState;
     private readonly ICondition condition = condition;
     private readonly IGameGui gameGui = gameGui;
     private readonly HudDataService data = data;
+    private nint highlightedActorAddress;
+    private NativeHighlightSelection? lastSelection;
 
     public bool IsActive { get; private set; }
     public string StateReason { get; private set; } = "Off";
+    public string AppliedColourName { get; private set; } = "None";
+    public bool SupportsArbitraryColour => false;
 
-    public void Draw(SelfHighlightConfiguration configuration)
+    public void Update(SelfHighlightConfiguration configuration, bool hudEnabled)
     {
-        IsActive = false;
         var inCombat = condition[ConditionFlag.InCombat];
         var inDuty = condition.Any(
             ConditionFlag.BoundByDuty,
             ConditionFlag.BoundByDuty56,
             ConditionFlag.BoundByDuty95);
 
-        if (!SelfHighlightPolicy.ShouldRender(configuration.Mode, clientState.IsLoggedIn, inCombat, inDuty))
+        if (!hudEnabled
+            || !SelfHighlightPolicy.ShouldRender(configuration.Mode, clientState.IsLoggedIn, inCombat, inDuty))
         {
-            StateReason = clientState.IsLoggedIn ? $"Mode condition not met ({configuration.Mode})" : "Not logged in";
+            Disable();
+            StateReason = !hudEnabled
+                ? "Sentinel HUD disabled"
+                : !clientState.IsLoggedIn
+                    ? "Not logged in"
+                    : configuration.Mode switch
+                    {
+                        SelfHighlightMode.Off => "Off",
+                        SelfHighlightMode.CombatOnly => "Waiting for combat",
+                        SelfHighlightMode.DutyOnly => "Waiting for duty",
+                        _ => "Mode condition not met",
+                    };
             return;
         }
+
         if (gameGui.GameUiHidden)
         {
+            Disable();
             StateReason = "Game UI hidden";
             return;
         }
 
         var player = data.LocalPlayer;
-        if (player is null)
+        if (player is null || player.Address == nint.Zero)
         {
+            Disable();
             StateReason = "Local player unavailable";
             return;
         }
 
-        var feetWorld = player.Position + new Vector3(0f, 0.05f, 0f);
-        var headWorld = player.Position + new Vector3(0f, 1.8f, 0f);
-        if (!gameGui.WorldToScreen(feetWorld, out var feet)
-            || !gameGui.WorldToScreen(headWorld, out var head))
+        var native = (GameObject*)player.Address;
+        if (native->DrawObject is null)
         {
-            StateReason = "Player is outside the viewport";
+            Disable();
+            StateReason = "Local player model is not ready";
             return;
         }
 
-        var height = Math.Abs(feet.Y - head.Y);
-        if (!float.IsFinite(height) || height < 12f || height > 900f)
-        {
-            StateReason = "Projected character size is unavailable";
-            return;
-        }
-
-        var centreX = (feet.X + head.X) * 0.5f;
-        var topY = Math.Min(head.Y, feet.Y);
-        var bottomY = Math.Max(head.Y, feet.Y);
-        DrawBodyAura(centreX, topY, bottomY, SelfHighlightPolicy.ResolveColour(configuration));
+        var selection = NativeHighlightPolicy.Resolve(configuration);
+        var stateChanged = !IsActive || lastSelection != selection;
+        native->Highlight(ToNativeColour(selection.Colour), includeMount: true);
+        highlightedActorAddress = player.Address;
         IsActive = true;
-        StateReason = "Sentinel-rendered body aura active";
+        AppliedColourName = selection.DisplayName;
+        if (stateChanged)
+        {
+            StateReason = selection.IsExact
+                ? $"Native silhouette active ({selection.DisplayName})"
+                : $"Native silhouette active ({selection.DisplayName}, nearest safe native colour)";
+        }
+        lastSelection = selection;
     }
 
-    private static void DrawBodyAura(float centreX, float topY, float bottomY, Vector4 colour)
+    public void Disable()
     {
-        var drawList = ImGui.GetBackgroundDrawList();
-        var height = bottomY - topY;
-        var headCentre = new Vector2(centreX, topY + (height * 0.09f));
-        var headRadius = Math.Clamp(height * 0.075f, 4f, 24f);
-        var shoulderY = topY + (height * 0.25f);
-        var waistY = topY + (height * 0.58f);
-        var kneeY = topY + (height * 0.77f);
-        var shoulderHalf = Math.Clamp(height * 0.15f, 7f, 45f);
-        var waistHalf = shoulderHalf * 0.58f;
-        var footHalf = shoulderHalf * 0.42f;
+        if (highlightedActorAddress != nint.Zero)
+        {
+            var player = data.LocalPlayer;
+            if (player is not null && player.Address == highlightedActorAddress)
+            {
+                var native = (GameObject*)player.Address;
+                if (native->DrawObject is not null)
+                    native->Highlight(ObjectHighlightColor.None, includeMount: true);
+            }
+        }
 
-        DrawCircleGlow(drawList, headCentre, headRadius, colour);
-        DrawGlowLine(drawList, new Vector2(centreX - shoulderHalf, shoulderY), new Vector2(centreX - waistHalf, waistY), colour);
-        DrawGlowLine(drawList, new Vector2(centreX + shoulderHalf, shoulderY), new Vector2(centreX + waistHalf, waistY), colour);
-        DrawGlowLine(drawList, new Vector2(centreX - waistHalf, waistY), new Vector2(centreX - footHalf, bottomY), colour);
-        DrawGlowLine(drawList, new Vector2(centreX + waistHalf, waistY), new Vector2(centreX + footHalf, bottomY), colour);
-        DrawGlowLine(drawList, new Vector2(centreX - shoulderHalf, shoulderY), new Vector2(centreX - (shoulderHalf * 1.28f), kneeY), colour);
-        DrawGlowLine(drawList, new Vector2(centreX + shoulderHalf, shoulderY), new Vector2(centreX + (shoulderHalf * 1.28f), kneeY), colour);
-        DrawGlowLine(drawList, new Vector2(centreX - shoulderHalf, shoulderY), new Vector2(centreX + shoulderHalf, shoulderY), colour);
+        highlightedActorAddress = nint.Zero;
+        IsActive = false;
+        AppliedColourName = "None";
+        lastSelection = null;
     }
 
-    private static void DrawGlowLine(ImDrawListPtr drawList, Vector2 start, Vector2 end, Vector4 colour)
-    {
-        var outer = colour with { W = colour.W * 0.12f };
-        var middle = colour with { W = colour.W * 0.28f };
-        var edge = colour with { W = colour.W * 0.88f };
-        drawList.AddLine(start, end, ImGui.ColorConvertFloat4ToU32(outer), 12f);
-        drawList.AddLine(start, end, ImGui.ColorConvertFloat4ToU32(middle), 6f);
-        drawList.AddLine(start, end, ImGui.ColorConvertFloat4ToU32(edge), 2f);
-    }
+    public void Dispose() => Disable();
 
-    private static void DrawCircleGlow(ImDrawListPtr drawList, Vector2 centre, float radius, Vector4 colour)
-    {
-        drawList.AddCircle(centre, radius + 5f, ImGui.ColorConvertFloat4ToU32(colour with { W = colour.W * 0.12f }), 28, 10f);
-        drawList.AddCircle(centre, radius + 2f, ImGui.ColorConvertFloat4ToU32(colour with { W = colour.W * 0.28f }), 28, 5f);
-        drawList.AddCircle(centre, radius, ImGui.ColorConvertFloat4ToU32(colour with { W = colour.W * 0.9f }), 28, 2f);
-    }
+    private static ObjectHighlightColor ToNativeColour(NativeHighlightColour colour)
+        => colour switch
+        {
+            NativeHighlightColour.Red => ObjectHighlightColor.Red,
+            NativeHighlightColour.Green => ObjectHighlightColor.Green,
+            NativeHighlightColour.Blue => ObjectHighlightColor.Blue,
+            NativeHighlightColour.Orange => ObjectHighlightColor.Orange,
+            NativeHighlightColour.Magenta => ObjectHighlightColor.Magenta,
+            NativeHighlightColour.Black => ObjectHighlightColor.Black,
+            _ => ObjectHighlightColor.Yellow,
+        };
 }

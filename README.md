@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.1.0.0** · Dalamud API **15** · .NET **10**
+Current release: **0.2.0.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
@@ -12,7 +12,9 @@ Current release: **0.1.0.0** · Dalamud API **15** · .NET **10**
 - Target-of-target: an independent small module with name, HP and optional distance.
 - Layout editor: unlock, drag, lock, per-module scale/opacity, one-module reset and complete layout reset.
 - Resolution-safe normalized positions with screen-boundary protection and delayed persistent saves.
-- Safe self highlight with Off, Always, Combat Only and Duty Only modes; Yellow, Green, Blue, White and Custom colours; and adjustable intensity.
+- Native, model-conforming self silhouette with Off, Always, Combat Only and Duty Only modes. It follows the animated model, equipment, weapons, mount and ornament without changing any target state.
+- Independent Player Position Marker: a small terrain-projected world-space dot centred on the local actor's actual origin, with colour, custom colour, radius, opacity and border controls.
+- Optional extended third-person zoom with a configurable 20–100-yalm maximum, automatic restoration, special-camera safeguards and known camera-plugin conflict handling.
 - Compact state diagnostics without frame-by-frame logging.
 
 ## Installation
@@ -40,15 +42,27 @@ Install **Sentinel HUD** from the plugin installer. No other Sentinel plugin is 
 
 ## Configuration
 
-Settings are separated into General, Player, Target, Focus Target, Target-of-Target, Self Highlight, Layout and Diagnostics tabs. Each displayed field has its own switch where practical. In particular, target and focus-target distance can be disabled independently.
+Settings are separated into General, Player, Target, Focus Target, Target-of-Target, Awareness, Camera, Layout and Diagnostics tabs. Each displayed field has its own switch where practical. In particular, target and focus-target distance can be disabled independently.
 
 HP presentation is controlled by independent current, maximum and percentage switches, allowing number-only, percentage-only, current/maximum or combined formats.
 
-## Self-highlight implementation and safety
+## Awareness implementation and safety
 
-Version 0.1.0.0 uses a **Sentinel-rendered screen-space body aura**. It projects the local player's position through Dalamud's supported `IGameGui.WorldToScreen` API and draws a compact glowing body outline with ImGui. It does not write to FFXIV's hard target, soft target, mouseover target, controller target, tab target or interaction target.
+### Self Highlight
 
-The safe renderer deliberately avoids native highlight hooks and target-state spoofing. Because the supported API does not expose the character model's exact silhouette, the first release uses a stylized body outline rather than a pixel-perfect outline around armour, weapons or mounts. The renderer hides when the player is off-screen, the FFXIV UI is hidden, or the local player is unavailable.
+Version 0.2.0.0 removes the former projected circle/line/trapezoid prototype from user-facing rendering. `NativeSelfHighlightService` calls the current FFXIVClientStructs `GameObject.Highlight` render function for the local actor. FFXIV applies the outline to the actor's real draw object and propagates it to weapons, mounts and ornaments. The service never reads or writes hard target, soft target, mouseover target, nameplate mouseover, controller target, tab target, interaction target or action target.
+
+The native renderer exposes a fixed palette. Yellow, Green and Blue are exact. White and Custom remain selectable and persistent, but currently resolve to the closest safe native palette colour; the configuration and diagnostics show the applied colour. Native opacity/intensity is not exposed. Sentinel HUD does not spoof target state or replace the silhouette with primitive geometry to work around these colour limits.
+
+### Player Position Marker
+
+The marker begins at the local actor's real world origin, casts a short downward collision ray using current FFXIVClientStructs terrain collision, and draws a small world-space disc on the returned surface plane. The projected disc follows camera movement and extended zoom and does not derive its location from the animated model, head, feet, or screen-space bounds. If collision data is temporarily unavailable, it fails safely to the actor origin and reports that fallback in Diagnostics.
+
+### Extended camera zoom
+
+The camera service was checked against Cammy commit `c9895b2ca7a4d285aa967be46a2963cbaddd7282` (2026-05-04, API 15). Sentinel HUD uses only the narrow current/max-zoom camera fields needed for ordinary third-person zoom; it does not copy Cammy's free-camera, FoV, collision, or camera hooks. The service restores the captured normal maximum when disabled or unloaded, clamps an over-limit current zoom during restoration, and pauses in first person, GPose, cutscenes and territory transitions.
+
+If Cammy, EasyZoom, EasyZoomReborn, ZoomTilt or PyonCam is loaded, Sentinel HUD does not write camera state. It also detects an unexpected camera-limit writer and pauses instead of continually fighting it.
 
 ## Sentinel Core adoption
 
@@ -88,8 +102,12 @@ Screenshots will be added after the first in-game layout and colour pass.
 
 ## Known limitations
 
-- The self highlight is a safe projected body aura, not the game's native mesh highlight.
-- Projected outline height is approximate and may not perfectly match unusual character proportions, mounts or transformations.
+- FFXIV's native silhouette API has a fixed colour palette. White/Custom use the nearest native colour, and native opacity/intensity is unavailable.
+- Exact arbitrary-colour model silhouettes would require a separate depth/stencil render path that Dalamud does not currently expose as a supported high-level API; this release deliberately does not inject one.
+- The position marker's downward terrain ray can be unavailable during loading or on unusual collision surfaces; the actor origin is used temporarily and Diagnostics reports the fallback.
+- The position disc is world-projected but rendered as a Dalamud overlay without depth-buffer occlusion, so foreground terrain can occasionally cover incorrectly at extreme camera angles.
+- Extended zoom changes an internal camera limit and can require maintenance after FFXIV patches. It defaults off, is isolated behind one service, validates camera state, and restores on disable/disposal.
+- Sentinel HUD intentionally yields camera control when a known camera plugin is loaded; use one zoom controller at a time.
 - Status display is intentionally a compact first-five summary; filtering and prioritization are future work.
 - Some non-character objects do not expose meaningful HP, job, shield, status or cast data; unsupported fields are omitted safely.
-- Live rendering, controller behavior and full restart persistence require the first in-game test because automated CI cannot launch FFXIV.
+- Live native rendering, terrain collision, camera behavior, controller safety and full restart persistence require in-game testing because automated CI cannot launch FFXIV.

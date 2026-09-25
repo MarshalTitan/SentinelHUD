@@ -1,12 +1,12 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.1.0.0</Version>
+    <Version>0.2.0.0</Version>
     <AssemblyName>SentinelHUD</AssemblyName>
     <RootNamespace>SentinelHUD</RootNamespace>
     <Author>MTitan</Author>
     <Name>Sentinel HUD</Name>
     <Punchline>Modular, configurable awareness enhancements for the FFXIV HUD.</Punchline>
-    <Description>Adds independently configurable player, target, focus-target and target-of-target panels plus a safe, colour-selectable self highlight without replacing the native HUD.</Description>
+    <Description>Adds modular player and target panels, a native self silhouette, a true-position marker, and optional extended third-person camera zoom.</Description>
     <RepoUrl>https://github.com/MarshalTitan/SentinelHUD</RepoUrl>
     <IconUrl>https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png</IconUrl>
     <Tags>hud;overlay;target;accessibility;sentinel</Tags>
@@ -14,6 +14,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

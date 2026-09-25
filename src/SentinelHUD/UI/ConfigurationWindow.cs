@@ -52,7 +52,8 @@ public sealed class ConfigurationWindow : Window
             DrawTab("Target", DrawTarget);
             DrawTab("Focus Target", DrawFocusTarget);
             DrawTab("Target-of-Target", DrawTargetOfTarget);
-            DrawTab("Self Highlight", DrawSelfHighlight);
+            DrawTab("Awareness", DrawAwareness);
+            DrawTab("Camera", DrawCamera);
             DrawTab("Layout", DrawLayout);
             DrawTab("Diagnostics", DrawDiagnostics);
         }
@@ -169,11 +170,12 @@ public sealed class ConfigurationWindow : Window
         DrawToggle("Show distance", config.ShowDistance, value => Update(c => c.TargetOfTarget.ShowDistance = value));
     }
 
-    private void DrawSelfHighlight()
+    private void DrawAwareness()
     {
+        SentinelUi.SectionHeader("Self Highlight");
         var config = configuration.Current.SelfHighlight;
         ImGui.TextWrapped(
-            "Sentinel draws a screen-space body aura around your character. It never writes to FFXIV's target, soft-target or mouseover state.");
+            "Uses FFXIV's native model-conforming silhouette renderer. Sentinel never changes hard, soft, mouseover, controller, interaction, or action targeting.");
         ImGui.Spacing();
 
         var mode = (int)config.Mode;
@@ -186,21 +188,95 @@ public sealed class ConfigurationWindow : Window
 
         if (config.ColourPreset == HighlightColourPreset.Custom)
         {
-            var custom = config.CustomColour.ToVector4();
-            if (ImGui.ColorEdit4("Custom colour", ref custom, ImGuiColorEditFlags.AlphaBar))
-                Update(c => c.SelfHighlight.CustomColour.Set(custom));
+            var custom = new Vector3(config.CustomColour.Red, config.CustomColour.Green, config.CustomColour.Blue);
+            if (ImGui.ColorEdit3("Custom colour", ref custom))
+                Update(c => c.SelfHighlight.CustomColour.Set(new Vector4(custom, 1f)));
         }
 
-        var intensity = config.Intensity;
-        if (ImGui.SliderFloat("Opacity / intensity", ref intensity, 0.15f, 1f, "%.0f%%"))
-            Update(c => c.SelfHighlight.Intensity = intensity);
-
         var preview = SelfHighlightPolicy.ResolveColour(config);
-        ImGui.TextUnformatted("Current colour:");
+        preview.W = 1f;
+        ImGui.TextUnformatted("Requested colour:");
         ImGui.SameLine();
         ImGui.ColorButton("Self highlight preview##SentinelHUD", preview);
+        var nativeSelection = NativeHighlightPolicy.Resolve(config);
+        ImGui.TextWrapped(
+            nativeSelection.IsExact
+                ? $"Applied native colour: {nativeSelection.DisplayName}."
+                : $"Applied native colour: {nativeSelection.DisplayName} (nearest safe native palette colour). Exact White and arbitrary Custom colours are not exposed by FFXIV's native silhouette API.");
+        ImGui.TextDisabled("The native silhouette API does not expose opacity/intensity control.");
         ImGui.Spacing();
         ImGui.TextDisabled($"Runtime state: {renderer.SelfHighlightState}");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        SentinelUi.SectionHeader("Player Position Marker");
+        var marker = configuration.Current.PlayerPositionMarker;
+        DrawToggle("Enable position marker", marker.Enabled, value => Update(c => c.PlayerPositionMarker.Enabled = value));
+
+        var markerPreset = (int)marker.ColourPreset;
+        if (ImGui.Combo("Marker colour", ref markerPreset, HighlightColours, HighlightColours.Length))
+            Update(c => c.PlayerPositionMarker.ColourPreset = (HighlightColourPreset)markerPreset);
+        if (marker.ColourPreset == HighlightColourPreset.Custom)
+        {
+            var custom = new Vector3(marker.CustomColour.Red, marker.CustomColour.Green, marker.CustomColour.Blue);
+            if (ImGui.ColorEdit3("Custom marker colour", ref custom))
+                Update(c => c.PlayerPositionMarker.CustomColour.Set(new Vector4(custom, 1f)));
+        }
+
+        var radius = marker.Radius;
+        if (ImGui.SliderFloat(
+                "Marker radius",
+                ref radius,
+                PlayerPositionMarkerPolicy.MinimumRadius,
+                PlayerPositionMarkerPolicy.MaximumRadius,
+                "%.2f yalms"))
+            Update(c => c.PlayerPositionMarker.Radius = radius);
+
+        var opacity = marker.Opacity;
+        if (ImGui.SliderFloat("Marker opacity", ref opacity, 0.1f, 1f, "%.2f"))
+            Update(c => c.PlayerPositionMarker.Opacity = opacity);
+        DrawToggle("Thin contrasting border", marker.ShowBorder, value => Update(c => c.PlayerPositionMarker.ShowBorder = value));
+
+        var markerPreview = PlayerPositionMarkerPolicy.ResolveColour(marker);
+        ImGui.TextUnformatted("Marker preview:");
+        ImGui.SameLine();
+        ImGui.ColorButton("Position marker preview##SentinelHUD", markerPreview);
+        ImGui.TextDisabled($"Runtime state: {renderer.PositionMarkerState}");
+    }
+
+    private void DrawCamera()
+    {
+        SentinelUi.SectionHeader("Extended Zoom");
+        var camera = configuration.Current.Camera;
+        DrawToggle("Extended zoom enabled", camera.Enabled, value => Update(c => c.Camera.Enabled = value));
+
+        var maximum = camera.MaximumZoomDistance;
+        if (ImGui.SliderFloat(
+                "Maximum zoom distance",
+                ref maximum,
+                CameraZoomPolicy.StockMaximum,
+                CameraZoomPolicy.MaximumSupported,
+                "%.1f yalms"))
+            Update(c => c.Camera.MaximumZoomDistance = maximum);
+
+        ImGui.TextWrapped(
+            "Sentinel changes only the normal third-person maximum zoom limit. It pauses for first person, GPose, cutscenes, territory transitions, and known camera-control plugins.");
+        ImGui.Spacing();
+        if (ImGui.Button("Disable and restore normal camera limits"))
+        {
+            Update(c => c.Camera.Enabled = false);
+            renderer.RestoreCameraDefaults();
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Retry after conflict"))
+            renderer.RetryCameraZoom();
+
+        ImGui.Spacing();
+        ImGui.TextUnformatted($"Runtime state: {renderer.CameraZoomState}");
+        ImGui.TextUnformatted($"Current maximum: {renderer.CameraCurrentMaximum:0.0} yalms");
+        if (renderer.CameraConflict is not null)
+            ImGui.TextWrapped($"Camera controller detected: {renderer.CameraConflict}. Sentinel HUD will not compete with it.");
     }
 
     private void DrawLayout()
@@ -245,7 +321,13 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextUnformatted($"Target-of-target visible / resolved: {renderer.TargetOfTargetVisible} / {renderer.TargetOfTargetResolved}");
         ImGui.TextUnformatted($"Self highlight mode: {config.SelfHighlight.Mode}");
         ImGui.TextUnformatted($"Self highlight active: {renderer.SelfHighlightActive}");
+        ImGui.TextUnformatted($"Self highlight applied colour: {renderer.SelfHighlightAppliedColour}");
         ImGui.TextWrapped($"Self highlight state: {renderer.SelfHighlightState}");
+        ImGui.TextUnformatted($"Position marker enabled / active: {config.PlayerPositionMarker.Enabled} / {renderer.PositionMarkerActive}");
+        ImGui.TextUnformatted($"Position marker terrain projection: {renderer.PositionMarkerUsedTerrainProjection}");
+        ImGui.TextWrapped($"Position marker state: {renderer.PositionMarkerState}");
+        ImGui.TextUnformatted($"Extended zoom enabled / active: {config.Camera.Enabled} / {renderer.CameraZoomActive}");
+        ImGui.TextWrapped($"Extended zoom state: {renderer.CameraZoomState}");
 
         ImGui.Spacing();
         if (ImGui.Button("Clear diagnostic history"))

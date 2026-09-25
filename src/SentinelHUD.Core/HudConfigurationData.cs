@@ -125,9 +125,31 @@ public sealed class SelfHighlightConfiguration
     public float Intensity { get; set; } = 0.58f;
 }
 
+public sealed class PlayerPositionMarkerConfiguration
+{
+    public bool Enabled { get; set; }
+    public HighlightColourPreset ColourPreset { get; set; } = HighlightColourPreset.White;
+    public SerializableColour CustomColour { get; set; } = new()
+    {
+        Red = 1f,
+        Green = 1f,
+        Blue = 1f,
+        Alpha = 1f,
+    };
+    public float Radius { get; set; } = 0.18f;
+    public float Opacity { get; set; } = 0.88f;
+    public bool ShowBorder { get; set; } = true;
+}
+
+public sealed class ExtendedCameraZoomConfiguration
+{
+    public bool Enabled { get; set; }
+    public float MaximumZoomDistance { get; set; } = CameraZoomPolicy.DefaultExtendedMaximum;
+}
+
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -139,6 +161,8 @@ public class HudConfigurationData
     public FocusTargetModuleConfiguration FocusTarget { get; set; } = HudConfigurationDefaults.CreateFocusTarget();
     public TargetOfTargetModuleConfiguration TargetOfTarget { get; set; } = HudConfigurationDefaults.CreateTargetOfTarget();
     public SelfHighlightConfiguration SelfHighlight { get; set; } = new();
+    public PlayerPositionMarkerConfiguration PlayerPositionMarker { get; set; } = new();
+    public ExtendedCameraZoomConfiguration Camera { get; set; } = new();
 }
 
 public static class HudConfigurationDefaults
@@ -181,11 +205,20 @@ public static class HudConfigurationMigrator
         configuration.FocusTarget ??= HudConfigurationDefaults.CreateFocusTarget();
         configuration.TargetOfTarget ??= HudConfigurationDefaults.CreateTargetOfTarget();
         configuration.SelfHighlight ??= new SelfHighlightConfiguration();
+        configuration.PlayerPositionMarker ??= new PlayerPositionMarkerConfiguration();
+        configuration.Camera ??= new ExtendedCameraZoomConfiguration();
         configuration.SelfHighlight.CustomColour ??= new SerializableColour
         {
             Red = 1f,
             Green = 0.82f,
             Blue = 0.22f,
+            Alpha = 1f,
+        };
+        configuration.PlayerPositionMarker.CustomColour ??= new SerializableColour
+        {
+            Red = 1f,
+            Green = 1f,
+            Blue = 1f,
             Alpha = 1f,
         };
 
@@ -197,6 +230,18 @@ public static class HudConfigurationMigrator
         configuration.GlobalScale = ClampFinite(configuration.GlobalScale, 0.65f, 1.75f, 1f);
         configuration.GlobalOpacity = ClampFinite(configuration.GlobalOpacity, 0.2f, 1f, 1f);
         configuration.SelfHighlight.Intensity = ClampFinite(configuration.SelfHighlight.Intensity, 0.15f, 1f, 0.58f);
+        configuration.PlayerPositionMarker.Radius = ClampFinite(
+            configuration.PlayerPositionMarker.Radius,
+            PlayerPositionMarkerPolicy.MinimumRadius,
+            PlayerPositionMarkerPolicy.MaximumRadius,
+            PlayerPositionMarkerPolicy.DefaultRadius);
+        configuration.PlayerPositionMarker.Opacity = ClampFinite(
+            configuration.PlayerPositionMarker.Opacity,
+            0.1f,
+            1f,
+            PlayerPositionMarkerPolicy.DefaultOpacity);
+        configuration.Camera.MaximumZoomDistance = CameraZoomPolicy.NormalizeMaximum(
+            configuration.Camera.MaximumZoomDistance);
 
         var colour = configuration.SelfHighlight.CustomColour;
         colour.Red = ClampFinite(colour.Red, 0f, 1f, 1f);
@@ -204,10 +249,18 @@ public static class HudConfigurationMigrator
         colour.Blue = ClampFinite(colour.Blue, 0f, 1f, 0.22f);
         colour.Alpha = ClampFinite(colour.Alpha, 0f, 1f, 1f);
 
+        var markerColour = configuration.PlayerPositionMarker.CustomColour;
+        markerColour.Red = ClampFinite(markerColour.Red, 0f, 1f, 1f);
+        markerColour.Green = ClampFinite(markerColour.Green, 0f, 1f, 1f);
+        markerColour.Blue = ClampFinite(markerColour.Blue, 0f, 1f, 1f);
+        markerColour.Alpha = ClampFinite(markerColour.Alpha, 0f, 1f, 1f);
+
         if (!Enum.IsDefined(configuration.SelfHighlight.Mode))
             configuration.SelfHighlight.Mode = SelfHighlightMode.Off;
         if (!Enum.IsDefined(configuration.SelfHighlight.ColourPreset))
             configuration.SelfHighlight.ColourPreset = HighlightColourPreset.Yellow;
+        if (!Enum.IsDefined(configuration.PlayerPositionMarker.ColourPreset))
+            configuration.PlayerPositionMarker.ColourPreset = HighlightColourPreset.White;
 
         configuration.Version = HudConfigurationData.CurrentVersion;
         return configuration;

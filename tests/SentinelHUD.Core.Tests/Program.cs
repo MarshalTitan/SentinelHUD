@@ -6,6 +6,7 @@ var tests = new (string Name, Action Run)[]
 {
     ("configuration defaults", TestDefaults),
     ("configuration migration and repair", TestMigration),
+    ("version-one settings survive migration", TestVersionOneMigration),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("percentage formatting", TestPercentageFormatting),
@@ -16,6 +17,9 @@ var tests = new (string Name, Action Run)[]
     ("module independence", TestModuleIndependence),
     ("self-highlight conditional modes", TestHighlightModes),
     ("self-highlight colours", TestHighlightColours),
+    ("native self-highlight palette", TestNativeHighlightPalette),
+    ("position-marker configuration", TestPositionMarkerConfiguration),
+    ("camera zoom policy", TestCameraZoomPolicy),
 };
 
 var failures = new List<string>();
@@ -50,6 +54,10 @@ static void TestDefaults()
     True(config.TargetOfTarget.Enabled);
     Equal(SelfHighlightMode.Off, config.SelfHighlight.Mode);
     Equal(HighlightColourPreset.Yellow, config.SelfHighlight.ColourPreset);
+    False(config.PlayerPositionMarker.Enabled);
+    Equal(HighlightColourPreset.White, config.PlayerPositionMarker.ColourPreset);
+    False(config.Camera.Enabled);
+    Equal(CameraZoomPolicy.DefaultExtendedMaximum, config.Camera.MaximumZoomDistance);
 }
 
 static void TestMigration()
@@ -71,6 +79,16 @@ static void TestMigration()
             Intensity = -1f,
             CustomColour = null!,
         },
+        PlayerPositionMarker = new PlayerPositionMarkerConfiguration
+        {
+            Radius = float.PositiveInfinity,
+            Opacity = -4f,
+            CustomColour = null!,
+        },
+        Camera = new ExtendedCameraZoomConfiguration
+        {
+            MaximumZoomDistance = 500f,
+        },
     };
 
     HudConfigurationMigrator.Normalize(config);
@@ -84,6 +102,10 @@ static void TestMigration()
     Equal(HudConfigurationDefaults.CreateTarget().Layout.AnchorY, config.Target.Layout.AnchorY);
     Equal(0.15f, config.SelfHighlight.Intensity);
     NotNull(config.SelfHighlight.CustomColour);
+    Equal(PlayerPositionMarkerPolicy.DefaultRadius, config.PlayerPositionMarker.Radius);
+    Equal(0.1f, config.PlayerPositionMarker.Opacity);
+    NotNull(config.PlayerPositionMarker.CustomColour);
+    Equal(CameraZoomPolicy.MaximumSupported, config.Camera.MaximumZoomDistance);
 }
 
 static void TestSerialization()
@@ -95,6 +117,11 @@ static void TestSerialization()
     source.SelfHighlight.Mode = SelfHighlightMode.DutyOnly;
     source.SelfHighlight.ColourPreset = HighlightColourPreset.Custom;
     source.SelfHighlight.CustomColour.Set(new Vector4(0.1f, 0.2f, 0.3f, 0.9f));
+    source.PlayerPositionMarker.Enabled = true;
+    source.PlayerPositionMarker.Radius = 0.27f;
+    source.PlayerPositionMarker.ColourPreset = HighlightColourPreset.Green;
+    source.Camera.Enabled = true;
+    source.Camera.MaximumZoomDistance = 42f;
 
     var json = JsonSerializer.Serialize(source);
     var restored = JsonSerializer.Deserialize<HudConfigurationData>(json);
@@ -105,6 +132,35 @@ static void TestSerialization()
     Near(1.22f, restored.FocusTarget.Scale);
     Equal(SelfHighlightMode.DutyOnly, restored.SelfHighlight.Mode);
     Near(0.3f, restored.SelfHighlight.CustomColour.Blue);
+    True(restored.PlayerPositionMarker.Enabled);
+    Near(0.27f, restored.PlayerPositionMarker.Radius);
+    Equal(HighlightColourPreset.Green, restored.PlayerPositionMarker.ColourPreset);
+    True(restored.Camera.Enabled);
+    Near(42f, restored.Camera.MaximumZoomDistance);
+}
+
+static void TestVersionOneMigration()
+{
+    var source = new HudConfigurationData
+    {
+        Version = 1,
+        Locked = false,
+    };
+    source.Player.Layout.AnchorX = 0.31f;
+    source.Player.Layout.AnchorY = 0.67f;
+    source.Target.ShowDistance = false;
+    source.FocusTarget.Scale = 1.31f;
+
+    HudConfigurationMigrator.Normalize(source);
+
+    Equal(HudConfigurationData.CurrentVersion, source.Version);
+    False(source.Locked);
+    Near(0.31f, source.Player.Layout.AnchorX);
+    Near(0.67f, source.Player.Layout.AnchorY);
+    False(source.Target.ShowDistance);
+    Near(1.31f, source.FocusTarget.Scale);
+    NotNull(source.PlayerPositionMarker);
+    NotNull(source.Camera);
 }
 
 static void TestHitPointFormatting()
@@ -206,6 +262,50 @@ static void TestHighlightColours()
     Near(0.22f, custom.Y);
     Near(0.33f, custom.Z);
     Near(0.7f, custom.W);
+}
+
+static void TestNativeHighlightPalette()
+{
+    var config = new SelfHighlightConfiguration
+    {
+        ColourPreset = HighlightColourPreset.Green,
+    };
+    var exact = NativeHighlightPolicy.Resolve(config);
+    Equal(NativeHighlightColour.Green, exact.Colour);
+    True(exact.IsExact);
+
+    config.ColourPreset = HighlightColourPreset.White;
+    var white = NativeHighlightPolicy.Resolve(config);
+    False(white.IsExact);
+    Equal(NativeHighlightColour.Yellow, white.Colour);
+
+    config.ColourPreset = HighlightColourPreset.Custom;
+    config.CustomColour.Set(new Vector4(0.98f, 0.22f, 0.75f, 1f));
+    var custom = NativeHighlightPolicy.Resolve(config);
+    False(custom.IsExact);
+    Equal(NativeHighlightColour.Magenta, custom.Colour);
+}
+
+static void TestPositionMarkerConfiguration()
+{
+    var config = new PlayerPositionMarkerConfiguration
+    {
+        ColourPreset = HighlightColourPreset.Blue,
+        Opacity = 0.64f,
+    };
+    var colour = PlayerPositionMarkerPolicy.ResolveColour(config);
+    Near(0.20f, colour.X);
+    Near(0.72f, colour.Y);
+    Near(1f, colour.Z);
+    Near(0.64f, colour.W);
+}
+
+static void TestCameraZoomPolicy()
+{
+    Near(CameraZoomPolicy.StockMaximum, CameraZoomPolicy.NormalizeMaximum(3f));
+    Near(42f, CameraZoomPolicy.NormalizeMaximum(42f));
+    Near(CameraZoomPolicy.MaximumSupported, CameraZoomPolicy.NormalizeMaximum(500f));
+    Near(CameraZoomPolicy.DefaultExtendedMaximum, CameraZoomPolicy.NormalizeMaximum(float.NaN));
 }
 
 static void True(bool value)

@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes 'First installable release: modular player, target, focus-target and target-of-target panels; granular field visibility; persistent resolution-safe layout editing; Sentinel Core adoption; and a safe colour-selectable screen-space self highlight.'
+            --notes 'Awareness and camera release: replaces the geometric aura with FFXIV native model-conforming self highlighting; adds an independently configurable terrain-projected true-position marker; and adds opt-in, reversible extended third-person zoom with camera-plugin conflict handling.'
 
       - name: Verify public release asset
         shell: pwsh

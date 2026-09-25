@@ -12,13 +12,19 @@ HUD modules are independent ImGui windows. When locked, they are titleless, immo
 
 Game objects are never cached between frames. Player, target and focus references are resolved for the current draw only. Target-of-target uses the current target ID and a direct object-table lookup. Static job metadata and action/status names are cached.
 
-## Self highlight
+## Awareness services
 
-`SelfHighlightRenderer` is isolated from the HUD modules so a future safe native renderer can replace it. The current implementation reads local-player position, combat/duty conditions and UI visibility, projects a body-height segment with `IGameGui.WorldToScreen`, then draws a layered screen-space aura. It never sets any `ITargetManager` property.
+`ISelfHighlightService` isolates low-level silhouette rendering from all HUD modules. `NativeSelfHighlightService` uses FFXIVClientStructs' current `GameObject.Highlight` virtual function on the validated local-player address. This changes draw-object outline state only and propagates through the game's own actor rendering. It never sets any `ITargetManager` property. Disable/disposal clears only the current local actor; stale actor pointers are never retained across zone changes.
+
+`PlayerPositionMarkerRenderer` reads the current local actor once per draw, casts one short downward terrain ray, builds a 24-point disc in the returned surface plane and projects it through `IGameGui.WorldToScreen`. The point buffer is allocated once; there are no per-frame collection allocations or metadata lookups.
+
+## Camera boundary
+
+`IExtendedCameraZoomService` isolates the optional camera write from the HUD and awareness renderers. It uses the current API 15 world-camera layout confirmed against Cammy and modifies only maximum zoom (plus current/interpolated zoom when clamping during restore). It captures the pre-existing maximum, restores it on disable/disposal and abandons stale pointers on camera replacement. It pauses in first person, GPose, cutscenes, territory transitions and while known camera-controller plugins are loaded. An unexpected writer trips a fail-closed conflict state rather than starting a per-frame write fight.
 
 ## Configuration persistence
 
-Sentinel Core's `ConfigurationCoordinator` loads and normalizes schema version 1, saves ordinary settings immediately, debounces drag saves, flushes due saves during draw and performs a final flush during disposal. Module layout anchors, scale, opacity, field visibility and self-highlight colour all persist.
+Sentinel Core's `ConfigurationCoordinator` loads and normalizes schema version 2, saves ordinary settings immediately, debounces drag saves, flushes due saves during draw and performs a final flush during disposal. Module layout anchors, scale, opacity, field visibility, awareness settings and camera settings all persist. Migration adds new settings without changing version-1 positions or field visibility.
 
 ## Future modules
 
