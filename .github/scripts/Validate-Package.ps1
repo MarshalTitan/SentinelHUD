@@ -60,7 +60,7 @@ try {
         throw "Unexpected RepoUrl '$($manifest.RepoUrl)'."
     }
 
-    $icon = $entries | Where-Object FullName -eq 'assets/icon.png' | Select-Object -First 1
+    $icon = $entries | Where-Object { $_.FullName.Replace('\', '/') -eq 'assets/icon.png' } | Select-Object -First 1
     $iconStream = $icon.Open()
     try {
         $signature = [byte[]]::new(8)
