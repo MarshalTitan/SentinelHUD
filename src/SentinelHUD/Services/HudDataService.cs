@@ -39,7 +39,10 @@ public sealed class HudDataService
 
     public IGameObject? ResolveTargetOfTarget(IGameObject? target)
     {
-        if (!IsUsable(target) || target.TargetObjectId == 0 || target.TargetObjectId == ulong.MaxValue)
+        if (target is null
+            || !IsUsable(target)
+            || target.TargetObjectId == 0
+            || target.TargetObjectId == ulong.MaxValue)
             return null;
         return Validate(objectTable.SearchById(target.TargetObjectId));
     }
