@@ -1,0 +1,9 @@
+{
+  "Name": "Sentinel HUD",
+  "Author": "MTitan",
+  "Punchline": "Modular, configurable awareness enhancements for the FFXIV HUD.",
+  "Description": "Adds independently configurable player, target, focus-target and target-of-target panels plus a safe, colour-selectable self highlight without replacing the native HUD.",
+  "RepoUrl": "https://github.com/MarshalTitan/SentinelHUD",
+  "IconUrl": "https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png",
+  "Tags": ["hud", "overlay", "target", "accessibility", "sentinel"]
+}

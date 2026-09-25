@@ -1,0 +1,26 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <AssemblyName>SentinelHUD</AssemblyName>
+    <RootNamespace>SentinelHUD</RootNamespace>
+    <Author>MTitan</Author>
+    <Name>Sentinel HUD</Name>
+    <Punchline>Modular, configurable awareness enhancements for the FFXIV HUD.</Punchline>
+    <Description>Adds independently configurable player, target, focus-target and target-of-target panels plus a safe, colour-selectable self highlight without replacing the native HUD.</Description>
+    <RepoUrl>https://github.com/MarshalTitan/SentinelHUD</RepoUrl>
+    <IconUrl>https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png</IconUrl>
+    <Tags>hud;overlay;target;accessibility;sentinel</Tags>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../SentinelHUD.Core/SentinelHUD.Core.csproj" />
+    <ProjectReference Include="../../external/SentinelCore/src/SentinelCore/SentinelCore.csproj" />
+    <ProjectReference Include="../../external/SentinelCore/src/SentinelCore.Dalamud/SentinelCore.Dalamud.csproj" />
+    <ProjectReference Include="../../external/SentinelCore/src/SentinelCore.UI/SentinelCore.UI.csproj" />
+    <None Include="../../assets/icon.png" Link="assets/icon.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

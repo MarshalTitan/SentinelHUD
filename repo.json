@@ -1,0 +1,25 @@
+[
+  {
+    "Author": "MTitan",
+    "Name": "Sentinel HUD",
+    "Punchline": "Modular, configurable awareness enhancements for the FFXIV HUD.",
+    "Description": "Adds independently configurable player, target, focus-target and target-of-target panels plus a safe, colour-selectable self highlight without replacing the native HUD.",
+    "InternalName": "SentinelHUD",
+    "AssemblyVersion": "0.1.0.0",
+    "TestingAssemblyVersion": "0.1.0.0",
+    "RepoUrl": "https://github.com/MarshalTitan/SentinelHUD",
+    "IconUrl": "https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png",
+    "ApplicableVersion": "any",
+    "DalamudApiLevel": 15,
+    "TestingDalamudApiLevel": 15,
+    "IsHide": false,
+    "IsTestingExclusive": false,
+    "DownloadCount": 0,
+    "LastUpdate": 1790306517,
+    "LoadPriority": 0,
+    "DownloadLinkInstall": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.1.0.0/SentinelHUD.zip",
+    "DownloadLinkUpdate": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.1.0.0/SentinelHUD.zip",
+    "DownloadLinkTesting": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.1.0.0/SentinelHUD.zip",
+    "Tags": ["hud", "overlay", "target", "accessibility", "sentinel"]
+  }
+]

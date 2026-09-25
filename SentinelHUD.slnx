@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/SentinelHUD.Core/SentinelHUD.Core.csproj" />
+  <Project Path="src/SentinelHUD/SentinelHUD.csproj" />
+  <Project Path="tests/SentinelHUD.Core.Tests/SentinelHUD.Core.Tests.csproj" />
+</Solution>

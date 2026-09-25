@@ -1,0 +1,3 @@
+[submodule "external/SentinelCore"]
+	path = external/SentinelCore
+	url = https://github.com/MarshalTitan/SentinelCore.git

@@ -1,0 +1,97 @@
+name: Publish Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sentinel-hud-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: contains(github.event.head_commit.message, '[publish-live]')
+    runs-on: windows-latest
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download current Dalamud development assemblies
+        shell: pwsh
+        run: |
+          $dalamudDir = "$env:AppData\XIVLauncher\addon\Hooks\dev"
+          New-Item -ItemType Directory -Path $dalamudDir -Force | Out-Null
+          $archive = Join-Path $env:RUNNER_TEMP 'dalamud-latest.zip'
+          Invoke-WebRequest -Uri 'https://goatcorp.github.io/dalamud-distrib/latest.zip' -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $dalamudDir -Force
+
+      - name: Validate release state
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [xml]$project = Get-Content -LiteralPath 'src/SentinelHUD/SentinelHUD.csproj' -Raw
+          $version = [string]$project.Project.PropertyGroup.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw "Invalid version: $version" }
+          $tag = "v$version"
+          gh release view $tag --repo '${{ github.repository }}' *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Release '$tag' already exists. Increment the version." }
+          $global:LASTEXITCODE = 0
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Restore
+        run: dotnet restore SentinelHUD.slnx -m:1
+
+      - name: Run tests
+        run: dotnet run --project tests/SentinelHUD.Core.Tests/SentinelHUD.Core.Tests.csproj -c Release --no-restore
+
+      - name: Build release package
+        run: dotnet build src/SentinelHUD/SentinelHUD.csproj -c Release --no-restore -m:1
+
+      - name: Validate package
+        shell: pwsh
+        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '${{ steps.version.outputs.value }}'
+
+      - name: Prepare release asset
+        shell: pwsh
+        run: Copy-Item -LiteralPath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -Destination "$env:RUNNER_TEMP\SentinelHUD.zip" -Force
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ steps.version.outputs.tag }}' "$env:RUNNER_TEMP\SentinelHUD.zip" `
+            --repo '${{ github.repository }}' `
+            --target '${{ github.sha }}' `
+            --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
+            --notes 'First installable release: modular player, target, focus-target and target-of-target panels; granular field visibility; persistent resolution-safe layout editing; Sentinel Core adoption; and a safe colour-selectable screen-space self highlight.'
+
+      - name: Verify public release asset
+        shell: pwsh
+        run: |
+          $url = "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/SentinelHUD.zip"
+          $download = Join-Path $env:RUNNER_TEMP 'public-SentinelHUD.zip'
+          for ($attempt = 1; $attempt -le 12; $attempt++) {
+            try {
+              Invoke-WebRequest -Uri "$url`?release=${{ github.run_id }}-$attempt" -OutFile $download
+              if ((Get-Item $download).Length -gt 0) { break }
+            }
+            catch {
+              if ($attempt -eq 12) { throw }
+              Start-Sleep -Seconds 5
+            }
+          }
+          ./.github/scripts/Validate-Package.ps1 -PackagePath $download -ExpectedVersion '${{ steps.version.outputs.value }}'
