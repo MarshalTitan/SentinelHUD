@@ -2,18 +2,21 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.2.0.0** · Dalamud API **15** · .NET **10**
+Current release: **0.3.0.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
-- Player: name, job, role, level, independently selectable HP values, MP, shield and a compact status summary.
-- Target: name, independently selectable HP values, optional distance, job/role, shield, cast name/bar/percentage and statuses.
+- Player: compact name/job/level header, independently selectable HP values, MP, integrated shield display and a compact status summary.
+- Target: compact player/NPC-aware header, independently selectable HP values, optional distance, integrated shield display, cast information and statuses.
 - Focus target: name, HP, optional distance, shield and cast information.
 - Target-of-target: an independent small module with name, HP and optional distance.
-- Layout editor: unlock, drag, lock, per-module scale/opacity, one-module reset and complete layout reset.
+- Layout editor: unlock, drag, lock, per-module scale, width, bar height, background/border appearance, one-module reset, appearance copy and complete layout reset.
+- Per-module visibility conditions: Always, Combat Only, Duty Only or Combat or Duty. Locked modules are click-through.
+- Custom compact HP/cast bars with Left/Center/Right text alignment, Full/Compact numbers, hostile-red disposition colouring and a blue shield segment inside the HP bar.
+- Optional exact-HP supplement anchored read-only beneath the native `_TargetInfo` addon, including Always/Combat Only modes and X/Y fine tuning.
 - Resolution-safe normalized positions with screen-boundary protection and delayed persistent saves.
 - Native, model-conforming self silhouette with Off, Always, Combat Only and Duty Only modes. It follows the animated model, equipment, weapons, mount and ornament without changing any target state.
-- Independent Player Position Marker: a small terrain-projected world-space dot centred on the local actor's actual origin, with colour, custom colour, radius, opacity and border controls.
+- Independent Player Position Marker: a terrain-projected dot centred on the local actor's actual origin, with Off/Always/Combat Only/Duty Only modes, independent colour, 0.01–0.60-yalm radius, opacity and inward border controls.
 - Optional extended third-person zoom with a configurable 20–100-yalm maximum, automatic restoration, special-camera safeguards and known camera-plugin conflict handling.
 - Compact state diagnostics without frame-by-frame logging.
 
@@ -42,21 +45,29 @@ Install **Sentinel HUD** from the plugin installer. No other Sentinel plugin is 
 
 ## Configuration
 
-Settings are separated into General, Player, Target, Focus Target, Target-of-Target, Awareness, Camera, Layout and Diagnostics tabs. Each displayed field has its own switch where practical. In particular, target and focus-target distance can be disabled independently.
+Settings are separated into General, Player, Target, Focus Target, Target-of-Target, Awareness, Camera, Appearance, Layout and Diagnostics tabs. Module tabs use collapsible Visibility, Information, Size/Layout and Appearance groups. The configuration window uses the standard ImGui collapse control.
 
-HP presentation is controlled by independent current, maximum and percentage switches, allowing number-only, percentage-only, current/maximum or combined formats.
+HP presentation is controlled by independent current, maximum and percentage switches, allowing number-only, percentage-only, current/maximum or combined formats. Full numbers remain the default; Compact displays values such as `295.9k` and `12.48m`. Shield Display supports Off, Text Only, Bar Only and Bar + Text.
+
+### Integrated health bars
+
+Health, shield and cast bars use the module's independent Width and Bar Height rather than stretching the complete UI. At less than full HP, shield extends from the current HP endpoint into unused bar space. Any shield beyond that space overlays the rightmost part of the HP fill; at full HP the blue segment overlays the rightmost proportional part of the bar. Hostile characters use red by default, while player, friendly, neutral and shield colours can be adjusted under Appearance.
+
+### Native Target HP Overlay
+
+The optional overlay reads `_TargetInfo` position, scale and root bounds every frame and draws exact HP below it. Moving the stock Target HUD element through FFXIV HUD Layout therefore moves the supplement with it. Sentinel HUD never inserts nodes into or writes to the native addon. X/Y offsets are available because individual HUD layouts and status/cast arrangements can change the preferred spacing.
 
 ## Awareness implementation and safety
 
 ### Self Highlight
 
-Version 0.2.0.0 removes the former projected circle/line/trapezoid prototype from user-facing rendering. `NativeSelfHighlightService` calls the current FFXIVClientStructs `GameObject.Highlight` render function for the local actor. FFXIV applies the outline to the actor's real draw object and propagates it to weapons, mounts and ornaments. The service never reads or writes hard target, soft target, mouseover target, nameplate mouseover, controller target, tab target, interaction target or action target.
+Version 0.2.0.0 removed the former projected circle/line/trapezoid prototype from user-facing rendering. `NativeSelfHighlightService` calls the current FFXIVClientStructs `GameObject.Highlight` render function for the local actor. FFXIV applies the outline to the actor's real draw object and propagates it to weapons, mounts and ornaments. The service never reads or writes hard target, soft target, mouseover target, nameplate mouseover, controller target, tab target, interaction target or action target.
 
 The native renderer exposes a fixed palette. Yellow, Green and Blue are exact. White and Custom remain selectable and persistent, but currently resolve to the closest safe native palette colour; the configuration and diagnostics show the applied colour. Native opacity/intensity is not exposed. Sentinel HUD does not spoof target state or replace the silhouette with primitive geometry to work around these colour limits.
 
 ### Player Position Marker
 
-The marker begins at the local actor's real world origin, casts a short downward collision ray using current FFXIVClientStructs terrain collision, and draws a small world-space disc on the returned surface plane. The projected disc follows camera movement and extended zoom and does not derive its location from the animated model, head, feet, or screen-space bounds. If collision data is temporarily unavailable, it fails safely to the actor origin and reports that fallback in Diagnostics.
+The marker begins at the local actor's real world origin, casts a short downward collision ray using current FFXIVClientStructs terrain collision, and draws a small world-space disc on the returned surface plane. The projected disc follows camera movement and extended zoom and does not derive its location from the animated model, head, feet, or screen-space bounds. The optional contrasting border is drawn inward, so Radius remains the total outside radius. If collision data is temporarily unavailable, it fails safely to the actor origin and reports that fallback in Diagnostics.
 
 ### Extended camera zoom
 
@@ -110,4 +121,5 @@ Screenshots will be added after the first in-game layout and colour pass.
 - Sentinel HUD intentionally yields camera control when a known camera plugin is loaded; use one zoom controller at a time.
 - Status display is intentionally a compact first-five summary; filtering and prioritization are future work.
 - Some non-character objects do not expose meaningful HP, job, shield, status or cast data; unsupported fields are omitted safely.
+- The native target supplement anchors to `_TargetInfo` root bounds rather than modifying the addon. Unusual split/addon layouts may need the provided X/Y offset, which should be confirmed during live testing.
 - Live native rendering, terrain collision, camera behavior, controller safety and full restart persistence require in-game testing because automated CI cannot launch FFXIV.

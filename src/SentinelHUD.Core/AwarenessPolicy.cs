@@ -67,10 +67,13 @@ public static class NativeHighlightPolicy
 
 public static class PlayerPositionMarkerPolicy
 {
-    public const float MinimumRadius = 0.06f;
+    public const float MinimumRadius = 0.01f;
     public const float MaximumRadius = 0.60f;
     public const float DefaultRadius = 0.18f;
     public const float DefaultOpacity = 0.88f;
+    public const float MinimumBorderThickness = 0.5f;
+    public const float MaximumBorderThickness = 2.5f;
+    public const float DefaultBorderThickness = 1.25f;
 
     public static Vector4 ResolveColour(PlayerPositionMarkerConfiguration configuration)
     {
@@ -86,6 +89,34 @@ public static class PlayerPositionMarkerPolicy
         colour.W = Math.Clamp(configuration.Opacity, 0.1f, 1f);
         return colour;
     }
+}
+
+public static class HudVisibilityPolicy
+{
+    public static bool ShouldShowModule(
+        ModuleVisibilityCondition condition,
+        bool isLoggedIn,
+        bool isInCombat,
+        bool isInDuty)
+        => isLoggedIn && condition switch
+        {
+            ModuleVisibilityCondition.Always => true,
+            ModuleVisibilityCondition.CombatOnly => isInCombat,
+            ModuleVisibilityCondition.DutyOnly => isInDuty,
+            ModuleVisibilityCondition.CombatOrDuty => isInCombat || isInDuty,
+            _ => false,
+        };
+
+    public static bool ShouldShowNativeTargetOverlay(
+        NativeTargetOverlayMode mode,
+        bool isLoggedIn,
+        bool isInCombat)
+        => isLoggedIn && mode switch
+        {
+            NativeTargetOverlayMode.Always => true,
+            NativeTargetOverlayMode.CombatOnly => isInCombat,
+            _ => false,
+        };
 }
 
 public static class CameraZoomPolicy

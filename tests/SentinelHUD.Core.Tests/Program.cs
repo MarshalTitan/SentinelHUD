@@ -7,14 +7,18 @@ var tests = new (string Name, Action Run)[]
     ("configuration defaults", TestDefaults),
     ("configuration migration and repair", TestMigration),
     ("version-one settings survive migration", TestVersionOneMigration),
+    ("version-two settings survive schema-three migration", TestVersionTwoMigration),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
+    ("compact number formatting", TestCompactNumberFormatting),
     ("percentage formatting", TestPercentageFormatting),
     ("distance formatting", TestDistanceFormatting),
     ("shield formatting", TestShieldFormatting),
+    ("integrated shield bar layout", TestShieldBarLayout),
     ("layout position round trip", TestLayoutRoundTrip),
     ("layout boundary protection", TestLayoutBoundaries),
     ("module independence", TestModuleIndependence),
+    ("module visibility conditions", TestModuleVisibilityConditions),
     ("self-highlight conditional modes", TestHighlightModes),
     ("self-highlight colours", TestHighlightColours),
     ("native self-highlight palette", TestNativeHighlightPalette),
@@ -55,7 +59,13 @@ static void TestDefaults()
     Equal(SelfHighlightMode.Off, config.SelfHighlight.Mode);
     Equal(HighlightColourPreset.Yellow, config.SelfHighlight.ColourPreset);
     False(config.PlayerPositionMarker.Enabled);
+    Equal(SelfHighlightMode.Off, config.PlayerPositionMarker.Mode);
     Equal(HighlightColourPreset.White, config.PlayerPositionMarker.ColourPreset);
+    Near(0.01f, PlayerPositionMarkerPolicy.MinimumRadius);
+    Equal(ShieldDisplayMode.BarAndText, config.Player.ShieldDisplay);
+    Equal(320f, config.Target.Width);
+    Equal(20f, config.Target.BarHeight);
+    Equal(new Vector4(0.88f, 0.20f, 0.18f, 1f), config.Appearance.HostileHealth.ToVector4());
     False(config.Camera.Enabled);
     Equal(CameraZoomPolicy.DefaultExtendedMaximum, config.Camera.MaximumZoomDistance);
 }
@@ -114,14 +124,23 @@ static void TestSerialization()
     source.Target.ShowDistance = false;
     source.Target.Layout.AnchorX = 0.413f;
     source.FocusTarget.Scale = 1.22f;
+    source.FocusTarget.Width = 410f;
+    source.FocusTarget.BarHeight = 13f;
+    source.FocusTarget.Visibility = ModuleVisibilityCondition.CombatOrDuty;
+    source.FocusTarget.NumberFormat = HudNumberFormat.Compact;
     source.SelfHighlight.Mode = SelfHighlightMode.DutyOnly;
     source.SelfHighlight.ColourPreset = HighlightColourPreset.Custom;
     source.SelfHighlight.CustomColour.Set(new Vector4(0.1f, 0.2f, 0.3f, 0.9f));
-    source.PlayerPositionMarker.Enabled = true;
+    source.PlayerPositionMarker.Mode = SelfHighlightMode.Always;
     source.PlayerPositionMarker.Radius = 0.27f;
+    source.PlayerPositionMarker.BorderThickness = 0.75f;
     source.PlayerPositionMarker.ColourPreset = HighlightColourPreset.Green;
     source.Camera.Enabled = true;
     source.Camera.MaximumZoomDistance = 42f;
+    source.Target.ShieldDisplay = ShieldDisplayMode.BarOnly;
+    source.Target.NativeHpOverlay.Mode = NativeTargetOverlayMode.CombatOnly;
+    source.Target.NativeHpOverlay.OffsetY = 17f;
+    source.Appearance.HostileHealth.Set(new Vector4(0.7f, 0.1f, 0.2f, 1f));
 
     var json = JsonSerializer.Serialize(source);
     var restored = JsonSerializer.Deserialize<HudConfigurationData>(json);
@@ -130,13 +149,23 @@ static void TestSerialization()
     False(restored!.Target.ShowDistance);
     Near(0.413f, restored.Target.Layout.AnchorX);
     Near(1.22f, restored.FocusTarget.Scale);
+    Near(410f, restored.FocusTarget.Width);
+    Near(13f, restored.FocusTarget.BarHeight);
+    Equal(ModuleVisibilityCondition.CombatOrDuty, restored.FocusTarget.Visibility);
+    Equal(HudNumberFormat.Compact, restored.FocusTarget.NumberFormat);
     Equal(SelfHighlightMode.DutyOnly, restored.SelfHighlight.Mode);
     Near(0.3f, restored.SelfHighlight.CustomColour.Blue);
+    Equal(SelfHighlightMode.Always, restored.PlayerPositionMarker.Mode);
     True(restored.PlayerPositionMarker.Enabled);
     Near(0.27f, restored.PlayerPositionMarker.Radius);
+    Near(0.75f, restored.PlayerPositionMarker.BorderThickness);
     Equal(HighlightColourPreset.Green, restored.PlayerPositionMarker.ColourPreset);
     True(restored.Camera.Enabled);
     Near(42f, restored.Camera.MaximumZoomDistance);
+    Equal(ShieldDisplayMode.BarOnly, restored.Target.ShieldDisplay);
+    Equal(NativeTargetOverlayMode.CombatOnly, restored.Target.NativeHpOverlay.Mode);
+    Near(17f, restored.Target.NativeHpOverlay.OffsetY);
+    Near(0.7f, restored.Appearance.HostileHealth.Red);
 }
 
 static void TestVersionOneMigration()
@@ -163,6 +192,37 @@ static void TestVersionOneMigration()
     NotNull(source.Camera);
 }
 
+static void TestVersionTwoMigration()
+{
+    var source = new HudConfigurationData
+    {
+        Version = 2,
+        PlayerPositionMarker = new PlayerPositionMarkerConfiguration
+        {
+            Enabled = true,
+            Radius = 0.04f,
+            ColourPreset = HighlightColourPreset.Blue,
+        },
+    };
+    source.Player.Layout.AnchorX = 0.37f;
+    source.Target.Scale = 1.14f;
+    source.Target.ShowShield = false;
+    source.FocusTarget.ShowShield = true;
+
+    HudConfigurationMigrator.Normalize(source);
+
+    Equal(3, source.Version);
+    Equal(SelfHighlightMode.Always, source.PlayerPositionMarker.Mode);
+    True(source.PlayerPositionMarker.Enabled);
+    Near(0.04f, source.PlayerPositionMarker.Radius);
+    Equal(HighlightColourPreset.Blue, source.PlayerPositionMarker.ColourPreset);
+    Near(0.37f, source.Player.Layout.AnchorX);
+    Near(1.14f, source.Target.Scale);
+    Equal(320f, source.Target.Width);
+    Equal(ShieldDisplayMode.Off, source.Target.ShieldDisplay);
+    Equal(ShieldDisplayMode.BarAndText, source.FocusTarget.ShieldDisplay);
+}
+
 static void TestHitPointFormatting()
 {
     Equal("7,428,113 / 12,500,000 — 59.4%", HudFormatting.HitPoints(7_428_113, 12_500_000, true, true, true));
@@ -170,6 +230,16 @@ static void TestHitPointFormatting()
     Equal("Max 12,500,000", HudFormatting.HitPoints(7_428_113, 12_500_000, false, true, false));
     Equal("59.4%", HudFormatting.HitPoints(7_428_113, 12_500_000, false, false, true));
     Equal(string.Empty, HudFormatting.HitPoints(1, 2, false, false, false));
+}
+
+static void TestCompactNumberFormatting()
+{
+    Equal("295.9k / 295.9k", HudFormatting.HitPoints(
+        295_921, 295_921, true, true, false, HudNumberFormat.Compact));
+    Equal("12.48m / 18.7m", HudFormatting.HitPoints(
+        12_480_000, 18_700_000, true, true, false, HudNumberFormat.Compact));
+    Equal("73.7%", HudFormatting.NativeTargetHitPoints(
+        112_878, 153_100, NativeTargetHpFormat.Percentage, HudNumberFormat.Full));
 }
 
 static void TestPercentageFormatting()
@@ -189,6 +259,29 @@ static void TestDistanceFormatting()
 
 static void TestShieldFormatting()
     => Equal("2,500 (20%)", HudFormatting.Shield(12_500, 20));
+
+static void TestShieldBarLayout()
+{
+    var full = ShieldBarPolicy.Calculate(1f, 0.12f);
+    Near(1f, full.HealthEnd);
+    Near(0.88f, full.ShieldOverlayStart);
+    Near(1f, full.ShieldExtensionEnd);
+    True(full.HasOverlay);
+    False(full.HasExtension);
+
+    var belowFull = ShieldBarPolicy.Calculate(0.60f, 0.20f);
+    Near(0.60f, belowFull.HealthEnd);
+    Near(0.60f, belowFull.ShieldOverlayStart);
+    Near(0.80f, belowFull.ShieldExtensionEnd);
+    False(belowFull.HasOverlay);
+    True(belowFull.HasExtension);
+
+    var mixed = ShieldBarPolicy.Calculate(0.90f, 0.20f);
+    Near(0.80f, mixed.ShieldOverlayStart);
+    Near(1f, mixed.ShieldExtensionEnd);
+    True(mixed.HasOverlay);
+    True(mixed.HasExtension);
+}
 
 static void TestLayoutRoundTrip()
 {
@@ -229,6 +322,28 @@ static void TestModuleIndependence()
     False(config.Target.Enabled);
     False(config.Target.ShowDistance);
     True(config.FocusTarget.ShowDistance);
+}
+
+static void TestModuleVisibilityConditions()
+{
+    True(HudVisibilityPolicy.ShouldShowModule(
+        ModuleVisibilityCondition.Always, true, false, false));
+    False(HudVisibilityPolicy.ShouldShowModule(
+        ModuleVisibilityCondition.Always, false, true, true));
+    True(HudVisibilityPolicy.ShouldShowModule(
+        ModuleVisibilityCondition.CombatOnly, true, true, false));
+    True(HudVisibilityPolicy.ShouldShowModule(
+        ModuleVisibilityCondition.DutyOnly, true, false, true));
+    True(HudVisibilityPolicy.ShouldShowModule(
+        ModuleVisibilityCondition.CombatOrDuty, true, true, false));
+    True(HudVisibilityPolicy.ShouldShowModule(
+        ModuleVisibilityCondition.CombatOrDuty, true, false, true));
+    False(HudVisibilityPolicy.ShouldShowModule(
+        ModuleVisibilityCondition.CombatOrDuty, true, false, false));
+    True(HudVisibilityPolicy.ShouldShowNativeTargetOverlay(
+        NativeTargetOverlayMode.CombatOnly, true, true));
+    False(HudVisibilityPolicy.ShouldShowNativeTargetOverlay(
+        NativeTargetOverlayMode.CombatOnly, true, false));
 }
 
 static void TestHighlightModes()

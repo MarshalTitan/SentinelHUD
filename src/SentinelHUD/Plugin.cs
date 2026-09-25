@@ -57,6 +57,7 @@ public sealed class Plugin : IDalamudPlugin
         var highlight = lifetime.Add<ISelfHighlightService>(
             new NativeSelfHighlightService(ClientState, Condition, GameGui, data));
         var positionMarker = new PlayerPositionMarkerRenderer(GameGui);
+        var nativeTargetOverlay = new NativeTargetHpOverlayRenderer(GameGui);
         var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
             new ExtendedCameraZoomService(PluginInterface, ClientState, Condition));
         hudRenderer = new HudRenderer(
@@ -64,8 +65,11 @@ public sealed class Plugin : IDalamudPlugin
             data,
             highlight,
             positionMarker,
+            nativeTargetOverlay,
             cameraZoom,
             GameGui,
+            ClientState,
+            Condition,
             diagnostics);
         configurationWindow = new ConfigurationWindow(configuration, hudRenderer, diagnostics);
         windows.AddWindow(configurationWindow);

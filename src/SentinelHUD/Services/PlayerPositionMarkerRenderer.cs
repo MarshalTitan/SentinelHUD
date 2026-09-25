@@ -12,6 +12,7 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
     private const int SegmentCount = 24;
     private readonly IGameGui gameGui = gameGui;
     private readonly Vector2[] projectedPoints = new Vector2[SegmentCount];
+    private readonly Vector2[] innerProjectedPoints = new Vector2[SegmentCount];
 
     public bool IsActive { get; private set; }
     public bool UsedTerrainProjection { get; private set; }
@@ -20,13 +21,27 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
     public unsafe void Draw(
         PlayerPositionMarkerConfiguration configuration,
         bool hudEnabled,
-        IPlayerCharacter? player)
+        IPlayerCharacter? player,
+        bool isLoggedIn,
+        bool isInCombat,
+        bool isInDuty)
     {
         IsActive = false;
         UsedTerrainProjection = false;
-        if (!hudEnabled || !configuration.Enabled)
+        if (!hudEnabled
+            || !SelfHighlightPolicy.ShouldRender(configuration.Mode, isLoggedIn, isInCombat, isInDuty))
         {
-            StateReason = !hudEnabled ? "Sentinel HUD disabled" : "Off";
+            StateReason = !hudEnabled
+                ? "Sentinel HUD disabled"
+                : !isLoggedIn
+                    ? "Not logged in"
+                    : configuration.Mode switch
+                    {
+                        SelfHighlightMode.Off => "Off",
+                        SelfHighlightMode.CombatOnly => "Waiting for combat",
+                        SelfHighlightMode.DutyOnly => "Waiting for duty",
+                        _ => "Mode condition not met",
+                    };
             return;
         }
         if (gameGui.GameUiHidden)
@@ -67,14 +82,14 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
             // The actor origin is the fail-safe fallback when collision data is unavailable during transitions.
         }
 
-        if (!gameGui.WorldToScreen(groundPoint + (groundNormal * 0.025f), out _))
+        var centre = groundPoint + (groundNormal * 0.025f);
+        if (!gameGui.WorldToScreen(centre, out var centreScreen))
         {
             StateReason = "Player origin is outside the viewport";
             return;
         }
 
         BuildTangentBasis(groundNormal, out var tangent, out var bitangent);
-        var centre = groundPoint + (groundNormal * 0.025f);
         for (var index = 0; index < SegmentCount; index++)
         {
             var angle = (MathF.Tau * index) / SegmentCount;
@@ -90,22 +105,42 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
 
         var colour = PlayerPositionMarkerPolicy.ResolveColour(configuration);
         var drawList = ImGui.GetBackgroundDrawList();
-        drawList.AddConvexPolyFilled(
-            ref projectedPoints[0],
-            SegmentCount,
-            ImGui.ColorConvertFloat4ToU32(colour));
         if (configuration.ShowBorder)
         {
             var luminance = (colour.X * 0.2126f) + (colour.Y * 0.7152f) + (colour.Z * 0.0722f);
             var border = luminance > 0.55f
                 ? new Vector4(0.02f, 0.02f, 0.02f, colour.W)
                 : new Vector4(1f, 1f, 1f, colour.W);
-            drawList.AddPolyline(
+
+            drawList.AddConvexPolyFilled(
                 ref projectedPoints[0],
                 SegmentCount,
-                ImGui.ColorConvertFloat4ToU32(border),
-                ImDrawFlags.Closed,
-                1.5f);
+                ImGui.ColorConvertFloat4ToU32(border));
+
+            var smallestScreenRadius = float.MaxValue;
+            for (var index = 0; index < SegmentCount; index++)
+                smallestScreenRadius = Math.Min(smallestScreenRadius, Vector2.Distance(centreScreen, projectedPoints[index]));
+            var inwardThickness = Math.Min(configuration.BorderThickness, smallestScreenRadius * 0.45f);
+            for (var index = 0; index < SegmentCount; index++)
+            {
+                var fromCentre = projectedPoints[index] - centreScreen;
+                var length = fromCentre.Length();
+                innerProjectedPoints[index] = length <= 0.001f
+                    ? centreScreen
+                    : centreScreen + (fromCentre * Math.Max(0f, length - inwardThickness) / length);
+            }
+
+            drawList.AddConvexPolyFilled(
+                ref innerProjectedPoints[0],
+                SegmentCount,
+                ImGui.ColorConvertFloat4ToU32(colour));
+        }
+        else
+        {
+            drawList.AddConvexPolyFilled(
+                ref projectedPoints[0],
+                SegmentCount,
+                ImGui.ColorConvertFloat4ToU32(colour));
         }
 
         IsActive = true;

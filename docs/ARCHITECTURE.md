@@ -2,13 +2,15 @@
 
 ## Boundaries
 
-- `SentinelHUD.Core` is platform-neutral. It owns configuration data/defaults/migration, formatting, resolution-safe layout math and self-highlight mode/colour policy.
+- `SentinelHUD.Core` is platform-neutral. It owns configuration data/defaults/migration, formatting, shield-segment math, conditional visibility, resolution-safe layout math and awareness policies.
 - `SentinelHUD` is the API 15 Dalamud plugin. It resolves transient game objects every frame, renders modules, owns the configuration window and uses the official game/data services.
 - `external/SentinelCore` is pinned to an immutable commit. Selected Core projects are compiled and packaged with this plugin; there is no shared runtime plugin.
 
 ## Rendering
 
-HUD modules are independent ImGui windows. When locked, they are titleless, immovable and click-through. When unlocked, missing target-dependent modules remain visible as movable placeholders. Position anchors are normalized against the main viewport work area and converted back to pixels using the current module size. Every position is clamped to a reachable screen boundary.
+HUD modules are independent ImGui windows. When locked, they are titleless, immovable and click-through. When unlocked, enabled conditional or target-dependent modules remain visible as movable placeholders. Position anchors are normalized against the main viewport work area and converted back to pixels using the current module size. Every position is clamped to a reachable screen boundary. Width and bar height are explicit layout dimensions; scale changes typography/style without horizontally distorting text or icons.
+
+Health/cast bars are Sentinel-rendered primitives. `ShieldBarPolicy` calculates an extension segment in unused HP space and an overlay segment for overflow/full-HP shields, keeping all colours inside one fixed bar. Target disposition uses Dalamud's supported character hostile/party/alliance/friend flags. The optional exact-HP supplement reads `_TargetInfo` root position, scale and bounds and draws through the foreground overlay; it never edits native nodes.
 
 Game objects are never cached between frames. Player, target and focus references are resolved for the current draw only. Target-of-target uses the current target ID and a direct object-table lookup. Static job metadata and action/status names are cached.
 
@@ -16,7 +18,7 @@ Game objects are never cached between frames. Player, target and focus reference
 
 `ISelfHighlightService` isolates low-level silhouette rendering from all HUD modules. `NativeSelfHighlightService` uses FFXIVClientStructs' current `GameObject.Highlight` virtual function on the validated local-player address. This changes draw-object outline state only and propagates through the game's own actor rendering. It never sets any `ITargetManager` property. Disable/disposal clears only the current local actor; stale actor pointers are never retained across zone changes.
 
-`PlayerPositionMarkerRenderer` reads the current local actor once per draw, casts one short downward terrain ray, builds a 24-point disc in the returned surface plane and projects it through `IGameGui.WorldToScreen`. The point buffer is allocated once; there are no per-frame collection allocations or metadata lookups.
+`PlayerPositionMarkerRenderer` reads the current local actor once per draw, uses the same login/combat/duty policy inputs as Self Highlight, casts one short downward terrain ray, builds a 24-point disc in the returned surface plane and projects it through `IGameGui.WorldToScreen`. Outer and inner point buffers are allocated once. The contrasting border is filled inward from the configured world radius, so border thickness never enlarges the marker.
 
 ## Camera boundary
 
@@ -24,7 +26,7 @@ Game objects are never cached between frames. Player, target and focus reference
 
 ## Configuration persistence
 
-Sentinel Core's `ConfigurationCoordinator` loads and normalizes schema version 2, saves ordinary settings immediately, debounces drag saves, flushes due saves during draw and performs a final flush during disposal. Module layout anchors, scale, opacity, field visibility, awareness settings and camera settings all persist. Migration adds new settings without changing version-1 positions or field visibility.
+Sentinel Core's `ConfigurationCoordinator` loads and normalizes schema version 3, saves ordinary settings immediately, debounces drag saves, flushes due saves during draw and performs a final flush during disposal. Module anchors, scale, width, bar height, background/border appearance, field visibility, awareness settings, native-target offsets and camera settings all persist. Schema-1/2 migration preserves existing positions, scale, colours, enabled states, awareness and camera settings while deriving the new marker mode and shield presentation from their legacy switches.
 
 ## Future modules
 

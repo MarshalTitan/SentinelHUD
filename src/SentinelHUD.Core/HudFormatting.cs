@@ -9,13 +9,14 @@ public static class HudFormatting
         uint maximum,
         bool showCurrent,
         bool showMaximum,
-        bool showPercentage)
+        bool showPercentage,
+        HudNumberFormat numberFormat = HudNumberFormat.Full)
     {
         var numberPart = (showCurrent, showMaximum) switch
         {
-            (true, true) => string.Create(CultureInfo.InvariantCulture, $"{current:N0} / {maximum:N0}"),
-            (true, false) => current.ToString("N0", CultureInfo.InvariantCulture),
-            (false, true) => string.Create(CultureInfo.InvariantCulture, $"Max {maximum:N0}"),
+            (true, true) => $"{Number(current, numberFormat)} / {Number(maximum, numberFormat)}",
+            (true, false) => Number(current, numberFormat),
+            (false, true) => $"Max {Number(maximum, numberFormat)}",
             _ => string.Empty,
         };
 
@@ -24,6 +25,29 @@ public static class HudFormatting
 
         var percentage = Percentage(current, maximum);
         return numberPart.Length == 0 ? percentage : $"{numberPart} — {percentage}";
+    }
+
+    public static string NativeTargetHitPoints(
+        uint current,
+        uint maximum,
+        NativeTargetHpFormat format,
+        HudNumberFormat numberFormat)
+        => format switch
+        {
+            NativeTargetHpFormat.CurrentAndMaximum => HitPoints(current, maximum, true, true, false, numberFormat),
+            NativeTargetHpFormat.Percentage => Percentage(current, maximum),
+            _ => HitPoints(current, maximum, true, true, true, numberFormat),
+        };
+
+    public static string Number(uint value, HudNumberFormat format)
+    {
+        if (format == HudNumberFormat.Full)
+            return value.ToString("N0", CultureInfo.InvariantCulture);
+        if (value >= 1_000_000)
+            return string.Create(CultureInfo.InvariantCulture, $"{value / 1_000_000d:0.##}m");
+        if (value >= 1_000)
+            return string.Create(CultureInfo.InvariantCulture, $"{value / 1_000d:0.#}k");
+        return value.ToString(CultureInfo.InvariantCulture);
     }
 
     public static string Percentage(uint current, uint maximum)
