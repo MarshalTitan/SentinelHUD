@@ -2,7 +2,7 @@
   "Name": "Sentinel HUD",
   "Author": "MTitan",
   "Punchline": "Modular, configurable awareness enhancements for the FFXIV HUD.",
-  "Description": "Adds configurable player and target panels, integrated HP and shield bars, native-target exact HP, awareness markers, and optional extended camera zoom.",
+  "Description": "Adds configurable player and target panels, HP/MP/shield bars, native-target exact HP, awareness markers, and optional extended camera zoom.",
   "RepoUrl": "https://github.com/MarshalTitan/SentinelHUD",
   "IconUrl": "https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png",
   "Tags": ["hud", "overlay", "target", "accessibility", "sentinel"]

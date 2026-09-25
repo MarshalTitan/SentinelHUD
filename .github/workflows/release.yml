@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes 'HUD refinement release: adds conditional module and position-marker visibility, integrated blue shield segments, independent module width and bar height, compact headers, hostile red HP bars, configurable appearance, compact numbers, and an exact-HP overlay anchored to the native target HUD.'
+            --notes 'HUD refinement release: fixes cumulative lock/unlock position drift with stable content-origin anchoring, adds configurable MP bars and text for player/target/focus modules, and adds independent Player and Target health-state gradient modes while preserving static role/disposition colours.'
 
       - name: Verify public release asset
         shell: pwsh

@@ -1,4 +1,4 @@
-# Sentinel HUD 0.3.0.0 — Live Test
+# Sentinel HUD 0.4.0.0 — Live Test
 
 ## Startup and configuration migration
 
@@ -49,6 +49,35 @@
 - [ ] Width, bar height, alignment and number format survive plugin reload.
 - [ ] Widths and all appearance settings survive a complete game restart.
 - [ ] Copy selected appearance updates other modules without copying information visibility toggles.
+
+## Lock/unlock drift and alignment
+
+- [ ] Place Player and Target panels on exactly the same horizontal line.
+- [ ] Unlock the HUD, then lock it without moving either panel.
+- [ ] Repeat unlock → lock at least five times; neither panel moves or accumulates downward drift.
+- [ ] Unlock, move both panels, lock, and confirm their visible module bodies remain aligned.
+- [ ] Reload Sentinel HUD and confirm exact alignment persists.
+- [ ] Restart FFXIV and confirm exact alignment persists.
+
+## MP bar
+
+- [ ] Player MP supports Off, Text Only, Bar Only and Bar + Text.
+- [ ] Player MP text and bar align correctly and use the expected blue MP colour.
+- [ ] Target and Focus Target MP modes render for actors that expose meaningful maximum MP.
+- [ ] Actors without meaningful MP do not leave an empty bar or blank gap.
+- [ ] Module Width changes the MP bar length without stretching its text.
+- [ ] Bar Height, Full/Compact number mode and Left/Center/Right alignment apply to MP bars.
+- [ ] MP modes and colour persist through plugin reload and complete game restart.
+
+## HP colour mode
+
+- [ ] Player Static / Role-Based mode still uses the configured player HP colour.
+- [ ] Target Static / Role-Based mode keeps hostile targets red and friendly targets non-red.
+- [ ] Enable Player Health-State Gradient and confirm near-full HP is green.
+- [ ] Around 60–50% HP, confirm the bar transitions smoothly through yellow.
+- [ ] At 35% HP and below, confirm the bar is red.
+- [ ] Enable Target / Focus / ToT Health-State Gradient and confirm hostile targets follow health state instead of remaining fixed red.
+- [ ] Player and Target colour modes remain independent and persist after restart.
 
 ## Compact Header
 

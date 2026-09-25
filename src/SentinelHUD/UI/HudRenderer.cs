@@ -192,15 +192,24 @@ public sealed class HudRenderer
         var state = layoutStates[kind];
         var viewportChanged = Vector2.DistanceSquared(viewport.WorkSize, state.LastViewportSize) > 0.25f
                               || Vector2.DistanceSquared(viewport.WorkPos, state.LastViewportPosition) > 0.25f;
-        var desiredPosition = LayoutPolicy.ToPixelPosition(module.Layout, viewport.WorkPos,
-            viewport.WorkSize, state.LastWindowSize);
-        if (root.Locked || state.ApplySavedPosition || viewportChanged)
-            ImGui.SetNextWindowPos(desiredPosition, ImGuiCond.Always);
+        var applySavedPosition = root.Locked || state.ApplySavedPosition || viewportChanged;
+        using var style = SentinelStyleScope.PushWindow(module.Scale * root.GlobalScale);
+        var expectedEditChromeHeight = root.Locked
+            ? 0f
+            : state.LastEditChromeHeight > 0f
+                ? state.LastEditChromeHeight
+                : ImGui.GetFrameHeight();
+        var desiredContentPosition = LayoutPolicy.ToPixelPosition(module.Layout, viewport.WorkPos,
+            viewport.WorkSize, state.LastContentSize);
+        if (applySavedPosition)
+        {
+            ImGui.SetNextWindowPos(LayoutPolicy.ToOuterWindowPosition(
+                desiredContentPosition, expectedEditChromeHeight), ImGuiCond.Always);
+        }
 
         ImGui.SetNextWindowSizeConstraints(new Vector2(module.Width, 1f),
             new Vector2(module.Width, float.MaxValue));
         ImGui.SetNextWindowBgAlpha(module.Opacity * root.GlobalOpacity);
-        using var style = SentinelStyleScope.PushWindow(module.Scale * root.GlobalScale);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, module.BorderEnabled ? 1f : 0f);
         var borderColour = SentinelPalette.HeaderGold;
         borderColour.W = module.BorderOpacity * root.GlobalOpacity;
@@ -224,6 +233,19 @@ public sealed class HudRenderer
             var began = ImGui.Begin(title, flags);
             try
             {
+                var actualPosition = ImGui.GetWindowPos();
+                var measuredEditChromeHeight = root.Locked
+                    ? 0f
+                    : Math.Max(0f, ImGui.GetCursorScreenPos().Y - actualPosition.Y
+                                   - ImGui.GetStyle().WindowPadding.Y);
+                if (applySavedPosition
+                    && Math.Abs(measuredEditChromeHeight - expectedEditChromeHeight) > 0.1f)
+                {
+                    actualPosition = LayoutPolicy.ToOuterWindowPosition(
+                        desiredContentPosition, measuredEditChromeHeight);
+                    ImGui.SetWindowPos(actualPosition, ImGuiCond.Always);
+                }
+
                 ImGui.SetWindowFontScale(module.Scale * root.GlobalScale);
                 if (began)
                 {
@@ -233,24 +255,33 @@ public sealed class HudRenderer
                         drawContent(actor, module);
                 }
 
-                var actualPosition = ImGui.GetWindowPos();
+                actualPosition = ImGui.GetWindowPos();
                 var actualSize = ImGui.GetWindowSize();
-                var reachable = LayoutPolicy.KeepReachable(actualPosition, viewport.WorkPos,
-                    viewport.WorkSize, actualSize);
-                if (Vector2.DistanceSquared(actualPosition, reachable) > 0.25f)
+                var actualContentPosition = LayoutPolicy.ToContentPosition(
+                    actualPosition, measuredEditChromeHeight);
+                var actualContentSize = LayoutPolicy.ToContentSize(actualSize, measuredEditChromeHeight);
+                var reachableContentPosition = LayoutPolicy.KeepReachable(actualContentPosition,
+                    viewport.WorkPos, viewport.WorkSize, actualContentSize);
+                if (Vector2.DistanceSquared(actualContentPosition, reachableContentPosition) > 0.25f)
                 {
-                    ImGui.SetWindowPos(reachable, ImGuiCond.Always);
-                    actualPosition = reachable;
+                    actualContentPosition = reachableContentPosition;
+                    actualPosition = LayoutPolicy.ToOuterWindowPosition(
+                        actualContentPosition, measuredEditChromeHeight);
+                    ImGui.SetWindowPos(actualPosition, ImGuiCond.Always);
                 }
 
-                state.LastWindowSize = actualSize.X > 0f && actualSize.Y > 0f ? actualSize : UnknownWindowSize;
+                state.LastContentSize = actualContentSize.X > 0f && actualContentSize.Y > 0f
+                    ? actualContentSize
+                    : UnknownWindowSize;
+                if (measuredEditChromeHeight > 0f)
+                    state.LastEditChromeHeight = measuredEditChromeHeight;
                 state.LastViewportPosition = viewport.WorkPos;
                 state.LastViewportSize = viewport.WorkSize;
                 state.ApplySavedPosition = false;
-                if (!root.Locked)
+                if (!root.Locked && !applySavedPosition)
                 {
-                    var normalized = LayoutPolicy.ToNormalizedPosition(actualPosition, viewport.WorkPos,
-                        viewport.WorkSize, state.LastWindowSize);
+                    var normalized = LayoutPolicy.ToNormalizedPosition(actualContentPosition,
+                        viewport.WorkPos, viewport.WorkSize, state.LastContentSize);
                     if (Math.Abs(normalized.AnchorX - module.Layout.AnchorX) > 0.0001f
                         || Math.Abs(normalized.AnchorY - module.Layout.AnchorY) > 0.0001f)
                     {
@@ -283,9 +314,8 @@ public sealed class HudRenderer
         DrawCompactHeader(actor, character, config.ShowName, config.ShowJob, config.ShowRole,
             config.ShowLevel, true);
         DrawHealth(character, actor, HudModuleKind.Player, config, config.ShieldDisplay);
-        if (config.ShowMp)
-            ImGui.TextUnformatted($"MP  {character.CurrentMp:N0} / {character.MaxMp:N0}");
         DrawShieldText(character, config.ShieldDisplay);
+        DrawMp(character, config, config.MpDisplay);
         if (config.ShowStatuses && actor is IBattleChara battleChara)
             DrawStatuses(battleChara);
     }
@@ -301,6 +331,7 @@ public sealed class HudRenderer
                 config.ShowLevel, actor.ObjectKind == ObjectKind.Pc);
             DrawHealth(character, actor, HudModuleKind.Target, config, config.ShieldDisplay);
             DrawShieldText(character, config.ShieldDisplay);
+            DrawMp(character, config, config.MpDisplay);
         }
         else if (config.ShowName)
         {
@@ -328,6 +359,7 @@ public sealed class HudRenderer
         {
             DrawHealth(character, actor, HudModuleKind.FocusTarget, config, config.ShieldDisplay);
             DrawShieldText(character, config.ShieldDisplay);
+            DrawMp(character, config, config.MpDisplay);
         }
         if (config.ShowDistance)
             ImGui.TextUnformatted(HudFormatting.Distance(data.GetDistance(actor)));
@@ -404,7 +436,28 @@ public sealed class HudRenderer
             : Math.Clamp((float)character.CurrentHp / character.MaxHp, 0f, 1f);
         var shieldFraction = showShieldBar ? Math.Clamp(character.ShieldPercentage / 100f, 0f, 1f) : 0f;
         DrawMeter(fraction, shieldFraction, module.BarHeight, formatted, module.HpTextAlignment,
-            ResolveHealthColour(actor, kind), configuration.Current.Appearance.Shield.ToVector4());
+            ResolveHealthColour(actor, kind, fraction), configuration.Current.Appearance.Shield.ToVector4());
+    }
+
+    private void DrawMp(ICharacter character, HudModuleConfiguration module, MpDisplayMode mode)
+    {
+        if (mode == MpDisplayMode.Off || character.MaxMp == 0)
+            return;
+
+        var current = character.CurrentMp;
+        var maximum = character.MaxMp;
+        var text = $"MP  {HudFormatting.Number(current, module.NumberFormat)} / "
+                   + HudFormatting.Number(maximum, module.NumberFormat);
+        if (mode == MpDisplayMode.TextOnly)
+        {
+            ImGui.TextUnformatted(text);
+            return;
+        }
+
+        var fraction = Math.Clamp((float)current / maximum, 0f, 1f);
+        var overlay = mode == MpDisplayMode.BarAndText ? text : string.Empty;
+        DrawMeter(fraction, 0f, module.BarHeight, overlay, module.HpTextAlignment,
+            configuration.Current.Appearance.Mp.ToVector4(), Vector4.Zero);
     }
 
     private void DrawShieldText(ICharacter character, ShieldDisplayMode mode)
@@ -492,20 +545,35 @@ public sealed class HudRenderer
         drawList.PopClipRect();
     }
 
-    private Vector4 ResolveHealthColour(IGameObject actor, HudModuleKind kind)
+    private Vector4 ResolveHealthColour(IGameObject actor, HudModuleKind kind, float healthFraction)
     {
         var appearance = configuration.Current.Appearance;
+        var mode = kind == HudModuleKind.Player
+            ? appearance.PlayerHpColourMode
+            : appearance.TargetHpColourMode;
+        Vector4 staticColour;
         if (kind == HudModuleKind.Player)
-            return appearance.PlayerHealth.ToVector4();
-        if (actor is ICharacter character && character.StatusFlags.HasFlag(StatusFlags.Hostile))
-            return appearance.HostileHealth.ToVector4();
-        if (actor.ObjectKind == ObjectKind.Pc
-            || actor is ICharacter { StatusFlags: var flags }
-            && (flags.HasFlag(StatusFlags.PartyMember)
-                || flags.HasFlag(StatusFlags.AllianceMember)
-                || flags.HasFlag(StatusFlags.Friend)))
-            return appearance.FriendlyHealth.ToVector4();
-        return appearance.NeutralHealth.ToVector4();
+        {
+            staticColour = appearance.PlayerHealth.ToVector4();
+        }
+        else if (actor is ICharacter character && character.StatusFlags.HasFlag(StatusFlags.Hostile))
+        {
+            staticColour = appearance.HostileHealth.ToVector4();
+        }
+        else if (actor.ObjectKind == ObjectKind.Pc
+                 || actor is ICharacter { StatusFlags: var flags }
+                 && (flags.HasFlag(StatusFlags.PartyMember)
+                     || flags.HasFlag(StatusFlags.AllianceMember)
+                     || flags.HasFlag(StatusFlags.Friend)))
+        {
+            staticColour = appearance.FriendlyHealth.ToVector4();
+        }
+        else
+        {
+            staticColour = appearance.NeutralHealth.ToVector4();
+        }
+
+        return HpColourPolicy.Resolve(mode, healthFraction, staticColour);
     }
 
     private void DrawStatuses(IBattleChara actor)
@@ -595,7 +663,8 @@ public sealed class HudRenderer
     private sealed class LayoutRuntimeState
     {
         public bool ApplySavedPosition { get; set; } = true;
-        public Vector2 LastWindowSize { get; set; } = UnknownWindowSize;
+        public Vector2 LastContentSize { get; set; } = UnknownWindowSize;
+        public float LastEditChromeHeight { get; set; }
         public Vector2 LastViewportPosition { get; set; } = new(float.NaN, float.NaN);
         public Vector2 LastViewportSize { get; set; } = new(float.NaN, float.NaN);
     }

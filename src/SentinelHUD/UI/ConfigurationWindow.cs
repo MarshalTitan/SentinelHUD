@@ -15,6 +15,8 @@ public sealed class ConfigurationWindow : Window
     private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target"];
     private static readonly string[] ModuleVisibilityModes = ["Always", "Combat Only", "Duty Only", "Combat or Duty"];
     private static readonly string[] ShieldModes = ["Off", "Text Only", "Bar Only", "Bar + Text"];
+    private static readonly string[] MpModes = ["Off", "Text Only", "Bar Only", "Bar + Text"];
+    private static readonly string[] HpColourModes = ["Static / Role-Based", "Health-State Gradient"];
     private static readonly string[] TextAlignments = ["Left", "Center", "Right"];
     private static readonly string[] NumberFormats = ["Full", "Compact"];
     private static readonly string[] NativeOverlayModes = ["Off", "Always", "Combat Only"];
@@ -108,7 +110,7 @@ public sealed class ConfigurationWindow : Window
                 value => Update(c => c.Player.ShowCurrentHp = value),
                 value => Update(c => c.Player.ShowMaximumHp = value),
                 value => Update(c => c.Player.ShowHpPercentage = value));
-            DrawToggle("Show MP", config.ShowMp, value => Update(c => c.Player.ShowMp = value));
+            DrawMpMode(config.MpDisplay, value => Update(c => c.Player.MpDisplay = value));
             DrawShieldMode(config.ShieldDisplay, value => Update(c => c.Player.ShieldDisplay = value));
             DrawToggle("Show statuses (first five)", config.ShowStatuses,
                 value => Update(c => c.Player.ShowStatuses = value));
@@ -131,6 +133,7 @@ public sealed class ConfigurationWindow : Window
                 value => Update(c => c.Target.ShowCurrentHp = value),
                 value => Update(c => c.Target.ShowMaximumHp = value),
                 value => Update(c => c.Target.ShowHpPercentage = value));
+            DrawMpMode(config.MpDisplay, value => Update(c => c.Target.MpDisplay = value));
             DrawToggle("Show distance", config.ShowDistance, value => Update(c => c.Target.ShowDistance = value));
             DrawShieldMode(config.ShieldDisplay, value => Update(c => c.Target.ShieldDisplay = value));
             DrawToggle("Show cast name", config.ShowCastName, value => Update(c => c.Target.ShowCastName = value));
@@ -157,6 +160,7 @@ public sealed class ConfigurationWindow : Window
                 value => Update(c => c.FocusTarget.ShowCurrentHp = value),
                 value => Update(c => c.FocusTarget.ShowMaximumHp = value),
                 value => Update(c => c.FocusTarget.ShowHpPercentage = value));
+            DrawMpMode(config.MpDisplay, value => Update(c => c.FocusTarget.MpDisplay = value));
             DrawToggle("Show distance", config.ShowDistance,
                 value => Update(c => c.FocusTarget.ShowDistance = value));
             DrawShieldMode(config.ShieldDisplay,
@@ -279,13 +283,23 @@ public sealed class ConfigurationWindow : Window
     {
         SentinelUi.SectionHeader("Bar Colours");
         var appearance = configuration.Current.Appearance;
+        var playerMode = (int)appearance.PlayerHpColourMode;
+        if (ImGui.Combo("Player HP colour mode", ref playerMode, HpColourModes, HpColourModes.Length))
+            Update(c => c.Appearance.PlayerHpColourMode = (HpColourMode)playerMode);
+        var targetMode = (int)appearance.TargetHpColourMode;
+        if (ImGui.Combo("Target / Focus / ToT HP colour mode", ref targetMode,
+                HpColourModes, HpColourModes.Length))
+            Update(c => c.Appearance.TargetHpColourMode = (HpColourMode)targetMode);
+        ImGui.TextDisabled("Gradient: green at high HP, yellow through mid HP, red at 35% and below.");
+        ImGui.Spacing();
         DrawColour("Player HP", appearance.PlayerHealth, value => Update(c => c.Appearance.PlayerHealth.Set(value)));
         DrawColour("Friendly HP", appearance.FriendlyHealth, value => Update(c => c.Appearance.FriendlyHealth.Set(value)));
         DrawColour("Hostile HP", appearance.HostileHealth, value => Update(c => c.Appearance.HostileHealth.Set(value)));
         DrawColour("Neutral HP", appearance.NeutralHealth, value => Update(c => c.Appearance.NeutralHealth.Set(value)));
         DrawColour("Shield", appearance.Shield, value => Update(c => c.Appearance.Shield.Set(value)));
+        DrawColour("MP", appearance.Mp, value => Update(c => c.Appearance.Mp.Set(value)));
         ImGui.Spacing();
-        ImGui.TextWrapped("Hostile characters use the red hostile colour. Players, party/alliance members and friends use friendly colour; other objects use neutral colour.");
+        ImGui.TextWrapped("In Static / Role-Based mode, hostile characters use red; players, party/alliance members and friends use the friendly colour; other objects use neutral. Health-State Gradient intentionally overrides disposition colours.");
         ImGui.TextDisabled("Background, border, number style and alignment remain independently configurable per module.");
     }
 
@@ -442,6 +456,13 @@ public sealed class ConfigurationWindow : Window
         var mode = (int)current;
         if (ImGui.Combo("Shield display", ref mode, ShieldModes, ShieldModes.Length))
             setter((ShieldDisplayMode)mode);
+    }
+
+    private void DrawMpMode(MpDisplayMode current, Action<MpDisplayMode> setter)
+    {
+        var mode = (int)current;
+        if (ImGui.Combo("MP display", ref mode, MpModes, MpModes.Length))
+            setter((MpDisplayMode)mode);
     }
 
     private void DrawHighlightColour(HighlightColourPreset preset, SerializableColour custom,

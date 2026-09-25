@@ -7,7 +7,8 @@ var tests = new (string Name, Action Run)[]
     ("configuration defaults", TestDefaults),
     ("configuration migration and repair", TestMigration),
     ("version-one settings survive migration", TestVersionOneMigration),
-    ("version-two settings survive schema-three migration", TestVersionTwoMigration),
+    ("version-two settings survive schema-four migration", TestVersionTwoMigration),
+    ("version-three MP settings migrate to schema four", TestVersionThreeMigration),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
@@ -17,12 +18,14 @@ var tests = new (string Name, Action Run)[]
     ("integrated shield bar layout", TestShieldBarLayout),
     ("layout position round trip", TestLayoutRoundTrip),
     ("layout boundary protection", TestLayoutBoundaries),
+    ("edit chrome lock-unlock stability", TestEditChromeStability),
     ("module independence", TestModuleIndependence),
     ("module visibility conditions", TestModuleVisibilityConditions),
     ("self-highlight conditional modes", TestHighlightModes),
     ("self-highlight colours", TestHighlightColours),
     ("native self-highlight palette", TestNativeHighlightPalette),
     ("position-marker configuration", TestPositionMarkerConfiguration),
+    ("HP colour modes", TestHpColourModes),
     ("camera zoom policy", TestCameraZoomPolicy),
 };
 
@@ -63,6 +66,11 @@ static void TestDefaults()
     Equal(HighlightColourPreset.White, config.PlayerPositionMarker.ColourPreset);
     Near(0.01f, PlayerPositionMarkerPolicy.MinimumRadius);
     Equal(ShieldDisplayMode.BarAndText, config.Player.ShieldDisplay);
+    Equal(MpDisplayMode.BarAndText, config.Player.MpDisplay);
+    Equal(MpDisplayMode.Off, config.Target.MpDisplay);
+    Equal(MpDisplayMode.Off, config.FocusTarget.MpDisplay);
+    Equal(HpColourMode.StaticRoleBased, config.Appearance.PlayerHpColourMode);
+    Equal(HpColourMode.StaticRoleBased, config.Appearance.TargetHpColourMode);
     Equal(320f, config.Target.Width);
     Equal(20f, config.Target.BarHeight);
     Equal(new Vector4(0.88f, 0.20f, 0.18f, 1f), config.Appearance.HostileHealth.ToVector4());
@@ -138,9 +146,15 @@ static void TestSerialization()
     source.Camera.Enabled = true;
     source.Camera.MaximumZoomDistance = 42f;
     source.Target.ShieldDisplay = ShieldDisplayMode.BarOnly;
+    source.Player.MpDisplay = MpDisplayMode.TextOnly;
+    source.Target.MpDisplay = MpDisplayMode.BarAndText;
+    source.FocusTarget.MpDisplay = MpDisplayMode.BarOnly;
     source.Target.NativeHpOverlay.Mode = NativeTargetOverlayMode.CombatOnly;
     source.Target.NativeHpOverlay.OffsetY = 17f;
     source.Appearance.HostileHealth.Set(new Vector4(0.7f, 0.1f, 0.2f, 1f));
+    source.Appearance.Mp.Set(new Vector4(0.15f, 0.35f, 0.75f, 1f));
+    source.Appearance.PlayerHpColourMode = HpColourMode.HealthStateGradient;
+    source.Appearance.TargetHpColourMode = HpColourMode.HealthStateGradient;
 
     var json = JsonSerializer.Serialize(source);
     var restored = JsonSerializer.Deserialize<HudConfigurationData>(json);
@@ -163,9 +177,15 @@ static void TestSerialization()
     True(restored.Camera.Enabled);
     Near(42f, restored.Camera.MaximumZoomDistance);
     Equal(ShieldDisplayMode.BarOnly, restored.Target.ShieldDisplay);
+    Equal(MpDisplayMode.TextOnly, restored.Player.MpDisplay);
+    Equal(MpDisplayMode.BarAndText, restored.Target.MpDisplay);
+    Equal(MpDisplayMode.BarOnly, restored.FocusTarget.MpDisplay);
     Equal(NativeTargetOverlayMode.CombatOnly, restored.Target.NativeHpOverlay.Mode);
     Near(17f, restored.Target.NativeHpOverlay.OffsetY);
     Near(0.7f, restored.Appearance.HostileHealth.Red);
+    Near(0.75f, restored.Appearance.Mp.Blue);
+    Equal(HpColourMode.HealthStateGradient, restored.Appearance.PlayerHpColourMode);
+    Equal(HpColourMode.HealthStateGradient, restored.Appearance.TargetHpColourMode);
 }
 
 static void TestVersionOneMigration()
@@ -211,7 +231,7 @@ static void TestVersionTwoMigration()
 
     HudConfigurationMigrator.Normalize(source);
 
-    Equal(3, source.Version);
+    Equal(HudConfigurationData.CurrentVersion, source.Version);
     Equal(SelfHighlightMode.Always, source.PlayerPositionMarker.Mode);
     True(source.PlayerPositionMarker.Enabled);
     Near(0.04f, source.PlayerPositionMarker.Radius);
@@ -221,6 +241,28 @@ static void TestVersionTwoMigration()
     Equal(320f, source.Target.Width);
     Equal(ShieldDisplayMode.Off, source.Target.ShieldDisplay);
     Equal(ShieldDisplayMode.BarAndText, source.FocusTarget.ShieldDisplay);
+}
+
+static void TestVersionThreeMigration()
+{
+    var source = new HudConfigurationData
+    {
+        Version = 3,
+    };
+    source.Player.ShowMp = false;
+    source.Player.MpDisplay = MpDisplayMode.BarAndText;
+    source.Player.Layout.AnchorX = 0.42f;
+    source.Player.Layout.AnchorY = 0.61f;
+
+    HudConfigurationMigrator.Normalize(source);
+
+    Equal(HudConfigurationData.CurrentVersion, source.Version);
+    Equal(MpDisplayMode.Off, source.Player.MpDisplay);
+    False(source.Player.ShowMp);
+    Equal(MpDisplayMode.Off, source.Target.MpDisplay);
+    Equal(MpDisplayMode.Off, source.FocusTarget.MpDisplay);
+    Near(0.42f, source.Player.Layout.AnchorX);
+    Near(0.61f, source.Player.Layout.AnchorY);
 }
 
 static void TestHitPointFormatting()
@@ -310,6 +352,39 @@ static void TestLayoutBoundaries()
         new Vector2(800f, 600f),
         new Vector2(1200f, 900f));
     Equal(new Vector2(100f, 50f), oversized);
+}
+
+static void TestEditChromeStability()
+{
+    var layout = new ModuleLayoutConfiguration { AnchorX = 0.23f, AnchorY = 0.71f };
+    var workPosition = new Vector2(80f, 40f);
+    var workSize = new Vector2(1920f, 1080f);
+    var contentSize = new Vector2(320f, 128f);
+    const float chromeHeight = 27f;
+
+    for (var iteration = 0; iteration < 100; iteration++)
+    {
+        var expectedContentPosition = LayoutPolicy.ToPixelPosition(
+            layout, workPosition, workSize, contentSize);
+
+        var unlockedOuter = LayoutPolicy.ToOuterWindowPosition(expectedContentPosition, chromeHeight);
+        var unlockedContent = LayoutPolicy.ToContentPosition(unlockedOuter, chromeHeight);
+        var unlockedContentSize = LayoutPolicy.ToContentSize(
+            contentSize + new Vector2(0f, chromeHeight), chromeHeight);
+        layout = LayoutPolicy.ToNormalizedPosition(
+            unlockedContent, workPosition, workSize, unlockedContentSize);
+
+        var lockedOuter = LayoutPolicy.ToOuterWindowPosition(expectedContentPosition, 0f);
+        var lockedContent = LayoutPolicy.ToContentPosition(lockedOuter, 0f);
+        layout = LayoutPolicy.ToNormalizedPosition(
+            lockedContent, workPosition, workSize, contentSize);
+
+        Near(0.23f, layout.AnchorX);
+        Near(0.71f, layout.AnchorY);
+        Equal(expectedContentPosition, unlockedContent);
+        Equal(expectedContentPosition, lockedContent);
+        Equal(contentSize, unlockedContentSize);
+    }
 }
 
 static void TestModuleIndependence()
@@ -413,6 +488,27 @@ static void TestPositionMarkerConfiguration()
     Near(0.72f, colour.Y);
     Near(1f, colour.Z);
     Near(0.64f, colour.W);
+}
+
+static void TestHpColourModes()
+{
+    var staticColour = new Vector4(0.88f, 0.20f, 0.18f, 0.73f);
+    Equal(staticColour, HpColourPolicy.Resolve(
+        HpColourMode.StaticRoleBased, 0.95f, staticColour));
+    Equal(HpColourPolicy.HighHealth, HpColourPolicy.Resolve(
+        HpColourMode.HealthStateGradient, 1f, staticColour));
+    Equal(HpColourPolicy.HighHealth, HpColourPolicy.Resolve(
+        HpColourMode.HealthStateGradient, 0.80f, staticColour));
+    Equal(HpColourPolicy.MidHealth, HpColourPolicy.Resolve(
+        HpColourMode.HealthStateGradient, 0.55f, staticColour));
+    Equal(HpColourPolicy.LowHealth, HpColourPolicy.Resolve(
+        HpColourMode.HealthStateGradient, 0.35f, staticColour));
+    Equal(HpColourPolicy.LowHealth, HpColourPolicy.Resolve(
+        HpColourMode.HealthStateGradient, float.NaN, staticColour));
+
+    var transitioning = HpColourPolicy.Resolve(
+        HpColourMode.HealthStateGradient, 0.675f, staticColour);
+    Equal(Vector4.Lerp(HpColourPolicy.MidHealth, HpColourPolicy.HighHealth, 0.5f), transitioning);
 }
 
 static void TestCameraZoomPolicy()

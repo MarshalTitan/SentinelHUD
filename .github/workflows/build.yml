@@ -60,11 +60,11 @@ jobs:
 
       - name: Validate installable package
         shell: pwsh
-        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '0.3.0.0'
+        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '0.4.0.0'
 
       - name: Upload installable package
         uses: actions/upload-artifact@v7
         with:
-          name: SentinelHUD-0.3.0.0
+          name: SentinelHUD-0.4.0.0
           path: src/SentinelHUD/bin/Release/SentinelHUD/latest.zip
           if-no-files-found: error

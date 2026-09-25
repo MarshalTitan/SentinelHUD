@@ -34,6 +34,20 @@ public enum ShieldDisplayMode
     BarAndText,
 }
 
+public enum MpDisplayMode
+{
+    Off,
+    TextOnly,
+    BarOnly,
+    BarAndText,
+}
+
+public enum HpColourMode
+{
+    StaticRoleBased,
+    HealthStateGradient,
+}
+
 public enum HudTextAlignment
 {
     Left,
@@ -101,6 +115,7 @@ public sealed class PlayerModuleConfiguration : HudModuleConfiguration
     public bool ShowMaximumHp { get; set; } = true;
     public bool ShowHpPercentage { get; set; } = true;
     public bool ShowMp { get; set; } = true;
+    public MpDisplayMode MpDisplay { get; set; } = MpDisplayMode.BarAndText;
     public bool ShowShield { get; set; } = true;
     public ShieldDisplayMode ShieldDisplay { get; set; } = ShieldDisplayMode.BarAndText;
     public bool ShowStatuses { get; set; }
@@ -116,6 +131,7 @@ public sealed class TargetModuleConfiguration : HudModuleConfiguration
     public bool ShowJob { get; set; }
     public bool ShowRole { get; set; }
     public bool ShowLevel { get; set; } = true;
+    public MpDisplayMode MpDisplay { get; set; } = MpDisplayMode.Off;
     public bool ShowShield { get; set; } = true;
     public ShieldDisplayMode ShieldDisplay { get; set; } = ShieldDisplayMode.BarAndText;
     public bool ShowCastName { get; set; } = true;
@@ -132,6 +148,7 @@ public sealed class FocusTargetModuleConfiguration : HudModuleConfiguration
     public bool ShowMaximumHp { get; set; } = true;
     public bool ShowHpPercentage { get; set; } = true;
     public bool ShowDistance { get; set; } = true;
+    public MpDisplayMode MpDisplay { get; set; } = MpDisplayMode.Off;
     public bool ShowShield { get; set; } = true;
     public ShieldDisplayMode ShieldDisplay { get; set; } = ShieldDisplayMode.BarAndText;
     public bool ShowCastName { get; set; } = true;
@@ -210,11 +227,14 @@ public sealed class NativeTargetOverlayConfiguration
 
 public sealed class HudAppearanceConfiguration
 {
+    public HpColourMode PlayerHpColourMode { get; set; } = HpColourMode.StaticRoleBased;
+    public HpColourMode TargetHpColourMode { get; set; } = HpColourMode.StaticRoleBased;
     public SerializableColour PlayerHealth { get; set; } = new() { Red = 0.28f, Green = 0.76f, Blue = 0.43f, Alpha = 1f };
     public SerializableColour FriendlyHealth { get; set; } = new() { Red = 0.30f, Green = 0.72f, Blue = 0.48f, Alpha = 1f };
     public SerializableColour HostileHealth { get; set; } = new() { Red = 0.88f, Green = 0.20f, Blue = 0.18f, Alpha = 1f };
     public SerializableColour NeutralHealth { get; set; } = new() { Red = 0.56f, Green = 0.56f, Blue = 0.60f, Alpha = 1f };
     public SerializableColour Shield { get; set; } = new() { Red = 0.18f, Green = 0.55f, Blue = 1f, Alpha = 1f };
+    public SerializableColour Mp { get; set; } = new() { Red = 0.22f, Green = 0.45f, Blue = 0.92f, Alpha = 1f };
 }
 
 public sealed class ExtendedCameraZoomConfiguration
@@ -225,7 +245,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -322,6 +342,7 @@ public static class HudConfigurationMigrator
         configuration.Appearance.HostileHealth ??= new HudAppearanceConfiguration().HostileHealth;
         configuration.Appearance.NeutralHealth ??= new HudAppearanceConfiguration().NeutralHealth;
         configuration.Appearance.Shield ??= new HudAppearanceConfiguration().Shield;
+        configuration.Appearance.Mp ??= new HudAppearanceConfiguration().Mp;
 
         if (sourceVersion < 3)
         {
@@ -341,6 +362,15 @@ public static class HudConfigurationMigrator
             configuration.FocusTarget.ShieldDisplay = configuration.FocusTarget.ShowShield
                 ? ShieldDisplayMode.BarAndText
                 : ShieldDisplayMode.Off;
+        }
+
+        if (sourceVersion < 4)
+        {
+            configuration.Player.MpDisplay = configuration.Player.ShowMp
+                ? MpDisplayMode.BarAndText
+                : MpDisplayMode.Off;
+            configuration.Target.MpDisplay = MpDisplayMode.Off;
+            configuration.FocusTarget.MpDisplay = MpDisplayMode.Off;
         }
 
         NormalizeModule(configuration.Player, HudConfigurationDefaults.CreatePlayer().Layout);
@@ -386,6 +416,7 @@ public static class HudConfigurationMigrator
         NormalizeColour(configuration.Appearance.HostileHealth, new Vector4(0.88f, 0.20f, 0.18f, 1f));
         NormalizeColour(configuration.Appearance.NeutralHealth, new Vector4(0.56f, 0.56f, 0.60f, 1f));
         NormalizeColour(configuration.Appearance.Shield, new Vector4(0.18f, 0.55f, 1f, 1f));
+        NormalizeColour(configuration.Appearance.Mp, new Vector4(0.22f, 0.45f, 0.92f, 1f));
 
         if (!Enum.IsDefined(configuration.SelfHighlight.Mode))
             configuration.SelfHighlight.Mode = SelfHighlightMode.Off;
@@ -401,6 +432,16 @@ public static class HudConfigurationMigrator
             configuration.Target.ShieldDisplay = ShieldDisplayMode.BarAndText;
         if (!Enum.IsDefined(configuration.FocusTarget.ShieldDisplay))
             configuration.FocusTarget.ShieldDisplay = ShieldDisplayMode.BarAndText;
+        if (!Enum.IsDefined(configuration.Player.MpDisplay))
+            configuration.Player.MpDisplay = MpDisplayMode.BarAndText;
+        if (!Enum.IsDefined(configuration.Target.MpDisplay))
+            configuration.Target.MpDisplay = MpDisplayMode.Off;
+        if (!Enum.IsDefined(configuration.FocusTarget.MpDisplay))
+            configuration.FocusTarget.MpDisplay = MpDisplayMode.Off;
+        if (!Enum.IsDefined(configuration.Appearance.PlayerHpColourMode))
+            configuration.Appearance.PlayerHpColourMode = HpColourMode.StaticRoleBased;
+        if (!Enum.IsDefined(configuration.Appearance.TargetHpColourMode))
+            configuration.Appearance.TargetHpColourMode = HpColourMode.StaticRoleBased;
         if (!Enum.IsDefined(configuration.Target.NativeHpOverlay.Mode))
             configuration.Target.NativeHpOverlay.Mode = NativeTargetOverlayMode.Off;
         if (!Enum.IsDefined(configuration.Target.NativeHpOverlay.HpFormat))
@@ -411,6 +452,7 @@ public static class HudConfigurationMigrator
         configuration.Target.NativeHpOverlay.OffsetX = ClampFinite(configuration.Target.NativeHpOverlay.OffsetX, -500f, 500f, 0f);
         configuration.Target.NativeHpOverlay.OffsetY = ClampFinite(configuration.Target.NativeHpOverlay.OffsetY, -250f, 250f, 4f);
         configuration.PlayerPositionMarker.Enabled = configuration.PlayerPositionMarker.Mode != SelfHighlightMode.Off;
+        configuration.Player.ShowMp = configuration.Player.MpDisplay != MpDisplayMode.Off;
         configuration.Player.ShowShield = configuration.Player.ShieldDisplay != ShieldDisplayMode.Off;
         configuration.Target.ShowShield = configuration.Target.ShieldDisplay != ShieldDisplayMode.Off;
         configuration.FocusTarget.ShowShield = configuration.FocusTarget.ShieldDisplay != ShieldDisplayMode.Off;

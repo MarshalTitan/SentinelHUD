@@ -4,6 +4,18 @@ namespace SentinelHUD.Core;
 
 public static class LayoutPolicy
 {
+    public static Vector2 ToOuterWindowPosition(Vector2 contentPosition, float editChromeHeight)
+        => new(contentPosition.X, contentPosition.Y - SanitizeChromeHeight(editChromeHeight));
+
+    public static Vector2 ToContentPosition(Vector2 outerWindowPosition, float editChromeHeight)
+        => new(outerWindowPosition.X, outerWindowPosition.Y + SanitizeChromeHeight(editChromeHeight));
+
+    public static Vector2 ToContentSize(Vector2 outerWindowSize, float editChromeHeight)
+    {
+        var chrome = SanitizeChromeHeight(editChromeHeight);
+        return new Vector2(outerWindowSize.X, Math.Max(1f, outerWindowSize.Y - chrome));
+    }
+
     public static Vector2 ToPixelPosition(
         ModuleLayoutConfiguration layout,
         Vector2 workPosition,
@@ -70,4 +82,7 @@ public static class LayoutPolicy
 
     private static float ClampFinite(float value, float minimum, float maximum, float fallback)
         => float.IsFinite(value) ? Math.Clamp(value, minimum, maximum) : fallback;
+
+    private static float SanitizeChromeHeight(float value)
+        => float.IsFinite(value) ? Math.Max(0f, value) : 0f;
 }
