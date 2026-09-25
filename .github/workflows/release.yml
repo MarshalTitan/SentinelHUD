@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes 'Targeting and casting refinement release: fixes the native exact-HP overlay for combined and split stock Target Info layouts with gauge-level anchoring and expanded diagnostics; adds configurable Player cast name/bar/percentage/remaining time; and adds a live Focus Target’s Target row with granular fields and click-only safe hard-target interaction.'
+            --notes "Targeting and casting refinement release: fixes the native exact-HP overlay for combined and split stock Target Info layouts with gauge-level anchoring and expanded diagnostics; adds configurable Player cast name/bar/percentage/remaining time; and adds a live Focus Target's Target row with granular fields and click-only safe hard-target interaction."
 
       - name: Verify public release asset
         shell: pwsh
