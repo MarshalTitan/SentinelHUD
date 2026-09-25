@@ -7,18 +7,21 @@ var tests = new (string Name, Action Run)[]
     ("configuration defaults", TestDefaults),
     ("configuration migration and repair", TestMigration),
     ("version-one settings survive migration", TestVersionOneMigration),
-    ("version-two settings survive schema-four migration", TestVersionTwoMigration),
-    ("version-three MP settings migrate to schema four", TestVersionThreeMigration),
+    ("version-two settings survive schema-five migration", TestVersionTwoMigration),
+    ("version-three MP settings migrate to schema five", TestVersionThreeMigration),
+    ("version-four settings survive schema-five migration", TestVersionFourMigration),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
     ("percentage formatting", TestPercentageFormatting),
+    ("remaining cast-time formatting", TestRemainingCastTimeFormatting),
     ("distance formatting", TestDistanceFormatting),
     ("shield formatting", TestShieldFormatting),
     ("integrated shield bar layout", TestShieldBarLayout),
     ("layout position round trip", TestLayoutRoundTrip),
     ("layout boundary protection", TestLayoutBoundaries),
     ("edit chrome lock-unlock stability", TestEditChromeStability),
+    ("native target anchor bounds", TestNativeTargetAnchorBounds),
     ("module independence", TestModuleIndependence),
     ("module visibility conditions", TestModuleVisibilityConditions),
     ("self-highlight conditional modes", TestHighlightModes),
@@ -58,6 +61,12 @@ static void TestDefaults()
     True(config.Player.Enabled);
     True(config.Target.ShowDistance);
     True(config.FocusTarget.ShowCastBar);
+    True(config.Player.ShowCastName);
+    True(config.Player.ShowCastBar);
+    True(config.Player.ShowCastPercentage);
+    False(config.Player.ShowCastRemainingTime);
+    True(config.FocusTarget.TargetOfFocus.Show);
+    True(config.FocusTarget.TargetOfFocus.ClickToTarget);
     True(config.TargetOfTarget.Enabled);
     Equal(SelfHighlightMode.Off, config.SelfHighlight.Mode);
     Equal(HighlightColourPreset.Yellow, config.SelfHighlight.ColourPreset);
@@ -155,6 +164,9 @@ static void TestSerialization()
     source.Appearance.Mp.Set(new Vector4(0.15f, 0.35f, 0.75f, 1f));
     source.Appearance.PlayerHpColourMode = HpColourMode.HealthStateGradient;
     source.Appearance.TargetHpColourMode = HpColourMode.HealthStateGradient;
+    source.Player.ShowCastRemainingTime = true;
+    source.FocusTarget.TargetOfFocus.ShowHpPercentage = false;
+    source.FocusTarget.TargetOfFocus.ClickToTarget = false;
 
     var json = JsonSerializer.Serialize(source);
     var restored = JsonSerializer.Deserialize<HudConfigurationData>(json);
@@ -186,6 +198,9 @@ static void TestSerialization()
     Near(0.75f, restored.Appearance.Mp.Blue);
     Equal(HpColourMode.HealthStateGradient, restored.Appearance.PlayerHpColourMode);
     Equal(HpColourMode.HealthStateGradient, restored.Appearance.TargetHpColourMode);
+    True(restored.Player.ShowCastRemainingTime);
+    False(restored.FocusTarget.TargetOfFocus.ShowHpPercentage);
+    False(restored.FocusTarget.TargetOfFocus.ClickToTarget);
 }
 
 static void TestVersionOneMigration()
@@ -265,6 +280,28 @@ static void TestVersionThreeMigration()
     Near(0.61f, source.Player.Layout.AnchorY);
 }
 
+static void TestVersionFourMigration()
+{
+    var source = new HudConfigurationData
+    {
+        Version = 4,
+    };
+    source.Player.Layout.AnchorX = 0.27f;
+    source.Player.Layout.AnchorY = 0.74f;
+    source.Player.MpDisplay = MpDisplayMode.TextOnly;
+    source.FocusTarget.TargetOfFocus = null!;
+
+    HudConfigurationMigrator.Normalize(source);
+
+    Equal(HudConfigurationData.CurrentVersion, source.Version);
+    Near(0.27f, source.Player.Layout.AnchorX);
+    Near(0.74f, source.Player.Layout.AnchorY);
+    Equal(MpDisplayMode.TextOnly, source.Player.MpDisplay);
+    NotNull(source.FocusTarget.TargetOfFocus);
+    True(source.FocusTarget.TargetOfFocus.Show);
+    True(source.FocusTarget.TargetOfFocus.ClickToTarget);
+}
+
 static void TestHitPointFormatting()
 {
     Equal("7,428,113 / 12,500,000 — 59.4%", HudFormatting.HitPoints(7_428_113, 12_500_000, true, true, true));
@@ -290,6 +327,14 @@ static void TestPercentageFormatting()
     Equal("--", HudFormatting.Percentage(0, 0));
     Equal("100.0%", HudFormatting.CastPercentage(2f, 2f));
     Equal("--", HudFormatting.CastPercentage(2f, 0f));
+}
+
+static void TestRemainingCastTimeFormatting()
+{
+    Equal("0.45s", HudFormatting.RemainingCastTime(1.55f, 2f));
+    Equal("0.00s", HudFormatting.RemainingCastTime(3f, 2f));
+    Equal("--", HudFormatting.RemainingCastTime(1f, 0f));
+    Equal("--", HudFormatting.RemainingCastTime(float.NaN, 2f));
 }
 
 static void TestDistanceFormatting()
@@ -385,6 +430,31 @@ static void TestEditChromeStability()
         Equal(expectedContentPosition, lockedContent);
         Equal(contentSize, unlockedContentSize);
     }
+}
+
+static void TestNativeTargetAnchorBounds()
+{
+    True(NativeTargetAnchorPolicy.TryCreate(
+        new Vector2(500f, 120f),
+        new Vector2(820f, 144f),
+        3f,
+        4f,
+        out var anchor));
+    Equal(new Vector2(503f, 148f), anchor.Position);
+    Equal(new Vector2(320f, 24f), anchor.Size);
+
+    False(NativeTargetAnchorPolicy.TryCreate(
+        new Vector2(500f, 120f),
+        new Vector2(520f, 144f),
+        0f,
+        4f,
+        out _));
+    False(NativeTargetAnchorPolicy.TryCreate(
+        new Vector2(float.NaN, 120f),
+        new Vector2(820f, 144f),
+        0f,
+        4f,
+        out _));
 }
 
 static void TestModuleIndependence()

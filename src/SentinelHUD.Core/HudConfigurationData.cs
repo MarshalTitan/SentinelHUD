@@ -118,6 +118,10 @@ public sealed class PlayerModuleConfiguration : HudModuleConfiguration
     public MpDisplayMode MpDisplay { get; set; } = MpDisplayMode.BarAndText;
     public bool ShowShield { get; set; } = true;
     public ShieldDisplayMode ShieldDisplay { get; set; } = ShieldDisplayMode.BarAndText;
+    public bool ShowCastName { get; set; } = true;
+    public bool ShowCastBar { get; set; } = true;
+    public bool ShowCastPercentage { get; set; } = true;
+    public bool ShowCastRemainingTime { get; set; }
     public bool ShowStatuses { get; set; }
 }
 
@@ -154,6 +158,18 @@ public sealed class FocusTargetModuleConfiguration : HudModuleConfiguration
     public bool ShowCastName { get; set; } = true;
     public bool ShowCastBar { get; set; } = true;
     public bool ShowCastPercentage { get; set; } = true;
+    public FocusTargetsTargetConfiguration TargetOfFocus { get; set; } = new();
+}
+
+public sealed class FocusTargetsTargetConfiguration
+{
+    public bool Show { get; set; } = true;
+    public bool ShowName { get; set; } = true;
+    public bool ShowCurrentHp { get; set; } = true;
+    public bool ShowHpPercentage { get; set; } = true;
+    public bool ShowJob { get; set; } = true;
+    public bool ShowLevel { get; set; } = true;
+    public bool ClickToTarget { get; set; } = true;
 }
 
 public sealed class TargetOfTargetModuleConfiguration : HudModuleConfiguration
@@ -245,7 +261,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -322,6 +338,7 @@ public static class HudConfigurationMigrator
         configuration.Camera ??= new ExtendedCameraZoomConfiguration();
         configuration.Appearance ??= new HudAppearanceConfiguration();
         configuration.Target.NativeHpOverlay ??= new NativeTargetOverlayConfiguration();
+        configuration.FocusTarget.TargetOfFocus ??= new FocusTargetsTargetConfiguration();
         configuration.SelfHighlight.CustomColour ??= new SerializableColour
         {
             Red = 1f,

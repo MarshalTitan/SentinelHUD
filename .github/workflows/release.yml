@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes 'HUD refinement release: fixes cumulative lock/unlock position drift with stable content-origin anchoring, adds configurable MP bars and text for player/target/focus modules, and adds independent Player and Target health-state gradient modes while preserving static role/disposition colours.'
+            --notes 'Targeting and casting refinement release: fixes the native exact-HP overlay for combined and split stock Target Info layouts with gauge-level anchoring and expanded diagnostics; adds configurable Player cast name/bar/percentage/remaining time; and adds a live Focus Target’s Target row with granular fields and click-only safe hard-target interaction.'
 
       - name: Verify public release asset
         shell: pwsh

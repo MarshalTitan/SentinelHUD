@@ -64,6 +64,13 @@ public static class HudFormatting
                 CultureInfo.InvariantCulture,
                 $"{Math.Clamp(current / total * 100f, 0f, 100f):0.0}%");
 
+    public static string RemainingCastTime(float current, float total)
+        => total <= 0f || !float.IsFinite(current) || !float.IsFinite(total)
+            ? "--"
+            : string.Create(
+                CultureInfo.InvariantCulture,
+                $"{Math.Max(0f, total - current):0.00}s");
+
     public static string Distance(float yalms)
         => !float.IsFinite(yalms)
             ? "--"

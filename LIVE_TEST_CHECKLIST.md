@@ -1,4 +1,4 @@
-# Sentinel HUD 0.4.0.0 — Live Test
+# Sentinel HUD 0.5.0.0 — Live Test
 
 ## Startup and configuration migration
 
@@ -95,9 +95,44 @@
 - [ ] Test Full and Compact number formatting.
 - [ ] Adjust X/Y offsets.
 - [ ] Move the stock FFXIV Target HUD element in HUD Layout and confirm the overlay follows.
+- [ ] Test the normal combined Target Info layout.
+- [ ] Test the separated Target Info layout; exact HP anchors to the visible Main Target HP bar.
+- [ ] Diagnostics identifies the detected layout/addon, HP-gauge or root anchor source, screen position/size and visibility state.
+- [ ] Enter and leave combat in Combat Only mode.
 - [ ] Change targets and confirm values update.
 - [ ] Clear the target and confirm the overlay disappears.
+- [ ] No stale overlay remains after clearing or changing target.
 - [ ] Hide the FFXIV UI and confirm the supplement disappears.
+
+## Player Cast Bar
+
+- [ ] Cast a spell with a cast time and confirm the cast name appears.
+- [ ] The cast bar advances smoothly and obeys Player width, scale, bar height and text alignment.
+- [ ] Cast percentage updates through completion.
+- [ ] Enable remaining time and confirm it counts down accurately.
+- [ ] Independently disable name, bar, percentage and remaining time.
+- [ ] Interrupt or cancel a cast and confirm the row disappears immediately.
+- [ ] Finish a cast and confirm no permanent empty row remains.
+
+## Focus Target's Target
+
+- [ ] Set another player as Focus Target and have them target an enemy.
+- [ ] Their target's configured name, HP, HP %, job and level fields appear when applicable.
+- [ ] Have the Focus Target change targets; Sentinel updates without retaining the previous actor.
+- [ ] Have the Focus Target clear target; the row disappears without stale information.
+- [ ] Focus an enemy that targets the player and confirm its target resolves when exposed by the client.
+- [ ] NPCs do not receive a fabricated player job.
+
+## Click to Target
+
+- [ ] Focus a player, let them target an enemy, and click that enemy's Focus Target's Target row.
+- [ ] The normal FFXIV hard target becomes that current actor.
+- [ ] Change their target and repeat; the newly resolved actor is targeted.
+- [ ] The cursor/row hover treatment makes the interaction discoverable without a large button.
+- [ ] Normal world mouse interaction works everywhere outside the visible row.
+- [ ] The rest of the locked Focus Target module remains click-through.
+- [ ] Disable Click to Target and confirm the row no longer intercepts clicks.
+- [ ] Let the actor leave the object table before clicking; targeting fails safely and Diagnostics explains the result.
 
 ## Target and bar colours
 
@@ -134,4 +169,4 @@
 - [ ] Logging out and back in recovers all enabled features.
 - [ ] Entering/exiting duties and PvP does not break the HUD.
 - [ ] Disabling Sentinel HUD removes panels, native-target text, silhouette and marker and restores camera limits.
-- [ ] Diagnostics reports module visibility, target resolution, highlight state, marker mode/projection, native-target anchor and camera state without frame-by-frame spam.
+- [ ] Diagnostics reports module visibility, target/focus/Focus-ToT resolution, highlight state, marker mode/projection, native-target variants/anchor and camera state without frame-by-frame spam.

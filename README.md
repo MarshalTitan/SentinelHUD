@@ -2,18 +2,18 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.4.0.0** · Dalamud API **15** · .NET **10**
+Current release: **0.5.0.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
-- Player: compact name/job/level header, independently selectable HP values, MP text/bar modes, integrated shield display and a compact status summary.
+- Player: compact name/job/level header, independently selectable HP values, MP text/bar modes, integrated shield display, own-cast name/bar/percentage/remaining time and a compact status summary.
 - Target: compact player/NPC-aware header, independently selectable HP values, optional MP text/bar modes, distance, integrated shield display, cast information and statuses.
-- Focus target: name, HP, optional MP text/bar modes, distance, shield and cast information.
+- Focus target: name, HP, optional MP text/bar modes, distance, shield and cast information, plus a compact Focus Target's Target row with safe click-to-target.
 - Target-of-target: an independent small module with name, HP and optional distance.
 - Layout editor: stable content-origin anchoring across unlock/lock, drag editing, per-module scale, width, bar height, background/border appearance, one-module reset, appearance copy and complete layout reset.
 - Per-module visibility conditions: Always, Combat Only, Duty Only or Combat or Duty. Locked modules are click-through.
 - Custom compact HP/MP/cast bars with Left/Center/Right text alignment, Full/Compact numbers, optional health-state gradients, hostile-red static disposition colouring and a blue shield segment inside the HP bar.
-- Optional exact-HP supplement anchored read-only beneath the native `_TargetInfo` addon, including Always/Combat Only modes and X/Y fine tuning.
+- Optional exact-HP supplement anchored read-only beneath the visible native target HP gauge. It supports both combined `_TargetInfo` and split `_TargetInfoMainTarget` layouts, including Always/Combat Only modes and X/Y fine tuning.
 - Resolution-safe normalized positions with screen-boundary protection and delayed persistent saves.
 - Native, model-conforming self silhouette with Off, Always, Combat Only and Duty Only modes. It follows the animated model, equipment, weapons, mount and ornament without changing any target state.
 - Independent Player Position Marker: a terrain-projected dot centred on the local actor's actual origin, with Off/Always/Combat Only/Duty Only modes, independent colour, 0.01–0.60-yalm radius, opacity and inward border controls.
@@ -51,13 +51,17 @@ HP presentation is controlled by independent current, maximum and percentage swi
 
 MP Display supports Off, Text Only, Bar Only and Bar + Text. Player defaults to Bar + Text; Target and Focus Target default Off and omit the resource when the current actor has no meaningful maximum MP. The MP bar uses an FFXIV-style blue and obeys the module's independent width, bar height, number format and text alignment.
 
+Player casting can independently show the current action name, progress bar, percentage and remaining time. It uses the Player module's width, scale, bar height and text alignment and occupies no space while the player is not casting.
+
+Focus Target's Target is a compact child row in the Focus Target module. It is resolved fresh from the current Focus Target ID and current object table on every draw; absent actors are hidden rather than retained. Optional click-to-target re-resolves the actor at click time and uses Dalamud's supported hard-target property. A transparent interaction window covers only the visible row, leaving the rest of a locked HUD click-through.
+
 ### Integrated health bars
 
 Health, shield, MP and cast bars use the module's independent Width and Bar Height rather than stretching the complete UI. At less than full HP, shield extends from the current HP endpoint into unused bar space. Any shield beyond that space overlays the rightmost part of the HP fill; at full HP the blue segment overlays the rightmost proportional part of the bar. Static / Role-Based mode keeps hostile characters red by default. The optional Health-State Gradient smoothly blends red at 35% and below through yellow at mid health to green from 80% upward; separate Player and Target/Focus/ToT modes prevent the two groups from being coupled.
 
 ### Native Target HP Overlay
 
-The optional overlay reads `_TargetInfo` position, scale and root bounds every frame and draws exact HP below it. Moving the stock Target HUD element through FFXIV HUD Layout therefore moves the supplement with it. Sentinel HUD never inserts nodes into or writes to the native addon. X/Y offsets are available because individual HUD layouts and status/cast arrangements can change the preferred spacing.
+The optional overlay probes the current combined `_TargetInfo` and split `_TargetInfoMainTarget` stock layouts, selects the visible variant, and reads the actual HP gauge node's screen bounds every frame. It uses node 19 for combined Target Info and node 13 for split Main Target, with read-only addon-root bounds as a safe fallback. Moving the stock target element through FFXIV HUD Layout therefore moves the supplement with it. Sentinel HUD never inserts nodes into or writes to the native addon. Diagnostics reports each variant's availability/visibility, selected addon, anchor source, position, size and any failure reason.
 
 ## Awareness implementation and safety
 
@@ -123,5 +127,6 @@ Screenshots will be added after the first in-game layout and colour pass.
 - Sentinel HUD intentionally yields camera control when a known camera plugin is loaded; use one zoom controller at a time.
 - Status display is intentionally a compact first-five summary; filtering and prioritization are future work.
 - Some non-character objects do not expose meaningful HP, job, shield, status or cast data; unsupported fields are omitted safely.
-- The native target supplement anchors to `_TargetInfo` root bounds rather than modifying the addon. Unusual split/addon layouts may need the provided X/Y offset, which should be confirmed during live testing.
+- The native target supplement supports current combined and split stock target layouts and falls back to read-only root bounds if the expected gauge node is unavailable. A future FFXIV node-ID change may require maintenance; diagnostics exposes exactly which lookup failed.
+- Focus Target's Target can only resolve actors currently exposed in the client object table. The row clears immediately when resolution fails, and click-to-target refuses actors that have vanished or are not currently targetable.
 - Live native rendering, terrain collision, camera behavior, controller safety and full restart persistence require in-game testing because automated CI cannot launch FFXIV.

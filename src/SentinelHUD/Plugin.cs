@@ -58,6 +58,8 @@ public sealed class Plugin : IDalamudPlugin
             new NativeSelfHighlightService(ClientState, Condition, GameGui, data));
         var positionMarker = new PlayerPositionMarkerRenderer(GameGui);
         var nativeTargetOverlay = new NativeTargetHpOverlayRenderer(GameGui);
+        var actorTargeting = new ActorTargetingService(ObjectTable, TargetManager);
+        var actorInteractions = new ActorInteractionRenderer(actorTargeting);
         var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
             new ExtendedCameraZoomService(PluginInterface, ClientState, Condition));
         hudRenderer = new HudRenderer(
@@ -66,6 +68,7 @@ public sealed class Plugin : IDalamudPlugin
             highlight,
             positionMarker,
             nativeTargetOverlay,
+            actorInteractions,
             cameraZoom,
             GameGui,
             ClientState,

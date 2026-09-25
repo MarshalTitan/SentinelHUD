@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Text;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
@@ -20,12 +21,15 @@ public sealed class HudRenderer
     private readonly ISelfHighlightService selfHighlight;
     private readonly PlayerPositionMarkerRenderer positionMarker;
     private readonly NativeTargetHpOverlayRenderer nativeTargetOverlay;
+    private readonly ActorInteractionRenderer actorInteractions;
     private readonly IExtendedCameraZoomService cameraZoom;
     private readonly IGameGui gameGui;
     private readonly IClientState clientState;
     private readonly ICondition condition;
     private readonly DiagnosticBuffer diagnostics;
     private readonly Dictionary<HudModuleKind, LayoutRuntimeState> layoutStates = new();
+    private readonly StringBuilder focusTargetLineBuilder = new(192);
+    private IGameObject? focusTargetTarget;
     private HudDiagnosticState lastDiagnosticState;
     private bool hasDiagnosticState;
 
@@ -35,6 +39,7 @@ public sealed class HudRenderer
         ISelfHighlightService selfHighlight,
         PlayerPositionMarkerRenderer positionMarker,
         NativeTargetHpOverlayRenderer nativeTargetOverlay,
+        ActorInteractionRenderer actorInteractions,
         IExtendedCameraZoomService cameraZoom,
         IGameGui gameGui,
         IClientState clientState,
@@ -46,6 +51,7 @@ public sealed class HudRenderer
         this.selfHighlight = selfHighlight;
         this.positionMarker = positionMarker;
         this.nativeTargetOverlay = nativeTargetOverlay;
+        this.actorInteractions = actorInteractions;
         this.cameraZoom = cameraZoom;
         this.gameGui = gameGui;
         this.clientState = clientState;
@@ -62,6 +68,7 @@ public sealed class HudRenderer
     public bool TargetResolved { get; private set; }
     public bool FocusTargetResolved { get; private set; }
     public bool TargetOfTargetResolved { get; private set; }
+    public bool FocusTargetTargetResolved { get; private set; }
     public bool SelfHighlightActive => selfHighlight.IsActive;
     public string SelfHighlightState => selfHighlight.StateReason;
     public string SelfHighlightAppliedColour => selfHighlight.AppliedColourName;
@@ -72,6 +79,16 @@ public sealed class HudRenderer
     public bool NativeTargetOverlayActive => nativeTargetOverlay.IsActive;
     public string NativeTargetOverlayState => nativeTargetOverlay.StateReason;
     public Vector2 NativeTargetOverlayAnchor => nativeTargetOverlay.AnchorPosition;
+    public Vector2 NativeTargetOverlaySize => nativeTargetOverlay.AnchorSize;
+    public bool NativeTargetOverlayTargetExists => nativeTargetOverlay.TargetExists;
+    public bool NativeTargetSplitAddonAvailable => nativeTargetOverlay.SplitAddonAvailable;
+    public bool NativeTargetSplitAddonVisible => nativeTargetOverlay.SplitAddonVisible;
+    public bool NativeTargetCombinedAddonAvailable => nativeTargetOverlay.CombinedAddonAvailable;
+    public bool NativeTargetCombinedAddonVisible => nativeTargetOverlay.CombinedAddonVisible;
+    public string NativeTargetDetectedAddon => nativeTargetOverlay.DetectedAddonName;
+    public string NativeTargetDetectedLayout => nativeTargetOverlay.DetectedLayout;
+    public string NativeTargetAnchorSource => nativeTargetOverlay.AnchorSource;
+    public string FocusTargetClickState => actorInteractions.LastActionResult;
     public bool CameraZoomActive => cameraZoom.IsActive;
     public string CameraZoomState => cameraZoom.StateReason;
     public string? CameraConflict => cameraZoom.ConflictingPluginName;
@@ -87,6 +104,7 @@ public sealed class HudRenderer
     public void Draw()
     {
         var config = configuration.Current;
+        actorInteractions.BeginFrame();
         ResetVisibilityState();
         var runtime = GetRuntimeVisibilityState();
         var player = config.Enabled ? data.LocalPlayer : null;
@@ -105,9 +123,11 @@ public sealed class HudRenderer
 
         var focus = data.FocusTarget;
         var targetOfTarget = data.ResolveTargetOfTarget(target);
+        focusTargetTarget = data.ResolveTargetOfTarget(focus);
         TargetResolved = target is not null;
         FocusTargetResolved = focus is not null;
         TargetOfTargetResolved = targetOfTarget is not null;
+        FocusTargetTargetResolved = focusTargetTarget is not null;
 
         if (ShouldDrawModule(config.Player, config.Locked, runtime) && (player is not null || !config.Locked))
         {
@@ -132,6 +152,7 @@ public sealed class HudRenderer
             TargetOfTargetVisible = true;
         }
 
+        actorInteractions.Draw();
         RecordState(config);
     }
 
@@ -316,8 +337,13 @@ public sealed class HudRenderer
         DrawHealth(character, actor, HudModuleKind.Player, config, config.ShieldDisplay);
         DrawShieldText(character, config.ShieldDisplay);
         DrawMp(character, config, config.MpDisplay);
-        if (config.ShowStatuses && actor is IBattleChara battleChara)
-            DrawStatuses(battleChara);
+        if (actor is IBattleChara battleChara)
+        {
+            DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
+                config.ShowCastPercentage, config.ShowCastRemainingTime);
+            if (config.ShowStatuses)
+                DrawStatuses(battleChara);
+        }
     }
 
     private void DrawTarget(IGameObject? actor, HudModuleConfiguration baseConfiguration)
@@ -342,7 +368,7 @@ public sealed class HudRenderer
         if (actor is IBattleChara battleChara)
         {
             DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
-                config.ShowCastPercentage);
+                config.ShowCastPercentage, false);
             if (config.ShowStatuses)
                 DrawStatuses(battleChara);
         }
@@ -365,7 +391,8 @@ public sealed class HudRenderer
             ImGui.TextUnformatted(HudFormatting.Distance(data.GetDistance(actor)));
         if (actor is IBattleChara battleChara)
             DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
-                config.ShowCastPercentage);
+                config.ShowCastPercentage, false);
+        DrawFocusTargetTarget(config);
     }
 
     private void DrawTargetOfTarget(IGameObject? actor, HudModuleConfiguration baseConfiguration)
@@ -470,7 +497,7 @@ public sealed class HudRenderer
     }
 
     private void DrawCast(IBattleChara actor, HudModuleConfiguration module,
-        bool showName, bool showBar, bool showPercentage)
+        bool showName, bool showBar, bool showPercentage, bool showRemainingTime)
     {
         if (!actor.IsCasting)
             return;
@@ -479,13 +506,12 @@ public sealed class HudRenderer
         var fraction = total <= 0f ? 0f : Math.Clamp(current / total, 0f, 1f);
         var name = showName ? data.GetCastName(actor) : string.Empty;
         var percentage = showPercentage ? HudFormatting.CastPercentage(current, total) : string.Empty;
-        var overlay = (name.Length, percentage.Length) switch
-        {
-            (> 0, > 0) => $"{name} — {percentage}",
-            (> 0, _) => name,
-            (_, > 0) => percentage,
-            _ => string.Empty,
-        };
+        var remaining = showRemainingTime ? HudFormatting.RemainingCastTime(current, total) : string.Empty;
+        var overlay = name;
+        if (percentage.Length > 0)
+            overlay = overlay.Length == 0 ? percentage : $"{overlay} — {percentage}";
+        if (remaining.Length > 0)
+            overlay = overlay.Length == 0 ? remaining : $"{overlay} — {remaining}";
         if (showBar)
         {
             DrawMeter(fraction, 0f, module.BarHeight, overlay, module.HpTextAlignment,
@@ -583,6 +609,74 @@ public sealed class HudRenderer
             ImGui.TextWrapped(statuses);
     }
 
+    private void DrawFocusTargetTarget(FocusTargetModuleConfiguration parent)
+    {
+        var config = parent.TargetOfFocus;
+        if (!config.Show)
+            return;
+        var actor = focusTargetTarget;
+        if (actor is null)
+        {
+            if (!configuration.Current.Locked)
+                ImGui.TextDisabled("Focus Target's Target: unavailable");
+            return;
+        }
+
+        focusTargetLineBuilder.Clear();
+        if (config.ShowName)
+        {
+            focusTargetLineBuilder.Append("Target: ");
+            focusTargetLineBuilder.Append(actor.Name.TextValue);
+        }
+
+        if (actor is ICharacter character)
+        {
+            if (config.ShowJob && actor.ObjectKind == ObjectKind.Pc && data.GetJob(actor) is { } job)
+                AppendFocusTargetPart(job.Abbreviation);
+            if (config.ShowLevel)
+                AppendFocusTargetPart($"Lv.{character.Level}");
+            if (config.ShowCurrentHp || config.ShowHpPercentage)
+            {
+                var hp = HudFormatting.HitPoints(character.CurrentHp, character.MaxHp,
+                    config.ShowCurrentHp, config.ShowCurrentHp, config.ShowHpPercentage,
+                    parent.NumberFormat);
+                if (hp.Length > 0)
+                    AppendFocusTargetPart(hp);
+            }
+        }
+
+        if (focusTargetLineBuilder.Length == 0)
+            return;
+
+        var colour = configuration.Current.Appearance.NeutralHealth.ToVector4();
+        if (actor is ICharacter healthCharacter)
+        {
+            var fraction = healthCharacter.MaxHp == 0
+                ? 0f
+                : Math.Clamp((float)healthCharacter.CurrentHp / healthCharacter.MaxHp, 0f, 1f);
+            colour = ResolveHealthColour(actor, HudModuleKind.FocusTarget, fraction);
+        }
+
+        ImGui.PushStyleColor(ImGuiCol.Text, colour);
+        try
+        {
+            ImGui.TextWrapped(focusTargetLineBuilder.ToString());
+        }
+        finally
+        {
+            ImGui.PopStyleColor();
+        }
+        if (config.ClickToTarget)
+            actorInteractions.RegisterLastItem(actor.GameObjectId);
+    }
+
+    private void AppendFocusTargetPart(string value)
+    {
+        if (focusTargetLineBuilder.Length > 0)
+            focusTargetLineBuilder.Append(" — ");
+        focusTargetLineBuilder.Append(value);
+    }
+
     private RuntimeVisibilityState GetRuntimeVisibilityState()
         => new(clientState.IsLoggedIn, condition[ConditionFlag.InCombat],
             condition.Any(ConditionFlag.BoundByDuty, ConditionFlag.BoundByDuty56,
@@ -614,7 +708,8 @@ public sealed class HudRenderer
     {
         var state = new HudDiagnosticState(config.Enabled, PlayerVisible, TargetVisible,
             FocusTargetVisible, TargetOfTargetVisible, TargetResolved, FocusTargetResolved,
-            TargetOfTargetResolved, config.SelfHighlight.Mode, SelfHighlightActive,
+            TargetOfTargetResolved, FocusTargetTargetResolved,
+            config.SelfHighlight.Mode, SelfHighlightActive,
             SelfHighlightState, config.PlayerPositionMarker.Mode, PositionMarkerActive,
             PositionMarkerState, config.Target.NativeHpOverlay.Mode, NativeTargetOverlayActive,
             NativeTargetOverlayState, config.Camera.Enabled, CameraZoomActive, CameraZoomState);
@@ -625,6 +720,7 @@ public sealed class HudRenderer
         diagnostics.Debug(
             $"HUD state changed: player={PlayerVisible}, target={TargetVisible}/{TargetResolved}, "
             + $"focus={FocusTargetVisible}/{FocusTargetResolved}, target-of-target={TargetOfTargetVisible}/{TargetOfTargetResolved}, "
+            + $"focus-target-of-target={FocusTargetTargetResolved}, "
             + $"highlight={config.SelfHighlight.Mode}/{SelfHighlightActive} ({SelfHighlightState}), "
             + $"marker={config.PlayerPositionMarker.Mode}/{PositionMarkerActive} ({PositionMarkerState}), "
             + $"native-target={config.Target.NativeHpOverlay.Mode}/{NativeTargetOverlayActive} ({NativeTargetOverlayState}), "
@@ -640,6 +736,8 @@ public sealed class HudRenderer
         TargetResolved = false;
         FocusTargetResolved = false;
         TargetOfTargetResolved = false;
+        FocusTargetTargetResolved = false;
+        focusTargetTarget = null;
     }
 
     private static HudModuleConfiguration GetModule(Configuration config, HudModuleKind kind)
@@ -674,7 +772,8 @@ public sealed class HudRenderer
     private readonly record struct HudDiagnosticState(
         bool HudEnabled, bool PlayerVisible, bool TargetVisible, bool FocusTargetVisible,
         bool TargetOfTargetVisible, bool TargetResolved, bool FocusTargetResolved,
-        bool TargetOfTargetResolved, SelfHighlightMode HighlightMode, bool HighlightActive,
+        bool TargetOfTargetResolved, bool FocusTargetTargetResolved,
+        SelfHighlightMode HighlightMode, bool HighlightActive,
         string HighlightState, SelfHighlightMode MarkerMode, bool MarkerActive, string MarkerState,
         NativeTargetOverlayMode NativeTargetMode, bool NativeTargetActive, string NativeTargetState,
         bool CameraEnabled, bool CameraActive, string CameraState);

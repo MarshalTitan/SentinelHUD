@@ -1,12 +1,12 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.4.0.0</Version>
+    <Version>0.5.0.0</Version>
     <AssemblyName>SentinelHUD</AssemblyName>
     <RootNamespace>SentinelHUD</RootNamespace>
     <Author>MTitan</Author>
     <Name>Sentinel HUD</Name>
     <Punchline>Modular, configurable awareness enhancements for the FFXIV HUD.</Punchline>
-    <Description>Adds configurable player and target panels, HP/MP/shield bars, native-target exact HP, awareness markers, and optional extended camera zoom.</Description>
+    <Description>Adds configurable player and target panels, HP/MP/shield/cast bars, native-target exact HP, Focus Target interactions, awareness markers, and optional extended camera zoom.</Description>
     <RepoUrl>https://github.com/MarshalTitan/SentinelHUD</RepoUrl>
     <IconUrl>https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png</IconUrl>
     <Tags>hud;overlay;target;accessibility;sentinel</Tags>

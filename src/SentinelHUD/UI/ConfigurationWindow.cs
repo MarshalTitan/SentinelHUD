@@ -112,6 +112,14 @@ public sealed class ConfigurationWindow : Window
                 value => Update(c => c.Player.ShowHpPercentage = value));
             DrawMpMode(config.MpDisplay, value => Update(c => c.Player.MpDisplay = value));
             DrawShieldMode(config.ShieldDisplay, value => Update(c => c.Player.ShieldDisplay = value));
+            DrawToggle("Show cast name", config.ShowCastName,
+                value => Update(c => c.Player.ShowCastName = value));
+            DrawToggle("Show cast bar", config.ShowCastBar,
+                value => Update(c => c.Player.ShowCastBar = value));
+            DrawToggle("Show cast percentage", config.ShowCastPercentage,
+                value => Update(c => c.Player.ShowCastPercentage = value));
+            DrawToggle("Show remaining cast time", config.ShowCastRemainingTime,
+                value => Update(c => c.Player.ShowCastRemainingTime = value));
             DrawToggle("Show statuses (first five)", config.ShowStatuses,
                 value => Update(c => c.Player.ShowStatuses = value));
         }
@@ -171,6 +179,26 @@ public sealed class ConfigurationWindow : Window
                 value => Update(c => c.FocusTarget.ShowCastBar = value));
             DrawToggle("Show cast percentage", config.ShowCastPercentage,
                 value => Update(c => c.FocusTarget.ShowCastPercentage = value));
+        }
+        if (OpenSection("Focus Target's Target"))
+        {
+            var targetOfFocus = config.TargetOfFocus;
+            ImGui.TextWrapped("Shows the actor currently targeted by your Focus Target when that actor is present in the client object table.");
+            DrawToggle("Show##FocusToT", targetOfFocus.Show,
+                value => Update(c => c.FocusTarget.TargetOfFocus.Show = value));
+            DrawToggle("Show name##FocusToT", targetOfFocus.ShowName,
+                value => Update(c => c.FocusTarget.TargetOfFocus.ShowName = value));
+            DrawToggle("Show HP##FocusToT", targetOfFocus.ShowCurrentHp,
+                value => Update(c => c.FocusTarget.TargetOfFocus.ShowCurrentHp = value));
+            DrawToggle("Show HP percentage##FocusToT", targetOfFocus.ShowHpPercentage,
+                value => Update(c => c.FocusTarget.TargetOfFocus.ShowHpPercentage = value));
+            DrawToggle("Show job when applicable##FocusToT", targetOfFocus.ShowJob,
+                value => Update(c => c.FocusTarget.TargetOfFocus.ShowJob = value));
+            DrawToggle("Show level##FocusToT", targetOfFocus.ShowLevel,
+                value => Update(c => c.FocusTarget.TargetOfFocus.ShowLevel = value));
+            DrawToggle("Click to target##FocusToT", targetOfFocus.ClickToTarget,
+                value => Update(c => c.FocusTarget.TargetOfFocus.ClickToTarget = value));
+            ImGui.TextDisabled("Only the visible target row receives mouse input; the rest of a locked module stays click-through.");
         }
         DrawModuleSizeLayout(HudModuleKind.FocusTarget, config);
         DrawModuleAppearance(HudModuleKind.FocusTarget, config);
@@ -341,6 +369,8 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextUnformatted($"Player module visible: {renderer.PlayerVisible}");
         ImGui.TextUnformatted($"Target visible / resolved: {renderer.TargetVisible} / {renderer.TargetResolved}");
         ImGui.TextUnformatted($"Focus visible / resolved: {renderer.FocusTargetVisible} / {renderer.FocusTargetResolved}");
+        ImGui.TextUnformatted($"Focus Target's Target resolved: {renderer.FocusTargetTargetResolved}");
+        ImGui.TextWrapped($"Focus Target click state: {renderer.FocusTargetClickState}");
         ImGui.TextUnformatted($"Target-of-target visible / resolved: {renderer.TargetOfTargetVisible} / {renderer.TargetOfTargetResolved}");
         ImGui.TextUnformatted($"Self highlight mode / active: {config.SelfHighlight.Mode} / {renderer.SelfHighlightActive}");
         ImGui.TextUnformatted($"Self highlight applied colour: {renderer.SelfHighlightAppliedColour}");
@@ -349,9 +379,17 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextUnformatted($"Position marker terrain projection: {renderer.PositionMarkerUsedTerrainProjection}");
         ImGui.TextWrapped($"Position marker state: {renderer.PositionMarkerState}");
         ImGui.TextUnformatted($"Native target overlay mode / active: {config.Target.NativeHpOverlay.Mode} / {renderer.NativeTargetOverlayActive}");
+        ImGui.TextUnformatted($"Native overlay target exists: {renderer.NativeTargetOverlayTargetExists}");
+        ImGui.TextUnformatted($"Split addon available / visible: {renderer.NativeTargetSplitAddonAvailable} / {renderer.NativeTargetSplitAddonVisible}");
+        ImGui.TextUnformatted($"Combined addon available / visible: {renderer.NativeTargetCombinedAddonAvailable} / {renderer.NativeTargetCombinedAddonVisible}");
+        ImGui.TextUnformatted($"Detected layout / addon: {renderer.NativeTargetDetectedLayout} / {renderer.NativeTargetDetectedAddon}");
+        ImGui.TextUnformatted($"Anchor source: {renderer.NativeTargetAnchorSource}");
         ImGui.TextWrapped($"Native target overlay state: {renderer.NativeTargetOverlayState}");
         if (renderer.NativeTargetOverlayActive)
+        {
             ImGui.TextUnformatted($"Native target anchor: {renderer.NativeTargetOverlayAnchor.X:0.0}, {renderer.NativeTargetOverlayAnchor.Y:0.0}");
+            ImGui.TextUnformatted($"Native target bounds: {renderer.NativeTargetOverlaySize.X:0.0} × {renderer.NativeTargetOverlaySize.Y:0.0}");
+        }
         ImGui.TextUnformatted($"Extended zoom enabled / active: {config.Camera.Enabled} / {renderer.CameraZoomActive}");
         ImGui.TextWrapped($"Extended zoom state: {renderer.CameraZoomState}");
         if (ImGui.Button("Clear diagnostic history"))
@@ -432,7 +470,7 @@ public sealed class ConfigurationWindow : Window
     {
         if (!OpenSection("Native Target HP Overlay"))
             return;
-        ImGui.TextWrapped("Draws exact Sentinel HP beneath the native _TargetInfo addon without modifying its nodes. It follows HUD Layout movement and remains click-through.");
+        ImGui.TextWrapped("Draws exact Sentinel HP beneath the visible stock target HP gauge. It detects combined _TargetInfo and split _TargetInfoMainTarget layouts, follows HUD Layout movement, and never modifies native nodes.");
         var mode = (int)overlay.Mode;
         if (ImGui.Combo("Overlay mode", ref mode, NativeOverlayModes, NativeOverlayModes.Length))
             Update(c => c.Target.NativeHpOverlay.Mode = (NativeTargetOverlayMode)mode);
