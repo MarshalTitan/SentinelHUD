@@ -61,8 +61,19 @@ try {
     }
 
     $icon = $entries | Where-Object FullName -eq 'assets/icon.png' | Select-Object -First 1
-    if ($icon.Length -lt 1024) {
-        throw 'Packaged icon is unexpectedly small.'
+    $iconStream = $icon.Open()
+    try {
+        $signature = [byte[]]::new(8)
+        if ($iconStream.Read($signature, 0, $signature.Length) -ne $signature.Length `
+            -or $signature[0] -ne 0x89 `
+            -or $signature[1] -ne 0x50 `
+            -or $signature[2] -ne 0x4E `
+            -or $signature[3] -ne 0x47) {
+            throw 'Packaged icon does not have a valid PNG signature.'
+        }
+    }
+    finally {
+        $iconStream.Dispose()
     }
 }
 finally {
