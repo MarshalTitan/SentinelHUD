@@ -61,6 +61,12 @@ public enum HudNumberFormat
     Compact,
 }
 
+public enum ModuleClickableArea
+{
+    WholeModule,
+    HeaderOrName,
+}
+
 public enum NativeTargetOverlayMode
 {
     Off,
@@ -94,6 +100,8 @@ public abstract class HudModuleConfiguration
 {
     public bool Enabled { get; set; } = true;
     public ModuleVisibilityCondition Visibility { get; set; } = ModuleVisibilityCondition.Always;
+    public bool ClickToTarget { get; set; } = true;
+    public ModuleClickableArea ClickableArea { get; set; } = ModuleClickableArea.WholeModule;
     public float Scale { get; set; } = 1f;
     public float Opacity { get; set; } = 0.92f;
     public float Width { get; set; } = 285f;
@@ -261,7 +269,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -361,34 +369,7 @@ public static class HudConfigurationMigrator
         configuration.Appearance.Shield ??= new HudAppearanceConfiguration().Shield;
         configuration.Appearance.Mp ??= new HudAppearanceConfiguration().Mp;
 
-        if (sourceVersion < 3)
-        {
-            configuration.Player.Width = HudConfigurationDefaults.CreatePlayer().Width;
-            configuration.Target.Width = HudConfigurationDefaults.CreateTarget().Width;
-            configuration.FocusTarget.Width = HudConfigurationDefaults.CreateFocusTarget().Width;
-            configuration.TargetOfTarget.Width = HudConfigurationDefaults.CreateTargetOfTarget().Width;
-            configuration.PlayerPositionMarker.Mode = configuration.PlayerPositionMarker.Enabled
-                ? SelfHighlightMode.Always
-                : SelfHighlightMode.Off;
-            configuration.Player.ShieldDisplay = configuration.Player.ShowShield
-                ? ShieldDisplayMode.BarAndText
-                : ShieldDisplayMode.Off;
-            configuration.Target.ShieldDisplay = configuration.Target.ShowShield
-                ? ShieldDisplayMode.BarAndText
-                : ShieldDisplayMode.Off;
-            configuration.FocusTarget.ShieldDisplay = configuration.FocusTarget.ShowShield
-                ? ShieldDisplayMode.BarAndText
-                : ShieldDisplayMode.Off;
-        }
-
-        if (sourceVersion < 4)
-        {
-            configuration.Player.MpDisplay = configuration.Player.ShowMp
-                ? MpDisplayMode.BarAndText
-                : MpDisplayMode.Off;
-            configuration.Target.MpDisplay = MpDisplayMode.Off;
-            configuration.FocusTarget.MpDisplay = MpDisplayMode.Off;
-        }
+        ApplyMigrations(configuration, sourceVersion);
 
         NormalizeModule(configuration.Player, HudConfigurationDefaults.CreatePlayer().Layout);
         NormalizeModule(configuration.Target, HudConfigurationDefaults.CreateTarget().Layout);
@@ -496,8 +477,78 @@ public static class HudConfigurationMigrator
             module.HpTextAlignment = HudTextAlignment.Center;
         if (!Enum.IsDefined(module.NumberFormat))
             module.NumberFormat = HudNumberFormat.Full;
+        if (!Enum.IsDefined(module.ClickableArea))
+            module.ClickableArea = ModuleClickableArea.WholeModule;
         module.Layout.AnchorX = ClampFinite(module.Layout.AnchorX, 0f, 1f, fallback.AnchorX);
         module.Layout.AnchorY = ClampFinite(module.Layout.AnchorY, 0f, 1f, fallback.AnchorY);
+    }
+
+    private static void ApplyMigrations(HudConfigurationData configuration, int sourceVersion)
+    {
+        var version = Math.Max(0, sourceVersion);
+        while (version < HudConfigurationData.CurrentVersion)
+        {
+            switch (version)
+            {
+                case 0:
+                    // Schema 1 established the modular player/target layout.
+                    version = 1;
+                    break;
+                case 1:
+                    // Schema 2 added awareness and camera settings. Property initializers supply
+                    // defaults only when these fields did not exist in the older document.
+                    version = 2;
+                    break;
+                case 2:
+                    configuration.Player.Width = HudConfigurationDefaults.CreatePlayer().Width;
+                    configuration.Target.Width = HudConfigurationDefaults.CreateTarget().Width;
+                    configuration.FocusTarget.Width = HudConfigurationDefaults.CreateFocusTarget().Width;
+                    configuration.TargetOfTarget.Width = HudConfigurationDefaults.CreateTargetOfTarget().Width;
+                    configuration.PlayerPositionMarker.Mode = configuration.PlayerPositionMarker.Enabled
+                        ? SelfHighlightMode.Always
+                        : SelfHighlightMode.Off;
+                    configuration.Player.ShieldDisplay = configuration.Player.ShowShield
+                        ? ShieldDisplayMode.BarAndText
+                        : ShieldDisplayMode.Off;
+                    configuration.Target.ShieldDisplay = configuration.Target.ShowShield
+                        ? ShieldDisplayMode.BarAndText
+                        : ShieldDisplayMode.Off;
+                    configuration.FocusTarget.ShieldDisplay = configuration.FocusTarget.ShowShield
+                        ? ShieldDisplayMode.BarAndText
+                        : ShieldDisplayMode.Off;
+                    version = 3;
+                    break;
+                case 3:
+                    configuration.Player.MpDisplay = configuration.Player.ShowMp
+                        ? MpDisplayMode.BarAndText
+                        : MpDisplayMode.Off;
+                    configuration.Target.MpDisplay = MpDisplayMode.Off;
+                    configuration.FocusTarget.MpDisplay = MpDisplayMode.Off;
+                    version = 4;
+                    break;
+                case 4:
+                    // Schema 5 added player casts and Focus Target's Target. Their initializers
+                    // populate only the newly introduced settings.
+                    version = 5;
+                    break;
+                case 5:
+                    // Schema 6 makes actor modules targetable. Existing v5 layout and display
+                    // values are deliberately untouched.
+                    configuration.Player.ClickToTarget = true;
+                    configuration.Target.ClickToTarget = true;
+                    configuration.FocusTarget.ClickToTarget = true;
+                    configuration.TargetOfTarget.ClickToTarget = true;
+                    configuration.Player.ClickableArea = ModuleClickableArea.WholeModule;
+                    configuration.Target.ClickableArea = ModuleClickableArea.WholeModule;
+                    configuration.FocusTarget.ClickableArea = ModuleClickableArea.WholeModule;
+                    configuration.TargetOfTarget.ClickableArea = ModuleClickableArea.WholeModule;
+                    version = 6;
+                    break;
+                default:
+                    version = HudConfigurationData.CurrentVersion;
+                    break;
+            }
+        }
     }
 
     private static float ClampFinite(float value, float minimum, float maximum, float fallback)

@@ -22,6 +22,7 @@ public sealed class HudRenderer
     private readonly PlayerPositionMarkerRenderer positionMarker;
     private readonly NativeTargetHpOverlayRenderer nativeTargetOverlay;
     private readonly ActorInteractionRenderer actorInteractions;
+    private readonly HudEditorInteractionRenderer hudEditor;
     private readonly IExtendedCameraZoomService cameraZoom;
     private readonly IGameGui gameGui;
     private readonly IClientState clientState;
@@ -30,6 +31,9 @@ public sealed class HudRenderer
     private readonly Dictionary<HudModuleKind, LayoutRuntimeState> layoutStates = new();
     private readonly StringBuilder focusTargetLineBuilder = new(192);
     private IGameObject? focusTargetTarget;
+    private Vector2 headerMinimum;
+    private Vector2 headerMaximum;
+    private bool hasHeaderBounds;
     private HudDiagnosticState lastDiagnosticState;
     private bool hasDiagnosticState;
 
@@ -40,6 +44,7 @@ public sealed class HudRenderer
         PlayerPositionMarkerRenderer positionMarker,
         NativeTargetHpOverlayRenderer nativeTargetOverlay,
         ActorInteractionRenderer actorInteractions,
+        HudEditorInteractionRenderer hudEditor,
         IExtendedCameraZoomService cameraZoom,
         IGameGui gameGui,
         IClientState clientState,
@@ -52,6 +57,7 @@ public sealed class HudRenderer
         this.positionMarker = positionMarker;
         this.nativeTargetOverlay = nativeTargetOverlay;
         this.actorInteractions = actorInteractions;
+        this.hudEditor = hudEditor;
         this.cameraZoom = cameraZoom;
         this.gameGui = gameGui;
         this.clientState = clientState;
@@ -105,6 +111,7 @@ public sealed class HudRenderer
     {
         var config = configuration.Current;
         actorInteractions.BeginFrame();
+        hudEditor.BeginFrame();
         ResetVisibilityState();
         var runtime = GetRuntimeVisibilityState();
         var player = config.Enabled ? data.LocalPlayer : null;
@@ -152,7 +159,10 @@ public sealed class HudRenderer
             TargetOfTargetVisible = true;
         }
 
-        actorInteractions.Draw();
+        if (config.Locked)
+            actorInteractions.Draw();
+        else
+            hudEditor.Draw();
         RecordState(config);
     }
 
@@ -211,22 +221,11 @@ public sealed class HudRenderer
     {
         var viewport = ImGui.GetMainViewport();
         var state = layoutStates[kind];
-        var viewportChanged = Vector2.DistanceSquared(viewport.WorkSize, state.LastViewportSize) > 0.25f
-                              || Vector2.DistanceSquared(viewport.WorkPos, state.LastViewportPosition) > 0.25f;
-        var applySavedPosition = root.Locked || state.ApplySavedPosition || viewportChanged;
         using var style = SentinelStyleScope.PushWindow(module.Scale * root.GlobalScale);
-        var expectedEditChromeHeight = root.Locked
-            ? 0f
-            : state.LastEditChromeHeight > 0f
-                ? state.LastEditChromeHeight
-                : ImGui.GetFrameHeight();
-        var desiredContentPosition = LayoutPolicy.ToPixelPosition(module.Layout, viewport.WorkPos,
-            viewport.WorkSize, state.LastContentSize);
-        if (applySavedPosition)
-        {
-            ImGui.SetNextWindowPos(LayoutPolicy.ToOuterWindowPosition(
-                desiredContentPosition, expectedEditChromeHeight), ImGuiCond.Always);
-        }
+        var layoutSize = new Vector2(module.Width, state.LastContentSize.Y);
+        var desiredPosition = LayoutPolicy.ToPixelPosition(module.Layout, viewport.WorkPos,
+            viewport.WorkSize, layoutSize);
+        ImGui.SetNextWindowPos(desiredPosition, ImGuiCond.Always);
 
         ImGui.SetNextWindowSizeConstraints(new Vector2(module.Width, 1f),
             new Vector2(module.Width, float.MaxValue));
@@ -237,12 +236,11 @@ public sealed class HudRenderer
         ImGui.PushStyleColor(ImGuiCol.Border, borderColour);
         try
         {
-            var flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoScrollbar
+            const ImGuiWindowFlags flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoScrollbar
                         | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoSavedSettings
                         | ImGuiWindowFlags.NoDocking | ImGuiWindowFlags.NoNav
-                        | ImGuiWindowFlags.NoFocusOnAppearing;
-            if (root.Locked)
-                flags |= ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoTitleBar;
+                        | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoInputs
+                        | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoTitleBar;
 
             var title = kind switch
             {
@@ -254,20 +252,8 @@ public sealed class HudRenderer
             var began = ImGui.Begin(title, flags);
             try
             {
-                var actualPosition = ImGui.GetWindowPos();
-                var measuredEditChromeHeight = root.Locked
-                    ? 0f
-                    : Math.Max(0f, ImGui.GetCursorScreenPos().Y - actualPosition.Y
-                                   - ImGui.GetStyle().WindowPadding.Y);
-                if (applySavedPosition
-                    && Math.Abs(measuredEditChromeHeight - expectedEditChromeHeight) > 0.1f)
-                {
-                    actualPosition = LayoutPolicy.ToOuterWindowPosition(
-                        desiredContentPosition, measuredEditChromeHeight);
-                    ImGui.SetWindowPos(actualPosition, ImGuiCond.Always);
-                }
-
                 ImGui.SetWindowFontScale(module.Scale * root.GlobalScale);
+                hasHeaderBounds = false;
                 if (began)
                 {
                     if (actor is null)
@@ -276,43 +262,34 @@ public sealed class HudRenderer
                         drawContent(actor, module);
                 }
 
-                actualPosition = ImGui.GetWindowPos();
+                var actualPosition = ImGui.GetWindowPos();
                 var actualSize = ImGui.GetWindowSize();
-                var actualContentPosition = LayoutPolicy.ToContentPosition(
-                    actualPosition, measuredEditChromeHeight);
-                var actualContentSize = LayoutPolicy.ToContentSize(actualSize, measuredEditChromeHeight);
-                var reachableContentPosition = LayoutPolicy.KeepReachable(actualContentPosition,
-                    viewport.WorkPos, viewport.WorkSize, actualContentSize);
-                if (Vector2.DistanceSquared(actualContentPosition, reachableContentPosition) > 0.25f)
+                var reachablePosition = LayoutPolicy.KeepReachable(actualPosition,
+                    viewport.WorkPos, viewport.WorkSize, actualSize);
+                if (Vector2.DistanceSquared(actualPosition, reachablePosition) > 0.25f)
                 {
-                    actualContentPosition = reachableContentPosition;
-                    actualPosition = LayoutPolicy.ToOuterWindowPosition(
-                        actualContentPosition, measuredEditChromeHeight);
+                    actualPosition = reachablePosition;
                     ImGui.SetWindowPos(actualPosition, ImGuiCond.Always);
                 }
 
-                state.LastContentSize = actualContentSize.X > 0f && actualContentSize.Y > 0f
-                    ? actualContentSize
+                state.LastContentSize = actualSize.X > 0f && actualSize.Y > 0f
+                    ? actualSize
                     : UnknownWindowSize;
-                if (measuredEditChromeHeight > 0f)
-                    state.LastEditChromeHeight = measuredEditChromeHeight;
                 state.LastViewportPosition = viewport.WorkPos;
                 state.LastViewportSize = viewport.WorkSize;
                 state.ApplySavedPosition = false;
-                if (!root.Locked && !applySavedPosition)
+
+                var maximum = actualPosition + state.LastContentSize;
+                if (!root.Locked)
                 {
-                    var normalized = LayoutPolicy.ToNormalizedPosition(actualContentPosition,
-                        viewport.WorkPos, viewport.WorkSize, state.LastContentSize);
-                    if (Math.Abs(normalized.AnchorX - module.Layout.AnchorX) > 0.0001f
-                        || Math.Abs(normalized.AnchorY - module.Layout.AnchorY) > 0.0001f)
-                    {
-                        configuration.Update(config =>
-                        {
-                            var liveLayout = GetModule(config, kind).Layout;
-                            liveLayout.AnchorX = normalized.AnchorX;
-                            liveLayout.AnchorY = normalized.AnchorY;
-                        }, TimeSpan.FromMilliseconds(650));
-                    }
+                    hudEditor.Register(kind, actualPosition, maximum, module.Width);
+                }
+                else if (actor is not null && module.ClickToTarget)
+                {
+                    if (module.ClickableArea == ModuleClickableArea.WholeModule)
+                        actorInteractions.Register(actualPosition, maximum, actor.GameObjectId);
+                    else if (hasHeaderBounds)
+                        actorInteractions.Register(headerMinimum, headerMaximum, actor.GameObjectId);
                 }
             }
             finally
@@ -361,7 +338,9 @@ public sealed class HudRenderer
         }
         else if (config.ShowName)
         {
+            var headerStart = ImGui.GetCursorScreenPos();
             ImGui.TextColored(SentinelPalette.HeaderGold, actor.Name.TextValue);
+            CaptureHeader(headerStart);
         }
         if (config.ShowDistance)
             ImGui.TextUnformatted(HudFormatting.Distance(data.GetDistance(actor)));
@@ -380,7 +359,11 @@ public sealed class HudRenderer
         if (actor is null)
             return;
         if (config.ShowName)
+        {
+            var headerStart = ImGui.GetCursorScreenPos();
             ImGui.TextColored(SentinelPalette.HeaderGold, actor.Name.TextValue);
+            CaptureHeader(headerStart);
+        }
         if (actor is ICharacter character)
         {
             DrawHealth(character, actor, HudModuleKind.FocusTarget, config, config.ShieldDisplay);
@@ -401,7 +384,11 @@ public sealed class HudRenderer
         if (actor is null)
             return;
         if (config.ShowName)
+        {
+            var headerStart = ImGui.GetCursorScreenPos();
             ImGui.TextColored(SentinelPalette.HeaderGold, actor.Name.TextValue);
+            CaptureHeader(headerStart);
+        }
         if (actor is ICharacter character)
             DrawHealth(character, actor, HudModuleKind.TargetOfTarget, config, ShieldDisplayMode.Off);
         if (config.ShowDistance)
@@ -411,6 +398,7 @@ public sealed class HudRenderer
     private void DrawCompactHeader(IGameObject actor, ICharacter character, bool showName,
         bool showJob, bool showRole, bool showLevel, bool allowPlayerJob)
     {
+        var headerStart = ImGui.GetCursorScreenPos();
         var metadata = string.Empty;
         if (allowPlayerJob && showJob && data.GetJob(actor) is { } job)
             metadata = job.Abbreviation;
@@ -422,13 +410,17 @@ public sealed class HudRenderer
         if (!showName)
         {
             if (metadata.Length > 0)
+            {
                 ImGui.TextDisabled(metadata);
+                CaptureHeader(headerStart);
+            }
             return;
         }
         var name = actor.Name.TextValue;
         if (metadata.Length == 0)
         {
             ImGui.TextColored(SentinelPalette.HeaderGold, name);
+            CaptureHeader(headerStart);
             return;
         }
 
@@ -446,6 +438,18 @@ public sealed class HudRenderer
         {
             ImGui.TextDisabled(metadata);
         }
+        CaptureHeader(headerStart);
+    }
+
+    private void CaptureHeader(Vector2 minimum)
+    {
+        var windowMaximumX = ImGui.GetWindowPos().X + ImGui.GetWindowSize().X
+                             - ImGui.GetStyle().WindowPadding.X;
+        var maximumY = Math.Max(ImGui.GetItemRectMax().Y,
+            minimum.Y + ImGui.GetTextLineHeight());
+        headerMinimum = minimum;
+        headerMaximum = new Vector2(windowMaximumX, maximumY);
+        hasHeaderBounds = headerMaximum.X > headerMinimum.X && headerMaximum.Y > headerMinimum.Y;
     }
 
     private void DrawHealth(ICharacter character, IGameObject actor, HudModuleKind kind,

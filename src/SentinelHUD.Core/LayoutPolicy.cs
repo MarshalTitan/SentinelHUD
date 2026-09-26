@@ -2,6 +2,11 @@ using System.Numerics;
 
 namespace SentinelHUD.Core;
 
+public readonly record struct HorizontalResizeResult(
+    float Width,
+    Vector2 Position,
+    ModuleLayoutConfiguration Layout);
+
 public static class LayoutPolicy
 {
     public static Vector2 ToOuterWindowPosition(Vector2 contentPosition, float editChromeHeight)
@@ -65,6 +70,25 @@ public static class LayoutPolicy
         var safeWindow = SanitizeWindowSize(windowSize, workSize);
         var maximum = workPosition + workSize - safeWindow;
         return Vector2.Clamp(IsFinite(pixelPosition) ? pixelPosition : workPosition, workPosition, maximum);
+    }
+
+    public static HorizontalResizeResult ResizeFromRightEdge(
+        float startingWidth,
+        float deltaX,
+        Vector2 startingPosition,
+        Vector2 startingSize,
+        Vector2 workPosition,
+        Vector2 workSize)
+    {
+        var safeStart = float.IsFinite(startingWidth) ? startingWidth : HudSizingPolicy.MinimumWidth;
+        var safeDelta = float.IsFinite(deltaX) ? deltaX : 0f;
+        var width = Math.Clamp(safeStart + safeDelta,
+            HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth);
+        var height = IsFinite(startingSize) && startingSize.Y > 0f ? startingSize.Y : 1f;
+        var resizedSize = new Vector2(width, height);
+        var position = KeepReachable(startingPosition, workPosition, workSize, resizedSize);
+        var layout = ToNormalizedPosition(position, workPosition, workSize, resizedSize);
+        return new HorizontalResizeResult(width, position, layout);
     }
 
     public static bool IsFinite(Vector2 value)

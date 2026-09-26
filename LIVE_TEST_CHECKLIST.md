@@ -1,9 +1,11 @@
-# Sentinel HUD 0.5.0.0 — Live Test
+# Sentinel HUD 0.6.0.0 — Live Test
 
 ## Startup and configuration migration
 
 - [ ] Update Sentinel HUD from the Sentinel custom repository without deleting the existing configuration.
-- [ ] Existing module positions, scale, colours, highlight, camera and enabled states remain intact.
+- [ ] Existing module positions, widths, scale, bar heights, colours, field toggles, visibility modes, HP/MP/shield/cast settings, Awareness settings, marker radius/opacity, camera settings and native-target offsets remain intact.
+- [ ] Diagnostics reports that schema 5 was loaded/migrated and shows a one-time `SentinelHUD.schema-v5.backup.json` path.
+- [ ] Reload again and confirm the schema backup is not replaced or multiplied.
 - [ ] `/shud` opens and closes configuration.
 - [ ] The normal title-bar collapse arrow is available.
 - [ ] Collapse and reopen the configuration window successfully.
@@ -123,16 +125,32 @@
 - [ ] Focus an enemy that targets the player and confirm its target resolves when exposed by the client.
 - [ ] NPCs do not receive a fabricated player job.
 
-## Click to Target
+## Module targeting
 
-- [ ] Focus a player, let them target an enemy, and click that enemy's Focus Target's Target row.
-- [ ] The normal FFXIV hard target becomes that current actor.
-- [ ] Change their target and repeat; the newly resolved actor is targeted.
-- [ ] The cursor/row hover treatment makes the interaction discoverable without a large button.
-- [ ] Normal world mouse interaction works everywhere outside the visible row.
-- [ ] The rest of the locked Focus Target module remains click-through.
-- [ ] Disable Click to Target and confirm the row no longer intercepts clicks.
-- [ ] Let the actor leave the object table before clicking; targeting fails safely and Diagnostics explains the result.
+- [ ] Lock the HUD and click Player; the normal hard target becomes the local player.
+- [ ] Click Target; it reselects the actor currently represented by that module.
+- [ ] Click Target-of-Target; the normal hard target becomes that represented actor.
+- [ ] Click Focus Target; the focus actor becomes the normal hard target.
+- [ ] Focus a player, let them target an enemy, and click the Focus Target's Target row; that child actor—not the parent focus actor—is targeted.
+- [ ] Change the Focus Target's target and repeat; the newly resolved actor is targeted.
+- [ ] Whole module mode accepts clicks across the visible panel and shows subtle hover feedback.
+- [ ] Header / name only mode accepts clicks only over the header/name region.
+- [ ] Disable Click to Target independently on every module; each disabled region becomes mouse-pass-through.
+- [ ] Normal world/FFXIV UI mouse interaction works everywhere outside enabled visible regions.
+- [ ] Unlock the HUD; all click-to-target actions stop and clicks edit the layout instead.
+- [ ] Let an actor leave the object table before clicking; targeting fails safely and Diagnostics explains the result.
+
+## Visual editor and direct resize
+
+- [ ] Unlock the HUD; subtle borders, labels and right-edge resize grips appear without title bars.
+- [ ] Drag Player and Target by their module bodies.
+- [ ] Drag the right edge of Player and Target to resize them horizontally.
+- [ ] Resize Focus Target and Target-of-Target the same way.
+- [ ] Bars reflow to the new width; fonts and icons are not stretched.
+- [ ] Precision Module Width sliders reflect the mouse-resized values.
+- [ ] Lock the HUD; all editor chrome disappears and the exact visual origins remain unchanged.
+- [ ] Repeat unlock → lock at least five times; no panel drifts in any direction.
+- [ ] Reload the plugin and restart FFXIV; positions and mouse-resized widths persist.
 
 ## Target and bar colours
 
@@ -148,15 +166,20 @@
 - [ ] Test Always, Combat Only, Duty Only and Combat or Duty on each module.
 - [ ] Disabled modules remain disabled.
 - [ ] Unlocking temporarily exposes enabled modules/placeholders for editing.
-- [ ] `/shud unlock` allows every module to drag.
-- [ ] `/shud lock` removes title bars and prevents accidental movement.
-- [ ] Locked panels do not intercept mouse clicks on nearby FFXIV UI.
+- [ ] `/shud unlock` allows every module to drag and resize from its right edge.
+- [ ] `/shud lock` removes editor borders/grips and prevents accidental movement.
+- [ ] Locked panels intercept only explicitly enabled click-to-target regions.
 - [ ] Positions survive plugin reload and complete game restart.
 - [ ] Resolution/window changes keep modules reachable.
 
 ## Existing awareness and camera regression
 
 - [ ] Native Self Highlight still follows the character silhouette with no geometric construction lines.
+- [ ] Select Yellow; the silhouette is yellow.
+- [ ] Select Green; the silhouette is green.
+- [ ] Select Blue; the silhouette is blue.
+- [ ] White and Custom are not presented as working native choices.
+- [ ] If upgrading an old White/Custom selection, the highlight remains off with an explicit unsupported warning—it does not silently render Yellow.
 - [ ] Hard, mouseover, controller, tab, interaction and action targeting remain normal.
 - [ ] Self Highlight survives zone changes and disappears when disabled.
 - [ ] Extended Zoom still exceeds the normal limit when enabled.

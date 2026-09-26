@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using SentinelHUD.Core;
 
 var tests = new (string Name, Action Run)[]
@@ -7,9 +8,10 @@ var tests = new (string Name, Action Run)[]
     ("configuration defaults", TestDefaults),
     ("configuration migration and repair", TestMigration),
     ("version-one settings survive migration", TestVersionOneMigration),
-    ("version-two settings survive schema-five migration", TestVersionTwoMigration),
-    ("version-three MP settings migrate to schema five", TestVersionThreeMigration),
-    ("version-four settings survive schema-five migration", TestVersionFourMigration),
+    ("version-two settings survive schema-six migration", TestVersionTwoMigration),
+    ("version-three MP settings migrate to schema six", TestVersionThreeMigration),
+    ("version-four settings survive schema-six migration", TestVersionFourMigration),
+    ("version-five update preserves customized settings", TestVersionFiveUpgradePersistence),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
@@ -20,6 +22,7 @@ var tests = new (string Name, Action Run)[]
     ("integrated shield bar layout", TestShieldBarLayout),
     ("layout position round trip", TestLayoutRoundTrip),
     ("layout boundary protection", TestLayoutBoundaries),
+    ("horizontal editor resize", TestHorizontalEditorResize),
     ("edit chrome lock-unlock stability", TestEditChromeStability),
     ("native target anchor bounds", TestNativeTargetAnchorBounds),
     ("module independence", TestModuleIndependence),
@@ -59,6 +62,8 @@ static void TestDefaults()
     True(config.Enabled);
     True(config.Locked);
     True(config.Player.Enabled);
+    True(config.Player.ClickToTarget);
+    Equal(ModuleClickableArea.WholeModule, config.Player.ClickableArea);
     True(config.Target.ShowDistance);
     True(config.FocusTarget.ShowCastBar);
     True(config.Player.ShowCastName);
@@ -167,6 +172,8 @@ static void TestSerialization()
     source.Player.ShowCastRemainingTime = true;
     source.FocusTarget.TargetOfFocus.ShowHpPercentage = false;
     source.FocusTarget.TargetOfFocus.ClickToTarget = false;
+    source.Player.ClickToTarget = false;
+    source.Target.ClickableArea = ModuleClickableArea.HeaderOrName;
 
     var json = JsonSerializer.Serialize(source);
     var restored = JsonSerializer.Deserialize<HudConfigurationData>(json);
@@ -201,6 +208,8 @@ static void TestSerialization()
     True(restored.Player.ShowCastRemainingTime);
     False(restored.FocusTarget.TargetOfFocus.ShowHpPercentage);
     False(restored.FocusTarget.TargetOfFocus.ClickToTarget);
+    False(restored.Player.ClickToTarget);
+    Equal(ModuleClickableArea.HeaderOrName, restored.Target.ClickableArea);
 }
 
 static void TestVersionOneMigration()
@@ -302,6 +311,89 @@ static void TestVersionFourMigration()
     True(source.FocusTarget.TargetOfFocus.ClickToTarget);
 }
 
+static void TestVersionFiveUpgradePersistence()
+{
+    var versionA = new HudConfigurationData
+    {
+        Version = 5,
+        Enabled = false,
+        Locked = false,
+        GlobalScale = 1.17f,
+        GlobalOpacity = 0.73f,
+    };
+    versionA.Player.Layout.AnchorX = 0.123f;
+    versionA.Player.Layout.AnchorY = 0.654f;
+    versionA.Player.Width = 337f;
+    versionA.Player.Scale = 1.23f;
+    versionA.Player.BarHeight = 14f;
+    versionA.Player.ShowMaximumHp = false;
+    versionA.Player.MpDisplay = MpDisplayMode.TextOnly;
+    versionA.Target.Layout.AnchorX = 0.812f;
+    versionA.Target.Width = 463f;
+    versionA.Target.ShowDistance = false;
+    versionA.Target.NativeHpOverlay.Mode = NativeTargetOverlayMode.CombatOnly;
+    versionA.Target.NativeHpOverlay.OffsetX = 21f;
+    versionA.FocusTarget.Enabled = false;
+    versionA.FocusTarget.Visibility = ModuleVisibilityCondition.DutyOnly;
+    versionA.TargetOfTarget.Width = 222f;
+    versionA.SelfHighlight.Mode = SelfHighlightMode.CombatOnly;
+    versionA.SelfHighlight.ColourPreset = HighlightColourPreset.Green;
+    versionA.PlayerPositionMarker.Mode = SelfHighlightMode.DutyOnly;
+    versionA.PlayerPositionMarker.Radius = 0.03f;
+    versionA.PlayerPositionMarker.Opacity = 0.44f;
+    versionA.PlayerPositionMarker.ColourPreset = HighlightColourPreset.Blue;
+    versionA.Camera.Enabled = true;
+    versionA.Camera.MaximumZoomDistance = 47f;
+    versionA.Appearance.HostileHealth.Set(new Vector4(0.61f, 0.07f, 0.12f, 1f));
+
+    var document = JsonNode.Parse(JsonSerializer.Serialize(versionA))!.AsObject();
+    foreach (var moduleName in new[] { "Player", "Target", "FocusTarget", "TargetOfTarget" })
+    {
+        var module = document[moduleName]!.AsObject();
+        module.Remove("ClickToTarget");
+        module.Remove("ClickableArea");
+    }
+
+    var versionB = JsonSerializer.Deserialize<HudConfigurationData>(document.ToJsonString());
+    NotNull(versionB);
+    HudConfigurationMigrator.Normalize(versionB!);
+
+    Equal(HudConfigurationData.CurrentVersion, versionB!.Version);
+    False(versionB.Enabled);
+    False(versionB.Locked);
+    Near(1.17f, versionB.GlobalScale);
+    Near(0.73f, versionB.GlobalOpacity);
+    Near(0.123f, versionB.Player.Layout.AnchorX);
+    Near(0.654f, versionB.Player.Layout.AnchorY);
+    Near(337f, versionB.Player.Width);
+    Near(1.23f, versionB.Player.Scale);
+    Near(14f, versionB.Player.BarHeight);
+    False(versionB.Player.ShowMaximumHp);
+    Equal(MpDisplayMode.TextOnly, versionB.Player.MpDisplay);
+    Near(0.812f, versionB.Target.Layout.AnchorX);
+    Near(463f, versionB.Target.Width);
+    False(versionB.Target.ShowDistance);
+    Equal(NativeTargetOverlayMode.CombatOnly, versionB.Target.NativeHpOverlay.Mode);
+    Near(21f, versionB.Target.NativeHpOverlay.OffsetX);
+    False(versionB.FocusTarget.Enabled);
+    Equal(ModuleVisibilityCondition.DutyOnly, versionB.FocusTarget.Visibility);
+    Near(222f, versionB.TargetOfTarget.Width);
+    Equal(SelfHighlightMode.CombatOnly, versionB.SelfHighlight.Mode);
+    Equal(HighlightColourPreset.Green, versionB.SelfHighlight.ColourPreset);
+    Equal(SelfHighlightMode.DutyOnly, versionB.PlayerPositionMarker.Mode);
+    Near(0.03f, versionB.PlayerPositionMarker.Radius);
+    Near(0.44f, versionB.PlayerPositionMarker.Opacity);
+    Equal(HighlightColourPreset.Blue, versionB.PlayerPositionMarker.ColourPreset);
+    True(versionB.Camera.Enabled);
+    Near(47f, versionB.Camera.MaximumZoomDistance);
+    Near(0.61f, versionB.Appearance.HostileHealth.Red);
+    True(versionB.Player.ClickToTarget);
+    True(versionB.Target.ClickToTarget);
+    True(versionB.FocusTarget.ClickToTarget);
+    True(versionB.TargetOfTarget.ClickToTarget);
+    Equal(ModuleClickableArea.WholeModule, versionB.Player.ClickableArea);
+}
+
 static void TestHitPointFormatting()
 {
     Equal("7,428,113 / 12,500,000 — 59.4%", HudFormatting.HitPoints(7_428_113, 12_500_000, true, true, true));
@@ -397,6 +489,26 @@ static void TestLayoutBoundaries()
         new Vector2(800f, 600f),
         new Vector2(1200f, 900f));
     Equal(new Vector2(100f, 50f), oversized);
+}
+
+static void TestHorizontalEditorResize()
+{
+    var workPosition = new Vector2(100f, 50f);
+    var workSize = new Vector2(1600f, 900f);
+    var origin = new Vector2(380f, 410f);
+    var result = LayoutPolicy.ResizeFromRightEdge(
+        320f, 100f, origin, new Vector2(320f, 120f), workPosition, workSize);
+    Near(420f, result.Width);
+    Equal(origin, result.Position);
+    Equal(origin, LayoutPolicy.ToPixelPosition(
+        result.Layout, workPosition, workSize, new Vector2(result.Width, 120f)));
+
+    var minimum = LayoutPolicy.ResizeFromRightEdge(
+        320f, -1000f, origin, new Vector2(320f, 120f), workPosition, workSize);
+    Near(HudSizingPolicy.MinimumWidth, minimum.Width);
+    var maximum = LayoutPolicy.ResizeFromRightEdge(
+        320f, 1000f, origin, new Vector2(320f, 120f), workPosition, workSize);
+    Near(HudSizingPolicy.MaximumWidth, maximum.Width);
 }
 
 static void TestEditChromeStability()
@@ -532,18 +644,18 @@ static void TestNativeHighlightPalette()
     };
     var exact = NativeHighlightPolicy.Resolve(config);
     Equal(NativeHighlightColour.Green, exact.Colour);
-    True(exact.IsExact);
+    True(exact.IsSupported);
 
     config.ColourPreset = HighlightColourPreset.White;
     var white = NativeHighlightPolicy.Resolve(config);
-    False(white.IsExact);
-    Equal(NativeHighlightColour.Yellow, white.Colour);
+    False(white.IsSupported);
+    Equal("White", white.DisplayName);
 
     config.ColourPreset = HighlightColourPreset.Custom;
     config.CustomColour.Set(new Vector4(0.98f, 0.22f, 0.75f, 1f));
     var custom = NativeHighlightPolicy.Resolve(config);
-    False(custom.IsExact);
-    Equal(NativeHighlightColour.Magenta, custom.Colour);
+    False(custom.IsSupported);
+    Equal("Custom", custom.DisplayName);
 }
 
 static void TestPositionMarkerConfiguration()

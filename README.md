@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.5.0.0** · Dalamud API **15** · .NET **10**
+Current release: **0.6.0.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
@@ -10,8 +10,8 @@ Current release: **0.5.0.0** · Dalamud API **15** · .NET **10**
 - Target: compact player/NPC-aware header, independently selectable HP values, optional MP text/bar modes, distance, integrated shield display, cast information and statuses.
 - Focus target: name, HP, optional MP text/bar modes, distance, shield and cast information, plus a compact Focus Target's Target row with safe click-to-target.
 - Target-of-target: an independent small module with name, HP and optional distance.
-- Layout editor: stable content-origin anchoring across unlock/lock, drag editing, per-module scale, width, bar height, background/border appearance, one-module reset, appearance copy and complete layout reset.
-- Per-module visibility conditions: Always, Combat Only, Duty Only or Combat or Duty. Locked modules are click-through.
+- Visual layout editor: titleless drift-free geometry, whole-panel mouse dragging, direct right-edge width resizing, per-module scale, precision width/bar-height controls, background/border appearance, one-module reset, appearance copy and complete layout reset.
+- Per-module visibility conditions: Always, Combat Only, Duty Only or Combat or Duty. In locked gameplay mode, each actor module can optionally target its represented actor from either the whole module or only its header/name region; other space remains click-through.
 - Custom compact HP/MP/cast bars with Left/Center/Right text alignment, Full/Compact numbers, optional health-state gradients, hostile-red static disposition colouring and a blue shield segment inside the HP bar.
 - Optional exact-HP supplement anchored read-only beneath the visible native target HP gauge. It supports both combined `_TargetInfo` and split `_TargetInfoMainTarget` layouts, including Always/Combat Only modes and X/Y fine tuning.
 - Resolution-safe normalized positions with screen-boundary protection and delayed persistent saves.
@@ -35,8 +35,8 @@ Install **Sentinel HUD** from the plugin installer. No other Sentinel plugin is 
 | Command | Result |
 |---|---|
 | `/shud` | Toggle configuration |
-| `/shud lock` | Lock all HUD modules and make them click-through |
-| `/shud unlock` | Show movable editor windows |
+| `/shud lock` | Enter gameplay mode; optional actor targeting regions become active |
+| `/shud unlock` | Show drag/resize editor affordances and disable target clicks |
 | `/shud reset` | Reset all module positions |
 | `/shud enable` | Enable overlays |
 | `/shud disable` | Remove overlays while keeping configuration available |
@@ -53,7 +53,13 @@ MP Display supports Off, Text Only, Bar Only and Bar + Text. Player defaults to 
 
 Player casting can independently show the current action name, progress bar, percentage and remaining time. It uses the Player module's width, scale, bar height and text alignment and occupies no space while the player is not casting.
 
-Focus Target's Target is a compact child row in the Focus Target module. It is resolved fresh from the current Focus Target ID and current object table on every draw; absent actors are hidden rather than retained. Optional click-to-target re-resolves the actor at click time and uses Dalamud's supported hard-target property. A transparent interaction window covers only the visible row, leaving the rest of a locked HUD click-through.
+Player, Target, Focus Target and Target-of-Target each have independent **Click to Target** and **Clickable Area** settings. The selected actor is represented by an object ID only; the plugin re-resolves it from the current object table at click time and assigns it through Dalamud's supported hard-target property. Unlocking the HUD removes all gameplay target regions and activates the move/resize editor instead.
+
+Focus Target's Target is a compact child row in the Focus Target module. It is resolved fresh from the current Focus Target ID and current object table on every draw; absent actors are hidden rather than retained. Its higher-priority row interaction remains independent from the parent Focus Target module, so clicking that row targets the child actor even when the whole parent panel is clickable.
+
+### Configuration persistence
+
+Schema 6 performs stepwise migrations and changes only fields introduced by the applicable schema. The reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
 
 ### Integrated health bars
 
@@ -69,7 +75,7 @@ The optional overlay probes the current combined `_TargetInfo` and split `_Targe
 
 Version 0.2.0.0 removed the former projected circle/line/trapezoid prototype from user-facing rendering. `NativeSelfHighlightService` calls the current FFXIVClientStructs `GameObject.Highlight` render function for the local actor. FFXIV applies the outline to the actor's real draw object and propagates it to weapons, mounts and ornaments. The service never reads or writes hard target, soft target, mouseover target, nameplate mouseover, controller target, tab target, interaction target or action target.
 
-The native renderer exposes a fixed palette. Yellow, Green and Blue are exact. White and Custom remain selectable and persistent, but currently resolve to the closest safe native palette colour; the configuration and diagnostics show the applied colour. Native opacity/intensity is not exposed. Sentinel HUD does not spoof target state or replace the silhouette with primitive geometry to work around these colour limits.
+The current FFXIVClientStructs renderer exposes a fixed `ObjectHighlightColor` palette rather than arbitrary RGB. Sentinel HUD offers the verified exact native choices Yellow, Green and Blue. White and Custom are no longer presented as working native choices and are never silently substituted with Yellow. If an older configuration still requests White or Custom, highlighting fails closed with a clear configuration/diagnostic message until an exact native colour is selected. Native opacity/intensity is not exposed. A true arbitrary-colour silhouette would require a supported model mask/depth path; Sentinel HUD does not spoof target state, try unknown palette values, inject a graphics hook, or return to primitive geometry.
 
 ### Player Position Marker
 
@@ -119,7 +125,7 @@ Screenshots will be added after the first in-game layout and colour pass.
 
 ## Known limitations
 
-- FFXIV's native silhouette API has a fixed colour palette. White/Custom use the nearest native colour, and native opacity/intensity is unavailable.
+- FFXIV's native silhouette API has a fixed colour palette. This release offers exact Yellow, Green and Blue only; White/Custom are unavailable and never mapped to Yellow. Native opacity/intensity is also unavailable.
 - Exact arbitrary-colour model silhouettes would require a separate depth/stencil render path that Dalamud does not currently expose as a supported high-level API; this release deliberately does not inject one.
 - The position marker's downward terrain ray can be unavailable during loading or on unusual collision surfaces; the actor origin is used temporarily and Diagnostics reports the fallback.
 - The position disc is world-projected but rendered as a Dalamud overlay without depth-buffer occlusion, so foreground terrain can occasionally cover incorrectly at extreme camera angles.

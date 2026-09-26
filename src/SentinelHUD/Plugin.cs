@@ -4,12 +4,12 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using SentinelCore.Configuration;
-using SentinelCore.Dalamud.Configuration;
 using SentinelCore.Dalamud.Diagnostics;
 using SentinelCore.Diagnostics;
 using SentinelCore.Identity;
 using SentinelCore.Lifecycle;
 using SentinelHUD.Core;
+using SentinelHUD.Persistence;
 using SentinelHUD.Services;
 using SentinelHUD.UI;
 
@@ -47,11 +47,20 @@ public sealed class Plugin : IDalamudPlugin
         logger = new DalamudLoggerAdapter(PluginLog);
         lifetime = new PluginLifetime(exception => logger.Error("A Sentinel HUD resource failed to dispose.", exception));
 
-        var store = new DalamudConfigurationStore<Configuration>(PluginInterface);
+        var store = new ResilientConfigurationStore(PluginInterface, diagnostics, logger);
         configuration = lifetime.Add(new ConfigurationCoordinator<Configuration>(
             store,
             static () => new Configuration(),
-            static value => HudConfigurationMigrator.Normalize(value)));
+            static value => HudConfigurationMigrator.Normalize(value),
+            saveAfterLoad: false));
+        if (!store.ConfigurationFileExisted
+            || store.UsedRawFallback
+            || store.LoadFailed && store.BackupPath is not null
+            || store.SourceVersion.GetValueOrDefault(HudConfigurationData.CurrentVersion)
+               < HudConfigurationData.CurrentVersion)
+        {
+            configuration.SaveNow();
+        }
 
         var data = new HudDataService(ObjectTable, TargetManager, DataManager);
         var highlight = lifetime.Add<ISelfHighlightService>(
@@ -60,6 +69,7 @@ public sealed class Plugin : IDalamudPlugin
         var nativeTargetOverlay = new NativeTargetHpOverlayRenderer(GameGui);
         var actorTargeting = new ActorTargetingService(ObjectTable, TargetManager);
         var actorInteractions = new ActorInteractionRenderer(actorTargeting);
+        var hudEditor = new HudEditorInteractionRenderer(configuration);
         var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
             new ExtendedCameraZoomService(PluginInterface, ClientState, Condition));
         hudRenderer = new HudRenderer(
@@ -69,12 +79,13 @@ public sealed class Plugin : IDalamudPlugin
             positionMarker,
             nativeTargetOverlay,
             actorInteractions,
+            hudEditor,
             cameraZoom,
             GameGui,
             ClientState,
             Condition,
             diagnostics);
-        configurationWindow = new ConfigurationWindow(configuration, hudRenderer, diagnostics);
+        configurationWindow = new ConfigurationWindow(configuration, hudRenderer, diagnostics, store);
         windows.AddWindow(configurationWindow);
         lifetime.Add(() => windows.RemoveAllWindows());
 

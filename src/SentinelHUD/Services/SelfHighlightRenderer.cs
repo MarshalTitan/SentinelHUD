@@ -87,17 +87,20 @@ public sealed unsafe class NativeSelfHighlightService(
         }
 
         var selection = NativeHighlightPolicy.Resolve(configuration);
+        if (!selection.IsSupported)
+        {
+            Disable();
+            AppliedColourName = $"{selection.DisplayName} (unsupported)";
+            StateReason = $"Native FFXIV silhouette does not support {selection.DisplayName}; no fallback colour was applied";
+            return;
+        }
         var stateChanged = !IsActive || lastSelection != selection;
         native->Highlight(ToNativeColour(selection.Colour), includeMount: true);
         highlightedActorAddress = player.Address;
         IsActive = true;
         AppliedColourName = selection.DisplayName;
         if (stateChanged)
-        {
-            StateReason = selection.IsExact
-                ? $"Native silhouette active ({selection.DisplayName})"
-                : $"Native silhouette active ({selection.DisplayName}, nearest safe native colour)";
-        }
+            StateReason = $"Native silhouette active ({selection.DisplayName})";
         lastSelection = selection;
     }
 

@@ -10,7 +10,7 @@ namespace SentinelHUD.UI;
 /// </summary>
 public sealed class ActorInteractionRenderer(ActorTargetingService targeting)
 {
-    private const int MaximumInteractions = 16;
+    private const int MaximumInteractions = 24;
     private static readonly string[] WindowNames = Enumerable.Range(0, MaximumInteractions)
         .Select(index => $"Actor link {index}##SentinelHUD-ActorInteraction-{index}")
         .ToArray();
@@ -21,19 +21,23 @@ public sealed class ActorInteractionRenderer(ActorTargetingService targeting)
 
     public void BeginFrame() => interactions.Clear();
 
-    public void RegisterLastItem(ulong gameObjectId)
+    public void RegisterLastItem(ulong gameObjectId, int priority = 10)
+    {
+        Register(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), gameObjectId, priority);
+    }
+
+    public void Register(Vector2 minimum, Vector2 maximum, ulong gameObjectId, int priority = 0)
     {
         if (gameObjectId == 0 || gameObjectId == ulong.MaxValue || interactions.Count >= MaximumInteractions)
             return;
-        var minimum = ImGui.GetItemRectMin();
-        var maximum = ImGui.GetItemRectMax();
         if (maximum.X <= minimum.X || maximum.Y <= minimum.Y)
             return;
-        interactions.Add(new ActorInteraction(minimum, maximum, gameObjectId));
+        interactions.Add(new ActorInteraction(minimum, maximum, gameObjectId, priority));
     }
 
     public void Draw()
     {
+        interactions.Sort(static (left, right) => left.Priority.CompareTo(right.Priority));
         for (var index = 0; index < interactions.Count; index++)
             Draw(interactions[index], index);
     }
@@ -90,5 +94,6 @@ public sealed class ActorInteractionRenderer(ActorTargetingService targeting)
     private readonly record struct ActorInteraction(
         Vector2 Minimum,
         Vector2 Maximum,
-        ulong GameObjectId);
+        ulong GameObjectId,
+        int Priority);
 }

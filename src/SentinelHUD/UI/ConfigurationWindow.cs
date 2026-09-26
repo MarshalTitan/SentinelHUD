@@ -5,6 +5,7 @@ using SentinelCore.Configuration;
 using SentinelCore.Diagnostics;
 using SentinelCore.UI;
 using SentinelHUD.Core;
+using SentinelHUD.Persistence;
 
 namespace SentinelHUD.UI;
 
@@ -12,7 +13,11 @@ public sealed class ConfigurationWindow : Window
 {
     private static readonly string[] HighlightModes = ["Off", "Always", "Combat Only", "Duty Only"];
     private static readonly string[] HighlightColours = ["Yellow", "Green", "Blue", "White", "Custom"];
+    private static readonly string[] NativeHighlightColours = ["Yellow", "Green", "Blue"];
+    private static readonly HighlightColourPreset[] NativeHighlightPresets =
+        [HighlightColourPreset.Yellow, HighlightColourPreset.Green, HighlightColourPreset.Blue];
     private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target"];
+    private static readonly string[] ClickableAreas = ["Whole module", "Header / name only"];
     private static readonly string[] ModuleVisibilityModes = ["Always", "Combat Only", "Duty Only", "Combat or Duty"];
     private static readonly string[] ShieldModes = ["Off", "Text Only", "Bar Only", "Bar + Text"];
     private static readonly string[] MpModes = ["Off", "Text Only", "Bar Only", "Bar + Text"];
@@ -25,17 +30,20 @@ public sealed class ConfigurationWindow : Window
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer renderer;
     private readonly DiagnosticBuffer diagnostics;
+    private readonly ResilientConfigurationStore configurationStore;
     private int selectedLayoutModule;
 
     public ConfigurationWindow(
         ConfigurationCoordinator<Configuration> configuration,
         HudRenderer renderer,
-        DiagnosticBuffer diagnostics)
+        DiagnosticBuffer diagnostics,
+        ResilientConfigurationStore configurationStore)
         : base("Sentinel HUD Configuration##SentinelHUD-Configuration")
     {
         this.configuration = configuration;
         this.renderer = renderer;
         this.diagnostics = diagnostics;
+        this.configurationStore = configurationStore;
         Size = new Vector2(760f, 720f);
         SizeCondition = ImGuiCond.FirstUseEver;
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(640f, 540f) };
@@ -87,8 +95,8 @@ public sealed class ConfigurationWindow : Window
 
         ImGui.Spacing();
         ImGui.TextWrapped(config.Locked
-            ? "The HUD is locked and click-through. Unlock it before dragging modules."
-            : "HUD editing is active. Conditional and target-dependent modules remain visible with placeholders for positioning.");
+            ? "Gameplay mode is active. Modules with Click to Target enabled accept only their configured interaction region; all other HUD space remains click-through."
+            : "Visual editing is active. Drag a module to move it or drag its right-edge grip to resize it; targeting clicks are disabled.");
         if (ImGui.Button(config.Locked ? "Unlock HUD" : "Lock HUD"))
         {
             Update(c => c.Locked = !c.Locked);
@@ -230,18 +238,12 @@ public sealed class ConfigurationWindow : Window
         var mode = (int)highlight.Mode;
         if (ImGui.Combo("Mode##SelfHighlight", ref mode, HighlightModes, HighlightModes.Length))
             Update(c => c.SelfHighlight.Mode = (SelfHighlightMode)mode);
-        DrawHighlightColour(highlight.ColourPreset, highlight.CustomColour, "SelfHighlight",
-            value => Update(c => c.SelfHighlight.ColourPreset = value),
-            value => Update(c => c.SelfHighlight.CustomColour.Set(value)));
-        var preview = SelfHighlightPolicy.ResolveColour(highlight);
-        preview.W = 1f;
-        ImGui.TextUnformatted("Requested colour:");
-        ImGui.SameLine();
-        ImGui.ColorButton("Self highlight preview##SentinelHUD", preview);
+        DrawNativeHighlightColour(highlight.ColourPreset);
         var nativeSelection = NativeHighlightPolicy.Resolve(highlight);
-        ImGui.TextWrapped(nativeSelection.IsExact
+        ImGui.TextWrapped(nativeSelection.IsSupported
             ? $"Applied native colour: {nativeSelection.DisplayName}."
-            : $"Applied native colour: {nativeSelection.DisplayName} (nearest safe native palette colour). Exact White and arbitrary Custom colours are not exposed by the native silhouette API.");
+            : $"{nativeSelection.DisplayName} is a legacy unsupported selection. The highlight is disabled until an exact native colour is chosen; it is never substituted with Yellow.");
+        ImGui.TextDisabled("The current native model-conforming renderer safely exposes Yellow, Green, and Blue. White and arbitrary RGB are not offered because the native outline is a fixed palette and no supported depth/mask API exists for a colourable silhouette fallback.");
         ImGui.TextDisabled($"Runtime state: {renderer.SelfHighlightState}");
 
         ImGui.Spacing();
@@ -334,7 +336,7 @@ public sealed class ConfigurationWindow : Window
     private void DrawLayout()
     {
         var config = configuration.Current;
-        ImGui.TextWrapped("Unlock the HUD, drag module windows, then lock it again. Positions use resolution-safe normalized anchors and save after movement stops.");
+        ImGui.TextWrapped("Unlock the HUD to open the visual editor. Drag a panel to move it; drag its right-edge grip to resize it. The titleless module origin is identical in locked and unlocked modes, and changes save automatically.");
         if (ImGui.Button(config.Locked ? "Unlock HUD" : "Lock HUD"))
         {
             Update(c => c.Locked = !c.Locked);
@@ -365,6 +367,9 @@ public sealed class ConfigurationWindow : Window
     {
         var config = configuration.Current;
         ImGui.TextUnformatted($"Configuration schema: {config.Version}");
+        ImGui.TextWrapped($"Configuration load: {configurationStore.StateDescription}");
+        if (configurationStore.BackupPath is not null)
+            ImGui.TextWrapped($"Migration/recovery backup: {configurationStore.BackupPath}");
         ImGui.TextUnformatted($"HUD enabled / locked: {config.Enabled} / {config.Locked}");
         ImGui.TextUnformatted($"Player module visible: {renderer.PlayerVisible}");
         ImGui.TextUnformatted($"Target visible / resolved: {renderer.TargetVisible} / {renderer.TargetResolved}");
@@ -415,7 +420,16 @@ public sealed class ConfigurationWindow : Window
         var visibility = (int)module.Visibility;
         if (ImGui.Combo("Show when", ref visibility, ModuleVisibilityModes, ModuleVisibilityModes.Length))
             Update(c => GetModule(c, kind).Visibility = (ModuleVisibilityCondition)visibility);
+        DrawToggle("Click to target", module.ClickToTarget,
+            value => Update(c => GetModule(c, kind).ClickToTarget = value));
+        if (module.ClickToTarget)
+        {
+            var clickableArea = (int)module.ClickableArea;
+            if (ImGui.Combo("Clickable area", ref clickableArea, ClickableAreas, ClickableAreas.Length))
+                Update(c => GetModule(c, kind).ClickableArea = (ModuleClickableArea)clickableArea);
+        }
         ImGui.TextDisabled("Unlocking the HUD temporarily shows enabled modules for editing.");
+        ImGui.TextDisabled("Edit mode always overrides click-to-target. Disabled interaction regions remain mouse-pass-through while locked.");
     }
 
     private void DrawModuleSizeLayout(HudModuleKind kind, HudModuleConfiguration module)
@@ -514,6 +528,17 @@ public sealed class ConfigurationWindow : Window
             var value = new Vector3(custom.Red, custom.Green, custom.Blue);
             if (ImGui.ColorEdit3($"Custom colour##{id}", ref value))
                 setCustom(new Vector4(value, 1f));
+        }
+    }
+
+    private void DrawNativeHighlightColour(HighlightColourPreset preset)
+    {
+        var selected = Array.IndexOf(NativeHighlightPresets, preset);
+        if (ImGui.Combo("Colour##SelfHighlight", ref selected,
+                NativeHighlightColours, NativeHighlightColours.Length)
+            && selected >= 0)
+        {
+            Update(c => c.SelfHighlight.ColourPreset = NativeHighlightPresets[selected]);
         }
     }
 
