@@ -13,7 +13,7 @@ namespace SentinelHUD.UI;
 public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Configuration> configuration)
 {
     private const int MaximumRegions = 8;
-    private const float ResizeHandleWidth = 12f;
+    private const float ResizeHandleSize = 12f;
     private static readonly string[] WindowNames = Enumerable.Range(0, MaximumRegions)
         .Select(index => $"HUD editor {index}##SentinelHUD-Editor-{index}")
         .ToArray();
@@ -26,15 +26,19 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
     private Vector2 dragStartPosition;
     private Vector2 dragStartSize;
     private float dragStartWidth;
-    private bool resizing;
+    private float dragStartBarHeight;
+    private int dragStartBarCount;
+    private EditorResizeEdges resizeEdges;
 
     public void BeginFrame() => regions.Clear();
 
-    public void Register(HudModuleKind kind, Vector2 minimum, Vector2 maximum, float configuredWidth)
+    public void Register(HudModuleKind kind, Vector2 minimum, Vector2 maximum, float configuredWidth,
+        float configuredBarHeight, int renderedBarCount)
     {
         if (regions.Count >= MaximumRegions || maximum.X <= minimum.X || maximum.Y <= minimum.Y)
             return;
-        regions.Add(new EditRegion(kind, minimum, maximum, configuredWidth));
+        regions.Add(new EditRegion(kind, minimum, maximum, configuredWidth, configuredBarHeight,
+            renderedBarCount));
     }
 
     public void Draw()
@@ -70,19 +74,21 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
                 ImGui.InvisibleButton("##EditModule", size);
                 var hovered = ImGui.IsItemHovered();
                 var mouse = ImGui.GetMousePos();
-                var overResizeHandle = mouse.X >= region.Maximum.X - ResizeHandleWidth;
+                var hoveredEdges = GetResizeEdges(region, mouse);
                 if (hovered)
-                    ImGui.SetMouseCursor(overResizeHandle ? ImGuiMouseCursor.ResizeEw : ImGuiMouseCursor.Hand);
+                    ImGui.SetMouseCursor(GetCursor(hoveredEdges));
 
                 if (ImGui.IsItemActivated())
                 {
                     selectedKind = region.Kind;
                     activeKind = region.Kind;
-                    resizing = overResizeHandle;
+                    resizeEdges = hoveredEdges;
                     dragStartMouse = mouse;
                     dragStartPosition = region.Minimum;
                     dragStartSize = size;
                     dragStartWidth = region.ConfiguredWidth;
+                    dragStartBarHeight = region.ConfiguredBarHeight;
+                    dragStartBarCount = region.RenderedBarCount;
                 }
 
                 if (activeKind == region.Kind && ImGui.IsItemActive())
@@ -109,14 +115,16 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
             return;
 
         var viewport = ImGui.GetMainViewport();
-        if (resizing)
+        if (resizeEdges != EditorResizeEdges.None)
         {
-            var result = LayoutPolicy.ResizeFromRightEdge(dragStartWidth, delta.X,
-                dragStartPosition, dragStartSize, viewport.WorkPos, viewport.WorkSize);
+            var result = LayoutPolicy.ResizeFromEdges(dragStartWidth, dragStartBarHeight,
+                dragStartBarCount, resizeEdges, delta, dragStartPosition, dragStartSize,
+                viewport.WorkPos, viewport.WorkSize);
             configuration.Update(config =>
             {
                 var module = GetModule(config, region.Kind);
                 module.Width = result.Width;
+                module.BarHeight = result.BarHeight;
                 module.Layout.AnchorX = result.Layout.AnchorX;
                 module.Layout.AnchorY = result.Layout.AnchorY;
             }, TimeSpan.FromMilliseconds(650));
@@ -150,7 +158,49 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
             new Vector2(region.Maximum.X - 2f, region.Maximum.Y - 5f),
             colour,
             1f);
+        drawList.AddRectFilled(
+            new Vector2(region.Minimum.X + 5f, region.Maximum.Y - 5f),
+            new Vector2(region.Maximum.X - 5f, region.Maximum.Y - 2f),
+            colour,
+            1f);
+        drawList.AddTriangleFilled(region.Maximum - new Vector2(11f, 2f),
+            region.Maximum - new Vector2(2f, 11f), region.Maximum - new Vector2(2f, 2f), colour);
         drawList.AddText(region.Minimum + new Vector2(5f, 3f), colour, Labels[(int)region.Kind]);
+    }
+
+    private static EditorResizeEdges GetResizeEdges(EditRegion region, Vector2 mouse)
+    {
+        var edges = EditorResizeEdges.None;
+        if (mouse.X <= region.Minimum.X + ResizeHandleSize)
+            edges |= EditorResizeEdges.Left;
+        else if (mouse.X >= region.Maximum.X - ResizeHandleSize)
+            edges |= EditorResizeEdges.Right;
+        if (mouse.Y <= region.Minimum.Y + ResizeHandleSize)
+            edges |= EditorResizeEdges.Top;
+        else if (mouse.Y >= region.Maximum.Y - ResizeHandleSize)
+            edges |= EditorResizeEdges.Bottom;
+        return edges;
+    }
+
+    private static ImGuiMouseCursor GetCursor(EditorResizeEdges edges)
+    {
+        var horizontal = edges.HasFlag(EditorResizeEdges.Left)
+                         || edges.HasFlag(EditorResizeEdges.Right);
+        var vertical = edges.HasFlag(EditorResizeEdges.Top)
+                       || edges.HasFlag(EditorResizeEdges.Bottom);
+        if (horizontal && vertical)
+        {
+            var northWestSouthEast = edges.HasFlag(EditorResizeEdges.Left)
+                                     && edges.HasFlag(EditorResizeEdges.Top)
+                                     || edges.HasFlag(EditorResizeEdges.Right)
+                                     && edges.HasFlag(EditorResizeEdges.Bottom);
+            return northWestSouthEast ? ImGuiMouseCursor.ResizeNwse : ImGuiMouseCursor.ResizeNesw;
+        }
+        if (horizontal)
+            return ImGuiMouseCursor.ResizeEw;
+        if (vertical)
+            return ImGuiMouseCursor.ResizeNs;
+        return ImGuiMouseCursor.Hand;
     }
 
     private static HudModuleConfiguration GetModule(Configuration config, HudModuleKind kind)
@@ -166,5 +216,7 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
         HudModuleKind Kind,
         Vector2 Minimum,
         Vector2 Maximum,
-        float ConfiguredWidth);
+        float ConfiguredWidth,
+        float ConfiguredBarHeight,
+        int RenderedBarCount);
 }

@@ -7,6 +7,23 @@ public readonly record struct HorizontalResizeResult(
     Vector2 Position,
     ModuleLayoutConfiguration Layout);
 
+[Flags]
+public enum EditorResizeEdges
+{
+    None = 0,
+    Left = 1,
+    Right = 2,
+    Top = 4,
+    Bottom = 8,
+}
+
+public readonly record struct EditorResizeResult(
+    float Width,
+    float BarHeight,
+    Vector2 Position,
+    Vector2 ApproximateSize,
+    ModuleLayoutConfiguration Layout);
+
 public static class LayoutPolicy
 {
     public static Vector2 ToOuterWindowPosition(Vector2 contentPosition, float editChromeHeight)
@@ -89,6 +106,65 @@ public static class LayoutPolicy
         var position = KeepReachable(startingPosition, workPosition, workSize, resizedSize);
         var layout = ToNormalizedPosition(position, workPosition, workSize, resizedSize);
         return new HorizontalResizeResult(width, position, layout);
+    }
+
+    public static EditorResizeResult ResizeFromEdges(
+        float startingWidth,
+        float startingBarHeight,
+        int renderedBarCount,
+        EditorResizeEdges edges,
+        Vector2 delta,
+        Vector2 startingPosition,
+        Vector2 startingSize,
+        Vector2 workPosition,
+        Vector2 workSize)
+    {
+        var safeStartingWidth = float.IsFinite(startingWidth)
+            ? Math.Clamp(startingWidth, HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth)
+            : HudSizingPolicy.MinimumWidth;
+        var safeStartingBarHeight = float.IsFinite(startingBarHeight)
+            ? Math.Clamp(startingBarHeight, HudSizingPolicy.MinimumBarHeight, HudSizingPolicy.MaximumBarHeight)
+            : HudSizingPolicy.DefaultBarHeight;
+        var width = safeStartingWidth;
+        var barHeight = safeStartingBarHeight;
+        var safeDelta = IsFinite(delta) ? delta : Vector2.Zero;
+        var position = IsFinite(startingPosition) ? startingPosition : workPosition;
+        var originalSize = IsFinite(startingSize) && startingSize.X > 0f && startingSize.Y > 0f
+            ? startingSize
+            : new Vector2(width, 1f);
+
+        if (edges.HasFlag(EditorResizeEdges.Left))
+        {
+            var next = Math.Clamp(safeStartingWidth - safeDelta.X,
+                HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth);
+            position.X += safeStartingWidth - next;
+            width = next;
+        }
+        else if (edges.HasFlag(EditorResizeEdges.Right))
+        {
+            width = Math.Clamp(safeStartingWidth + safeDelta.X,
+                HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth);
+        }
+
+        var meterCount = Math.Max(1, renderedBarCount);
+        if (edges.HasFlag(EditorResizeEdges.Top))
+        {
+            var next = Math.Clamp(safeStartingBarHeight - (safeDelta.Y / meterCount),
+                HudSizingPolicy.MinimumBarHeight, HudSizingPolicy.MaximumBarHeight);
+            position.Y += (safeStartingBarHeight - next) * meterCount;
+            barHeight = next;
+        }
+        else if (edges.HasFlag(EditorResizeEdges.Bottom))
+        {
+            barHeight = Math.Clamp(safeStartingBarHeight + (safeDelta.Y / meterCount),
+                HudSizingPolicy.MinimumBarHeight, HudSizingPolicy.MaximumBarHeight);
+        }
+
+        var heightDelta = (barHeight - safeStartingBarHeight) * meterCount;
+        var approximateSize = new Vector2(width, Math.Max(1f, originalSize.Y + heightDelta));
+        position = KeepReachable(position, workPosition, workSize, approximateSize);
+        var layout = ToNormalizedPosition(position, workPosition, workSize, approximateSize);
+        return new EditorResizeResult(width, barHeight, position, approximateSize, layout);
     }
 
     public static bool IsFinite(Vector2 value)

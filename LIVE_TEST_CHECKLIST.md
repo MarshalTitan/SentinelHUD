@@ -1,10 +1,10 @@
-# Sentinel HUD 0.6.0.0 — Live Test
+# Sentinel HUD 0.7.0.0 — Live Test
 
 ## Startup and configuration migration
 
 - [ ] Update Sentinel HUD from the Sentinel custom repository without deleting the existing configuration.
 - [ ] Existing module positions, widths, scale, bar heights, colours, field toggles, visibility modes, HP/MP/shield/cast settings, Awareness settings, marker radius/opacity, camera settings and native-target offsets remain intact.
-- [ ] Diagnostics reports that schema 5 was loaded/migrated and shows a one-time `SentinelHUD.schema-v5.backup.json` path.
+- [ ] Diagnostics reports configuration schema 7 and, when upgrading schema 6, shows a one-time `SentinelHUD.schema-v6.backup.json` path.
 - [ ] Reload again and confirm the schema backup is not replaced or multiplied.
 - [ ] `/shud` opens and closes configuration.
 - [ ] The normal title-bar collapse arrow is available.
@@ -25,6 +25,28 @@
 - [ ] Mount/dismount and test slopes or uneven ground.
 - [ ] Enabling the thin border does not increase the marker's outside radius.
 - [ ] Border Thickness remains subtle and is drawn inward.
+
+## Position Marker Danger
+
+- [ ] Enable Encounter Awareness and **Change Position Marker colour when unsafe**.
+- [ ] The marker uses its normal configured colour while safe.
+- [ ] Stand inside a supported currently casting hostile telegraph; the exact-position dot changes to the configured Danger colour.
+- [ ] Move the actor origin outside the hazard; the normal colour returns immediately.
+- [ ] Test Red, Orange, Yellow and a visibly different Custom danger colour.
+- [ ] Character animation/model movement does not change the danger result when the actor origin stays still.
+- [ ] Disabling Player Danger leaves the marker at its normal colour even while a provider reports danger.
+
+## Encounter Awareness
+
+- [ ] With General disabled, Diagnostics reports no active hazards and the marker never changes colour.
+- [ ] Enable Native Detection and test a standard visible hostile circle/cone/line where practical.
+- [ ] Unsupported or scripted mechanics do not create guessed/stale hazards.
+- [ ] Diagnostics reports Native provider status, territory, hazard count and current unsafe state without log spam.
+- [ ] Without Splatoon installed, enabling its provider reports Not Installed and the rest of Sentinel HUD works normally.
+- [ ] With Splatoon installed, Diagnostics reports Installed/Connected without requiring a hard dependency.
+- [ ] With the default fail-closed setting, unclassified Splatoon drawings do not change the marker.
+- [ ] Opt in to treating unclassified visible Splatoon geometry as danger and verify the warning and marker response; remember that safe-zone artwork can also be classified as danger in this mode.
+- [ ] Change zone/duty and confirm cached hazards clear immediately.
 
 ## Integrated Shield
 
@@ -140,14 +162,30 @@
 - [ ] Unlock the HUD; all click-to-target actions stop and clicks edit the layout instead.
 - [ ] Let an actor leave the object table before clicking; targeting fails safely and Diagnostics explains the result.
 
-## Visual editor and direct resize
+## Right-click native actor context menus
 
-- [ ] Unlock the HUD; subtle borders, labels and right-edge resize grips appear without title bars.
+- [ ] Lock the HUD and right-click Player; an FFXIV-built actor context menu opens.
+- [ ] Right-click another player represented by Target and verify only currently valid game actions appear.
+- [ ] Right-click Target-of-Target and Focus Target.
+- [ ] Right-click Focus Target's Target; the child actor receives the menu, not the focus parent.
+- [ ] NPC/enemy actors do not receive player-only options such as Send Tell or Friend Request.
+- [ ] Existing left-click targeting still works independently.
+- [ ] Disable **Right-click native context menu** on a module; right-click becomes pass-through there.
+- [ ] Select Header / name only; transparent space outside that region remains pass-through.
+- [ ] Unlock the HUD; neither left-click targeting nor right-click menus fire while moving/resizing.
+- [ ] Change/clear an actor before interacting; no stale actor menu opens.
+
+## Visual editor and full drag resize
+
+- [ ] Unlock the HUD; subtle borders, labels and edge/corner resize grips appear without title bars.
 - [ ] Drag Player and Target by their module bodies.
-- [ ] Drag the right edge of Player and Target to resize them horizontally.
-- [ ] Resize Focus Target and Target-of-Target the same way.
+- [ ] Drag left/right edges to resize width.
+- [ ] Drag top/bottom edges to resize bar height and compact row geometry.
+- [ ] Drag each corner to change width and bar height together.
+- [ ] Resize Player, Target, Focus Target and Target-of-Target.
 - [ ] Bars reflow to the new width; fonts and icons are not stretched.
-- [ ] Precision Module Width sliders reflect the mouse-resized values.
+- [ ] Vertical resizing changes HP/MP/cast bar height without scaling fonts.
+- [ ] Precision Module Width and Bar Height sliders reflect mouse-resized values.
 - [ ] Lock the HUD; all editor chrome disappears and the exact visual origins remain unchanged.
 - [ ] Repeat unlock → lock at least five times; no panel drifts in any direction.
 - [ ] Reload the plugin and restart FFXIV; positions and mouse-resized widths persist.
@@ -172,14 +210,15 @@
 - [ ] Positions survive plugin reload and complete game restart.
 - [ ] Resolution/window changes keep modules reachable.
 
-## Existing awareness and camera regression
+## Self Highlight and camera regression
 
 - [ ] Native Self Highlight still follows the character silhouette with no geometric construction lines.
 - [ ] Select Yellow; the silhouette is yellow.
 - [ ] Select Green; the silhouette is green.
 - [ ] Select Blue; the silhouette is blue.
-- [ ] White and Custom are not presented as working native choices.
-- [ ] If upgrading an old White/Custom selection, the highlight remains off with an explicit unsupported warning—it does not silently render Yellow.
+- [ ] Select Custom black, orange and pink/purple; the UI reports the actual closest native palette colour and persists the picker value.
+- [ ] Selecting White leaves the outline off with an explicit unsupported warning; it never silently renders Yellow.
+- [ ] Custom never claims arbitrary-RGB accuracy when the applied native palette entry differs.
 - [ ] Hard, mouseover, controller, tab, interaction and action targeting remain normal.
 - [ ] Self Highlight survives zone changes and disappears when disabled.
 - [ ] Extended Zoom still exceeds the normal limit when enabled.
@@ -187,9 +226,18 @@
 - [ ] First person, duty transitions, cutscenes and GPose remain safe.
 - [ ] A known camera plugin conflict causes Sentinel HUD to yield.
 
+## Prevent AFK Disconnect
+
+- [ ] Default is Off and Diagnostics reports Off.
+- [ ] Enable it while logged in; Diagnostics reports Active after the first update cycle.
+- [ ] Keyboard, mouse and controller input remain normal; no movement, chat or visible key presses occur.
+- [ ] Change zones and confirm the service resumes cleanly.
+- [ ] Disable and re-enable it; normal timer accumulation resumes while disabled.
+- [ ] Reload/unload Sentinel HUD with it enabled; disposal is clean and no background worker remains.
+
 ## Cleanup and diagnostics
 
 - [ ] Logging out and back in recovers all enabled features.
 - [ ] Entering/exiting duties and PvP does not break the HUD.
 - [ ] Disabling Sentinel HUD removes panels, native-target text, silhouette and marker and restores camera limits.
-- [ ] Diagnostics reports module visibility, target/focus/Focus-ToT resolution, highlight state, marker mode/projection, native-target variants/anchor and camera state without frame-by-frame spam.
+- [ ] Diagnostics reports module visibility, target/focus/Focus-ToT resolution, actor menu result, highlight state, marker mode/projection/danger, encounter providers, native-target variants/anchor, camera and Anti-AFK state without frame-by-frame spam.

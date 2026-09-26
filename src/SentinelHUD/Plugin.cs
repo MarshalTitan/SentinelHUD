@@ -68,8 +68,13 @@ public sealed class Plugin : IDalamudPlugin
         var positionMarker = new PlayerPositionMarkerRenderer(GameGui);
         var nativeTargetOverlay = new NativeTargetHpOverlayRenderer(GameGui);
         var actorTargeting = new ActorTargetingService(ObjectTable, TargetManager);
-        var actorInteractions = new ActorInteractionRenderer(actorTargeting);
+        var actorContextMenus = new ActorContextMenuService(ObjectTable);
+        var actorInteractions = new ActorInteractionRenderer(actorTargeting, actorContextMenus);
         var hudEditor = new HudEditorInteractionRenderer(configuration);
+        var encounterAwareness = lifetime.Add(new EncounterAwarenessService(
+            ObjectTable, DataManager, PluginInterface));
+        var antiAfk = new AntiAfkService();
+        lifetime.Add(antiAfk.Disable);
         var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
             new ExtendedCameraZoomService(PluginInterface, ClientState, Condition));
         hudRenderer = new HudRenderer(
@@ -81,6 +86,8 @@ public sealed class Plugin : IDalamudPlugin
             actorInteractions,
             hudEditor,
             cameraZoom,
+            encounterAwareness,
+            antiAfk,
             GameGui,
             ClientState,
             Condition,

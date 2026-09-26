@@ -8,31 +8,41 @@ namespace SentinelHUD.UI;
 /// <summary>
 /// Adds input only over explicitly registered actor rows. The surrounding locked HUD stays click-through.
 /// </summary>
-public sealed class ActorInteractionRenderer(ActorTargetingService targeting)
+public sealed class ActorInteractionRenderer(
+    ActorTargetingService targeting,
+    ActorContextMenuService contextMenus)
 {
     private const int MaximumInteractions = 24;
     private static readonly string[] WindowNames = Enumerable.Range(0, MaximumInteractions)
         .Select(index => $"Actor link {index}##SentinelHUD-ActorInteraction-{index}")
         .ToArray();
     private readonly ActorTargetingService targeting = targeting;
+    private readonly ActorContextMenuService contextMenus = contextMenus;
     private readonly List<ActorInteraction> interactions = new(MaximumInteractions);
 
     public string LastActionResult => targeting.LastActionResult;
+    public string LastContextMenuResult => contextMenus.LastActionResult;
 
     public void BeginFrame() => interactions.Clear();
 
-    public void RegisterLastItem(ulong gameObjectId, int priority = 10)
+    public void RegisterLastItem(ulong gameObjectId, bool allowTargeting = true,
+        bool allowContextMenu = true, int priority = 10)
     {
-        Register(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), gameObjectId, priority);
+        Register(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), gameObjectId,
+            allowTargeting, allowContextMenu, priority);
     }
 
-    public void Register(Vector2 minimum, Vector2 maximum, ulong gameObjectId, int priority = 0)
+    public void Register(Vector2 minimum, Vector2 maximum, ulong gameObjectId,
+        bool allowTargeting = true, bool allowContextMenu = true, int priority = 0)
     {
         if (gameObjectId == 0 || gameObjectId == ulong.MaxValue || interactions.Count >= MaximumInteractions)
             return;
         if (maximum.X <= minimum.X || maximum.Y <= minimum.Y)
             return;
-        interactions.Add(new ActorInteraction(minimum, maximum, gameObjectId, priority));
+        if (!allowTargeting && !allowContextMenu)
+            return;
+        interactions.Add(new ActorInteraction(minimum, maximum, gameObjectId,
+            allowTargeting, allowContextMenu, priority));
     }
 
     public void Draw()
@@ -65,10 +75,12 @@ public sealed class ActorInteractionRenderer(ActorTargetingService targeting)
             {
                 if (!began)
                     return;
-                ImGui.InvisibleButton("##TargetActor", size);
+                ImGui.InvisibleButton("##TargetActor", size,
+                    ImGuiButtonFlags.MouseButtonLeft | ImGuiButtonFlags.MouseButtonRight);
                 if (ImGui.IsItemHovered())
                 {
-                    ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+                    if (interaction.AllowTargeting)
+                        ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
                     ImGui.GetForegroundDrawList().AddRect(
                         interaction.Minimum,
                         interaction.Maximum,
@@ -77,8 +89,10 @@ public sealed class ActorInteractionRenderer(ActorTargetingService targeting)
                         ImDrawFlags.None,
                         1f);
                 }
-                if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
+                if (interaction.AllowTargeting && ImGui.IsItemClicked(ImGuiMouseButton.Left))
                     targeting.TryTarget(interaction.GameObjectId);
+                if (interaction.AllowContextMenu && ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                    contextMenus.TryOpen(interaction.GameObjectId);
             }
             finally
             {
@@ -95,5 +109,7 @@ public sealed class ActorInteractionRenderer(ActorTargetingService targeting)
         Vector2 Minimum,
         Vector2 Maximum,
         ulong GameObjectId,
+        bool AllowTargeting,
+        bool AllowContextMenu,
         int Priority);
 }

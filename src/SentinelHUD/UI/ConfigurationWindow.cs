@@ -13,9 +13,7 @@ public sealed class ConfigurationWindow : Window
 {
     private static readonly string[] HighlightModes = ["Off", "Always", "Combat Only", "Duty Only"];
     private static readonly string[] HighlightColours = ["Yellow", "Green", "Blue", "White", "Custom"];
-    private static readonly string[] NativeHighlightColours = ["Yellow", "Green", "Blue"];
-    private static readonly HighlightColourPreset[] NativeHighlightPresets =
-        [HighlightColourPreset.Yellow, HighlightColourPreset.Green, HighlightColourPreset.Blue];
+    private static readonly string[] DangerColours = ["Red", "Orange", "Yellow", "Custom"];
     private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target"];
     private static readonly string[] ClickableAreas = ["Whole module", "Header / name only"];
     private static readonly string[] ModuleVisibilityModes = ["Always", "Combat Only", "Duty Only", "Combat or Duty"];
@@ -65,7 +63,9 @@ public sealed class ConfigurationWindow : Window
             DrawTab("Focus Target", DrawFocusTarget);
             DrawTab("Target-of-Target", DrawTargetOfTarget);
             DrawTab("Awareness", DrawAwareness);
+            DrawTab("Encounter Awareness", DrawEncounterAwareness);
             DrawTab("Camera", DrawCamera);
+            DrawTab("Convenience", DrawConvenience);
             DrawTab("Appearance", DrawAppearance);
             DrawTab("Layout", DrawLayout);
             DrawTab("Diagnostics", DrawDiagnostics);
@@ -95,8 +95,8 @@ public sealed class ConfigurationWindow : Window
 
         ImGui.Spacing();
         ImGui.TextWrapped(config.Locked
-            ? "Gameplay mode is active. Modules with Click to Target enabled accept only their configured interaction region; all other HUD space remains click-through."
-            : "Visual editing is active. Drag a module to move it or drag its right-edge grip to resize it; targeting clicks are disabled.");
+            ? "Gameplay mode is active. Enabled interaction regions use left-click to target and right-click for FFXIV's native actor menu; other HUD space remains click-through."
+            : "Visual editing is active. Drag the panel body to move it, any edge to resize one axis, or a corner to resize width and bar height together. Actor actions are disabled.");
         if (ImGui.Button(config.Locked ? "Unlock HUD" : "Lock HUD"))
         {
             Update(c => c.Locked = !c.Locked);
@@ -206,6 +206,9 @@ public sealed class ConfigurationWindow : Window
                 value => Update(c => c.FocusTarget.TargetOfFocus.ShowLevel = value));
             DrawToggle("Click to target##FocusToT", targetOfFocus.ClickToTarget,
                 value => Update(c => c.FocusTarget.TargetOfFocus.ClickToTarget = value));
+            DrawToggle("Right-click native context menu##FocusToT",
+                targetOfFocus.RightClickContextMenu,
+                value => Update(c => c.FocusTarget.TargetOfFocus.RightClickContextMenu = value));
             ImGui.TextDisabled("Only the visible target row receives mouse input; the rest of a locked module stays click-through.");
         }
         DrawModuleSizeLayout(HudModuleKind.FocusTarget, config);
@@ -238,12 +241,16 @@ public sealed class ConfigurationWindow : Window
         var mode = (int)highlight.Mode;
         if (ImGui.Combo("Mode##SelfHighlight", ref mode, HighlightModes, HighlightModes.Length))
             Update(c => c.SelfHighlight.Mode = (SelfHighlightMode)mode);
-        DrawNativeHighlightColour(highlight.ColourPreset);
+        DrawHighlightColour(highlight.ColourPreset, highlight.CustomColour, "SelfHighlight",
+            value => Update(c => c.SelfHighlight.ColourPreset = value),
+            value => Update(c => c.SelfHighlight.CustomColour.Set(value)));
         var nativeSelection = NativeHighlightPolicy.Resolve(highlight);
         ImGui.TextWrapped(nativeSelection.IsSupported
-            ? $"Applied native colour: {nativeSelection.DisplayName}."
-            : $"{nativeSelection.DisplayName} is a legacy unsupported selection. The highlight is disabled until an exact native colour is chosen; it is never substituted with Yellow.");
-        ImGui.TextDisabled("The current native model-conforming renderer safely exposes Yellow, Green, and Blue. White and arbitrary RGB are not offered because the native outline is a fixed palette and no supported depth/mask API exists for a colourable silhouette fallback.");
+            ? highlight.ColourPreset == HighlightColourPreset.Custom
+                ? $"Applied native silhouette palette colour: {nativeSelection.DisplayName}. The requested custom RGB remains saved and visible in the picker."
+                : $"Applied native colour: {nativeSelection.DisplayName}."
+            : "White is not substituted: the native silhouette is disabled because the current FFXIV outline palette has no White entry.");
+        ImGui.TextDisabled("The model-conforming renderer exposes Red, Green, Blue, Yellow, Orange, Magenta and Black. Custom uses the closest real native palette colour (shown above); it never silently reports the requested RGB as exact.");
         ImGui.TextDisabled($"Runtime state: {renderer.SelfHighlightState}");
 
         ImGui.Spacing();
@@ -283,6 +290,70 @@ public sealed class ConfigurationWindow : Window
         ImGui.SameLine();
         ImGui.ColorButton("Position marker preview##SentinelHUD", markerPreview);
         ImGui.TextDisabled($"Runtime state: {renderer.PositionMarkerState}");
+    }
+
+    private void DrawEncounterAwareness()
+    {
+        var encounter = configuration.Current.EncounterAwareness;
+        var marker = configuration.Current.PlayerPositionMarker;
+        SentinelUi.SectionHeader("General");
+        DrawToggle("Enable Encounter Awareness", encounter.Enabled,
+            value => Update(c => c.EncounterAwareness.Enabled = value));
+        ImGui.TextWrapped("Hazards are isolated behind providers. The marker tests the local player's actual world-position point against cached world-space geometry.");
+
+        ImGui.Spacing();
+        SentinelUi.SectionHeader("Player Danger");
+        DrawToggle("Change Position Marker colour when unsafe", marker.DangerDetectionEnabled,
+            value => Update(c => c.PlayerPositionMarker.DangerDetectionEnabled = value));
+        var dangerPreset = (int)marker.DangerColourPreset;
+        if (ImGui.Combo("Danger colour", ref dangerPreset, DangerColours, DangerColours.Length))
+            Update(c => c.PlayerPositionMarker.DangerColourPreset = (DangerColourPreset)dangerPreset);
+        if (marker.DangerColourPreset == DangerColourPreset.Custom)
+        {
+            var custom = new Vector3(marker.CustomDangerColour.Red,
+                marker.CustomDangerColour.Green, marker.CustomDangerColour.Blue);
+            if (ImGui.ColorEdit3("Custom danger colour", ref custom))
+                Update(c => c.PlayerPositionMarker.CustomDangerColour.Set(new Vector4(custom, 1f)));
+        }
+        var dangerPreview = PlayerPositionMarkerPolicy.ResolveColour(marker, true);
+        ImGui.TextUnformatted("Danger preview:");
+        ImGui.SameLine();
+        ImGui.ColorButton("Danger preview##SentinelHUD", dangerPreview);
+        ImGui.TextUnformatted($"Player currently unsafe: {renderer.PlayerInDanger}");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        SentinelUi.SectionHeader("Native Detection");
+        DrawToggle("Enable conservative visible-cast detection", encounter.NativeDetectionEnabled,
+            value => Update(c => c.EncounterAwareness.NativeDetectionEnabled = value));
+        ImGui.TextWrapped("Uses hostile casts only when current action data exposes a supported standard circle, donut, rectangle, cone, line or cross and a native omen/telegraph. Unknown and boss-specific mechanics are skipped rather than guessed.");
+        ImGui.TextDisabled($"Status: {renderer.EncounterNativeState}");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        SentinelUi.SectionHeader("Splatoon Integration");
+        DrawToggle("Enable optional Splatoon IPC", encounter.SplatoonIntegrationEnabled,
+            value => Update(c => c.EncounterAwareness.SplatoonIntegrationEnabled = value));
+        DrawToggle("Treat unclassified visible Splatoon geometry as danger",
+            encounter.TreatUnclassifiedSplatoonGeometryAsDanger,
+            value => Update(c => c.EncounterAwareness.TreatUnclassifiedSplatoonGeometryAsDanger = value));
+        ImGui.TextWrapped("Splatoon's current geometry IPC v1 exposes active shapes but not whether each is Danger, Safe or Information. Sentinel fails closed by default. The opt-in above treats every supported visible area as dangerous and may therefore flag safe-zone drawings.");
+        ImGui.TextUnformatted($"Installed / connected: {renderer.SplatoonInstalled} / {renderer.SplatoonConnected}");
+        ImGui.TextDisabled($"Status: {renderer.EncounterSplatoonState}");
+        ImGui.TextUnformatted($"Active encounter: {renderer.ActiveEncounter}");
+        ImGui.TextUnformatted($"Current trusted hazards: {renderer.EncounterHazardCount}");
+    }
+
+    private void DrawConvenience()
+    {
+        SentinelUi.SectionHeader("Prevent AFK Disconnect");
+        var convenience = configuration.Current.Convenience;
+        DrawToggle("Prevent AFK Disconnect", convenience.PreventAfkDisconnect,
+            value => Update(c => c.Convenience.PreventAfkDisconnect = value));
+        ImGui.TextWrapped("Default Off. When enabled, Sentinel periodically resets the client's inactivity timers directly. It does not move your character, send chat, synthesize keys, or alter controller input. Disabling resumes ordinary timer accumulation.");
+        ImGui.TextDisabled($"Runtime state: {renderer.AntiAfkState}");
     }
 
     private void DrawCamera()
@@ -336,7 +407,7 @@ public sealed class ConfigurationWindow : Window
     private void DrawLayout()
     {
         var config = configuration.Current;
-        ImGui.TextWrapped("Unlock the HUD to open the visual editor. Drag a panel to move it; drag its right-edge grip to resize it. The titleless module origin is identical in locked and unlocked modes, and changes save automatically.");
+        ImGui.TextWrapped("Unlock the HUD to open the visual editor. Drag the body to move, horizontal edges for width, vertical edges for bar height, or a corner for both. Text is reflowed and never stretched. The titleless origin remains identical in both modes.");
         if (ImGui.Button(config.Locked ? "Unlock HUD" : "Lock HUD"))
         {
             Update(c => c.Locked = !c.Locked);
@@ -376,6 +447,7 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextUnformatted($"Focus visible / resolved: {renderer.FocusTargetVisible} / {renderer.FocusTargetResolved}");
         ImGui.TextUnformatted($"Focus Target's Target resolved: {renderer.FocusTargetTargetResolved}");
         ImGui.TextWrapped($"Focus Target click state: {renderer.FocusTargetClickState}");
+        ImGui.TextWrapped($"Actor context-menu state: {renderer.ActorContextMenuState}");
         ImGui.TextUnformatted($"Target-of-target visible / resolved: {renderer.TargetOfTargetVisible} / {renderer.TargetOfTargetResolved}");
         ImGui.TextUnformatted($"Self highlight mode / active: {config.SelfHighlight.Mode} / {renderer.SelfHighlightActive}");
         ImGui.TextUnformatted($"Self highlight applied colour: {renderer.SelfHighlightAppliedColour}");
@@ -383,6 +455,10 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextUnformatted($"Position marker mode / active: {config.PlayerPositionMarker.Mode} / {renderer.PositionMarkerActive}");
         ImGui.TextUnformatted($"Position marker terrain projection: {renderer.PositionMarkerUsedTerrainProjection}");
         ImGui.TextWrapped($"Position marker state: {renderer.PositionMarkerState}");
+        ImGui.TextUnformatted($"Encounter awareness enabled / player unsafe: {renderer.EncounterAwarenessEnabled} / {renderer.PlayerInDanger}");
+        ImGui.TextUnformatted($"Encounter hazards: {renderer.EncounterHazardCount}");
+        ImGui.TextWrapped($"Native danger provider: {renderer.EncounterNativeState}");
+        ImGui.TextWrapped($"Splatoon provider: {renderer.EncounterSplatoonState}");
         ImGui.TextUnformatted($"Native target overlay mode / active: {config.Target.NativeHpOverlay.Mode} / {renderer.NativeTargetOverlayActive}");
         ImGui.TextUnformatted($"Native overlay target exists: {renderer.NativeTargetOverlayTargetExists}");
         ImGui.TextUnformatted($"Split addon available / visible: {renderer.NativeTargetSplitAddonAvailable} / {renderer.NativeTargetSplitAddonVisible}");
@@ -397,6 +473,8 @@ public sealed class ConfigurationWindow : Window
         }
         ImGui.TextUnformatted($"Extended zoom enabled / active: {config.Camera.Enabled} / {renderer.CameraZoomActive}");
         ImGui.TextWrapped($"Extended zoom state: {renderer.CameraZoomState}");
+        ImGui.TextUnformatted($"Prevent AFK Disconnect enabled / active: {config.Convenience.PreventAfkDisconnect} / {renderer.AntiAfkActive}");
+        ImGui.TextWrapped($"Anti-AFK state: {renderer.AntiAfkState}");
         if (ImGui.Button("Clear diagnostic history"))
             diagnostics.Clear();
         ImGui.Separator();
@@ -422,14 +500,16 @@ public sealed class ConfigurationWindow : Window
             Update(c => GetModule(c, kind).Visibility = (ModuleVisibilityCondition)visibility);
         DrawToggle("Click to target", module.ClickToTarget,
             value => Update(c => GetModule(c, kind).ClickToTarget = value));
-        if (module.ClickToTarget)
+        DrawToggle("Right-click native context menu", module.RightClickContextMenu,
+            value => Update(c => GetModule(c, kind).RightClickContextMenu = value));
+        if (module.ClickToTarget || module.RightClickContextMenu)
         {
             var clickableArea = (int)module.ClickableArea;
             if (ImGui.Combo("Clickable area", ref clickableArea, ClickableAreas, ClickableAreas.Length))
                 Update(c => GetModule(c, kind).ClickableArea = (ModuleClickableArea)clickableArea);
         }
         ImGui.TextDisabled("Unlocking the HUD temporarily shows enabled modules for editing.");
-        ImGui.TextDisabled("Edit mode always overrides click-to-target. Disabled interaction regions remain mouse-pass-through while locked.");
+        ImGui.TextDisabled("Edit mode overrides actor actions. If both actor interactions are disabled, the locked region is fully mouse-pass-through.");
     }
 
     private void DrawModuleSizeLayout(HudModuleKind kind, HudModuleConfiguration module)
@@ -528,17 +608,6 @@ public sealed class ConfigurationWindow : Window
             var value = new Vector3(custom.Red, custom.Green, custom.Blue);
             if (ImGui.ColorEdit3($"Custom colour##{id}", ref value))
                 setCustom(new Vector4(value, 1f));
-        }
-    }
-
-    private void DrawNativeHighlightColour(HighlightColourPreset preset)
-    {
-        var selected = Array.IndexOf(NativeHighlightPresets, preset);
-        if (ImGui.Combo("Colour##SelfHighlight", ref selected,
-                NativeHighlightColours, NativeHighlightColours.Length)
-            && selected >= 0)
-        {
-            Update(c => c.SelfHighlight.ColourPreset = NativeHighlightPresets[selected]);
         }
     }
 

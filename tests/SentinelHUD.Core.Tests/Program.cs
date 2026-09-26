@@ -8,10 +8,11 @@ var tests = new (string Name, Action Run)[]
     ("configuration defaults", TestDefaults),
     ("configuration migration and repair", TestMigration),
     ("version-one settings survive migration", TestVersionOneMigration),
-    ("version-two settings survive schema-six migration", TestVersionTwoMigration),
-    ("version-three MP settings migrate to schema six", TestVersionThreeMigration),
-    ("version-four settings survive schema-six migration", TestVersionFourMigration),
+    ("version-two settings survive current migration", TestVersionTwoMigration),
+    ("version-three MP settings survive current migration", TestVersionThreeMigration),
+    ("version-four settings survive current migration", TestVersionFourMigration),
     ("version-five update preserves customized settings", TestVersionFiveUpgradePersistence),
+    ("version-six update preserves customized settings", TestVersionSixUpgradePersistence),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
@@ -23,6 +24,7 @@ var tests = new (string Name, Action Run)[]
     ("layout position round trip", TestLayoutRoundTrip),
     ("layout boundary protection", TestLayoutBoundaries),
     ("horizontal editor resize", TestHorizontalEditorResize),
+    ("two-axis editor resize", TestTwoAxisEditorResize),
     ("edit chrome lock-unlock stability", TestEditChromeStability),
     ("native target anchor bounds", TestNativeTargetAnchorBounds),
     ("module independence", TestModuleIndependence),
@@ -31,6 +33,7 @@ var tests = new (string Name, Action Run)[]
     ("self-highlight colours", TestHighlightColours),
     ("native self-highlight palette", TestNativeHighlightPalette),
     ("position-marker configuration", TestPositionMarkerConfiguration),
+    ("danger geometry containment", TestDangerGeometryContainment),
     ("HP colour modes", TestHpColourModes),
     ("camera zoom policy", TestCameraZoomPolicy),
 };
@@ -63,6 +66,7 @@ static void TestDefaults()
     True(config.Locked);
     True(config.Player.Enabled);
     True(config.Player.ClickToTarget);
+    True(config.Player.RightClickContextMenu);
     Equal(ModuleClickableArea.WholeModule, config.Player.ClickableArea);
     True(config.Target.ShowDistance);
     True(config.FocusTarget.ShowCastBar);
@@ -78,6 +82,12 @@ static void TestDefaults()
     False(config.PlayerPositionMarker.Enabled);
     Equal(SelfHighlightMode.Off, config.PlayerPositionMarker.Mode);
     Equal(HighlightColourPreset.White, config.PlayerPositionMarker.ColourPreset);
+    True(config.PlayerPositionMarker.DangerDetectionEnabled);
+    Equal(DangerColourPreset.Red, config.PlayerPositionMarker.DangerColourPreset);
+    False(config.EncounterAwareness.Enabled);
+    True(config.EncounterAwareness.NativeDetectionEnabled);
+    False(config.EncounterAwareness.SplatoonIntegrationEnabled);
+    False(config.Convenience.PreventAfkDisconnect);
     Near(0.01f, PlayerPositionMarkerPolicy.MinimumRadius);
     Equal(ShieldDisplayMode.BarAndText, config.Player.ShieldDisplay);
     Equal(MpDisplayMode.BarAndText, config.Player.MpDisplay);
@@ -157,6 +167,14 @@ static void TestSerialization()
     source.PlayerPositionMarker.Radius = 0.27f;
     source.PlayerPositionMarker.BorderThickness = 0.75f;
     source.PlayerPositionMarker.ColourPreset = HighlightColourPreset.Green;
+    source.PlayerPositionMarker.DangerDetectionEnabled = false;
+    source.PlayerPositionMarker.DangerColourPreset = DangerColourPreset.Custom;
+    source.PlayerPositionMarker.CustomDangerColour.Set(new Vector4(0.7f, 0.2f, 0.9f, 1f));
+    source.EncounterAwareness.Enabled = true;
+    source.EncounterAwareness.NativeDetectionEnabled = false;
+    source.EncounterAwareness.SplatoonIntegrationEnabled = true;
+    source.EncounterAwareness.TreatUnclassifiedSplatoonGeometryAsDanger = true;
+    source.Convenience.PreventAfkDisconnect = true;
     source.Camera.Enabled = true;
     source.Camera.MaximumZoomDistance = 42f;
     source.Target.ShieldDisplay = ShieldDisplayMode.BarOnly;
@@ -172,7 +190,9 @@ static void TestSerialization()
     source.Player.ShowCastRemainingTime = true;
     source.FocusTarget.TargetOfFocus.ShowHpPercentage = false;
     source.FocusTarget.TargetOfFocus.ClickToTarget = false;
+    source.FocusTarget.TargetOfFocus.RightClickContextMenu = false;
     source.Player.ClickToTarget = false;
+    source.Player.RightClickContextMenu = false;
     source.Target.ClickableArea = ModuleClickableArea.HeaderOrName;
 
     var json = JsonSerializer.Serialize(source);
@@ -193,6 +213,14 @@ static void TestSerialization()
     Near(0.27f, restored.PlayerPositionMarker.Radius);
     Near(0.75f, restored.PlayerPositionMarker.BorderThickness);
     Equal(HighlightColourPreset.Green, restored.PlayerPositionMarker.ColourPreset);
+    False(restored.PlayerPositionMarker.DangerDetectionEnabled);
+    Equal(DangerColourPreset.Custom, restored.PlayerPositionMarker.DangerColourPreset);
+    Near(0.9f, restored.PlayerPositionMarker.CustomDangerColour.Blue);
+    True(restored.EncounterAwareness.Enabled);
+    False(restored.EncounterAwareness.NativeDetectionEnabled);
+    True(restored.EncounterAwareness.SplatoonIntegrationEnabled);
+    True(restored.EncounterAwareness.TreatUnclassifiedSplatoonGeometryAsDanger);
+    True(restored.Convenience.PreventAfkDisconnect);
     True(restored.Camera.Enabled);
     Near(42f, restored.Camera.MaximumZoomDistance);
     Equal(ShieldDisplayMode.BarOnly, restored.Target.ShieldDisplay);
@@ -208,7 +236,9 @@ static void TestSerialization()
     True(restored.Player.ShowCastRemainingTime);
     False(restored.FocusTarget.TargetOfFocus.ShowHpPercentage);
     False(restored.FocusTarget.TargetOfFocus.ClickToTarget);
+    False(restored.FocusTarget.TargetOfFocus.RightClickContextMenu);
     False(restored.Player.ClickToTarget);
+    False(restored.Player.RightClickContextMenu);
     Equal(ModuleClickableArea.HeaderOrName, restored.Target.ClickableArea);
 }
 
@@ -394,6 +424,70 @@ static void TestVersionFiveUpgradePersistence()
     Equal(ModuleClickableArea.WholeModule, versionB.Player.ClickableArea);
 }
 
+static void TestVersionSixUpgradePersistence()
+{
+    var versionA = new HudConfigurationData
+    {
+        Version = 6,
+        Locked = false,
+        GlobalScale = 1.21f,
+    };
+    versionA.Player.Layout.AnchorX = 0.19f;
+    versionA.Player.Layout.AnchorY = 0.77f;
+    versionA.Player.Width = 401f;
+    versionA.Player.BarHeight = 13f;
+    versionA.Player.ClickToTarget = false;
+    versionA.Target.Layout.AnchorX = 0.61f;
+    versionA.Target.Width = 517f;
+    versionA.FocusTarget.TargetOfFocus.ClickToTarget = false;
+    versionA.SelfHighlight.ColourPreset = HighlightColourPreset.Custom;
+    versionA.SelfHighlight.CustomColour.Set(new Vector4(0.07f, 0.14f, 0.91f, 1f));
+    versionA.PlayerPositionMarker.Radius = 0.02f;
+    versionA.Camera.MaximumZoomDistance = 53f;
+
+    var document = JsonNode.Parse(JsonSerializer.Serialize(versionA))!.AsObject();
+    document.Remove("EncounterAwareness");
+    document.Remove("Convenience");
+    var marker = document["PlayerPositionMarker"]!.AsObject();
+    marker.Remove("DangerDetectionEnabled");
+    marker.Remove("DangerColourPreset");
+    marker.Remove("CustomDangerColour");
+    foreach (var moduleName in new[] { "Player", "Target", "FocusTarget", "TargetOfTarget" })
+        document[moduleName]!.AsObject().Remove("RightClickContextMenu");
+    document["FocusTarget"]!["TargetOfFocus"]!.AsObject().Remove("RightClickContextMenu");
+
+    var versionB = JsonSerializer.Deserialize<HudConfigurationData>(document.ToJsonString());
+    NotNull(versionB);
+    HudConfigurationMigrator.Normalize(versionB!);
+
+    Equal(HudConfigurationData.CurrentVersion, versionB!.Version);
+    False(versionB.Locked);
+    Near(1.21f, versionB.GlobalScale);
+    Near(0.19f, versionB.Player.Layout.AnchorX);
+    Near(0.77f, versionB.Player.Layout.AnchorY);
+    Near(401f, versionB.Player.Width);
+    Near(13f, versionB.Player.BarHeight);
+    False(versionB.Player.ClickToTarget);
+    Near(0.61f, versionB.Target.Layout.AnchorX);
+    Near(517f, versionB.Target.Width);
+    False(versionB.FocusTarget.TargetOfFocus.ClickToTarget);
+    Equal(HighlightColourPreset.Custom, versionB.SelfHighlight.ColourPreset);
+    Near(0.91f, versionB.SelfHighlight.CustomColour.Blue);
+    Near(0.02f, versionB.PlayerPositionMarker.Radius);
+    Near(53f, versionB.Camera.MaximumZoomDistance);
+    True(versionB.Player.RightClickContextMenu);
+    True(versionB.Target.RightClickContextMenu);
+    True(versionB.FocusTarget.RightClickContextMenu);
+    True(versionB.TargetOfTarget.RightClickContextMenu);
+    True(versionB.FocusTarget.TargetOfFocus.RightClickContextMenu);
+    False(versionB.EncounterAwareness.Enabled);
+    True(versionB.EncounterAwareness.NativeDetectionEnabled);
+    False(versionB.EncounterAwareness.SplatoonIntegrationEnabled);
+    False(versionB.Convenience.PreventAfkDisconnect);
+    True(versionB.PlayerPositionMarker.DangerDetectionEnabled);
+    Equal(DangerColourPreset.Red, versionB.PlayerPositionMarker.DangerColourPreset);
+}
+
 static void TestHitPointFormatting()
 {
     Equal("7,428,113 / 12,500,000 — 59.4%", HudFormatting.HitPoints(7_428_113, 12_500_000, true, true, true));
@@ -509,6 +603,36 @@ static void TestHorizontalEditorResize()
     var maximum = LayoutPolicy.ResizeFromRightEdge(
         320f, 1000f, origin, new Vector2(320f, 120f), workPosition, workSize);
     Near(HudSizingPolicy.MaximumWidth, maximum.Width);
+}
+
+static void TestTwoAxisEditorResize()
+{
+    var workPosition = new Vector2(100f, 50f);
+    var workSize = new Vector2(1600f, 900f);
+    var origin = new Vector2(380f, 410f);
+    var originalSize = new Vector2(320f, 140f);
+
+    var corner = LayoutPolicy.ResizeFromEdges(
+        320f, 20f, 3, EditorResizeEdges.Right | EditorResizeEdges.Bottom,
+        new Vector2(80f, 12f), origin, originalSize, workPosition, workSize);
+    Near(400f, corner.Width);
+    Near(24f, corner.BarHeight);
+    Equal(origin, corner.Position);
+    Near(152f, corner.ApproximateSize.Y);
+
+    var topLeft = LayoutPolicy.ResizeFromEdges(
+        320f, 20f, 2, EditorResizeEdges.Left | EditorResizeEdges.Top,
+        new Vector2(50f, -8f), origin, originalSize, workPosition, workSize);
+    Near(270f, topLeft.Width);
+    Near(24f, topLeft.BarHeight);
+    Equal(new Vector2(430f, 402f), topLeft.Position);
+    Near(148f, topLeft.ApproximateSize.Y);
+
+    var clamped = LayoutPolicy.ResizeFromEdges(
+        320f, 20f, 3, EditorResizeEdges.Right | EditorResizeEdges.Bottom,
+        new Vector2(10_000f, 10_000f), origin, originalSize, workPosition, workSize);
+    Near(HudSizingPolicy.MaximumWidth, clamped.Width);
+    Near(HudSizingPolicy.MaximumBarHeight, clamped.BarHeight);
 }
 
 static void TestEditChromeStability()
@@ -654,8 +778,9 @@ static void TestNativeHighlightPalette()
     config.ColourPreset = HighlightColourPreset.Custom;
     config.CustomColour.Set(new Vector4(0.98f, 0.22f, 0.75f, 1f));
     var custom = NativeHighlightPolicy.Resolve(config);
-    False(custom.IsSupported);
-    Equal("Custom", custom.DisplayName);
+    True(custom.IsSupported);
+    Equal(NativeHighlightColour.Magenta, custom.Colour);
+    Equal("Magenta", custom.DisplayName);
 }
 
 static void TestPositionMarkerConfiguration()
@@ -670,6 +795,52 @@ static void TestPositionMarkerConfiguration()
     Near(0.72f, colour.Y);
     Near(1f, colour.Z);
     Near(0.64f, colour.W);
+
+    config.DangerDetectionEnabled = true;
+    config.DangerColourPreset = DangerColourPreset.Red;
+    var danger = PlayerPositionMarkerPolicy.ResolveColour(config, true);
+    Near(1f, danger.X);
+    Near(0.12f, danger.Y);
+    Near(0.08f, danger.Z);
+    Near(0.64f, danger.W);
+
+    config.DangerColourPreset = DangerColourPreset.Custom;
+    config.CustomDangerColour.Set(new Vector4(0.5f, 0.1f, 0.8f, 1f));
+    danger = PlayerPositionMarkerPolicy.ResolveColour(config, true);
+    Near(0.5f, danger.X);
+    Near(0.1f, danger.Y);
+    Near(0.8f, danger.Z);
+}
+
+static void TestDangerGeometryContainment()
+{
+    var circle = DangerArea.Circle(Vector3.Zero, 5f, "test", "circle");
+    True(circle.Contains(new Vector3(3f, 0f, 4f)));
+    False(circle.Contains(new Vector3(5.1f, 0f, 0f)));
+    False(circle.Contains(new Vector3(0f, 6f, 0f)));
+
+    var donut = DangerArea.Donut(Vector3.Zero, 2f, 6f, "test", "donut");
+    False(donut.Contains(Vector3.Zero));
+    True(donut.Contains(new Vector3(0f, 0f, 4f)));
+    False(donut.Contains(new Vector3(0f, 0f, 7f)));
+
+    var rectangle = DangerArea.Rectangle(Vector3.Zero, 8f, 2f, 0f, "test", "rect");
+    True(rectangle.Contains(new Vector3(1.9f, 0f, 7.9f)));
+    False(rectangle.Contains(new Vector3(2.1f, 0f, 4f)));
+    False(rectangle.Contains(new Vector3(0f, 0f, -1f)));
+
+    var cone = DangerArea.Cone(Vector3.Zero, 10f, 0f, MathF.PI / 4f, "test", "cone");
+    True(cone.Contains(new Vector3(3f, 0f, 5f)));
+    False(cone.Contains(new Vector3(8f, 0f, 1f)));
+
+    var line = DangerArea.Line(Vector3.Zero, new Vector3(0f, 0f, 10f), 1f, "test", "line");
+    True(line.Contains(new Vector3(0.8f, 0f, 5f)));
+    False(line.Contains(new Vector3(1.2f, 0f, 5f)));
+
+    var cross = DangerArea.Cross(Vector3.Zero, 6f, 1f, 0f, "test", "cross");
+    True(cross.Contains(new Vector3(5f, 0f, 0.5f)));
+    True(cross.Contains(new Vector3(0.5f, 0f, 5f)));
+    False(cross.Contains(new Vector3(3f, 0f, 3f)));
 }
 
 static void TestHpColourModes()

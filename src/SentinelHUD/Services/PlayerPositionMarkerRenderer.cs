@@ -24,7 +24,8 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
         IPlayerCharacter? player,
         bool isLoggedIn,
         bool isInCombat,
-        bool isInDuty)
+        bool isInDuty,
+        bool isInDanger)
     {
         IsActive = false;
         UsedTerrainProjection = false;
@@ -103,7 +104,7 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
             }
         }
 
-        var colour = PlayerPositionMarkerPolicy.ResolveColour(configuration);
+        var colour = PlayerPositionMarkerPolicy.ResolveColour(configuration, isInDanger);
         var drawList = ImGui.GetBackgroundDrawList();
         if (configuration.ShowBorder)
         {
@@ -144,9 +145,12 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
         }
 
         IsActive = true;
-        StateReason = UsedTerrainProjection
+        StateReason = (UsedTerrainProjection
             ? "Active at collision-projected actor origin"
-            : "Active at actor origin (terrain collision unavailable)";
+            : "Active at actor origin (terrain collision unavailable)")
+            + (isInDanger && configuration.DangerDetectionEnabled
+                ? " — danger colour active"
+                : string.Empty);
     }
 
     private static void BuildTangentBasis(Vector3 normal, out Vector3 tangent, out Vector3 bitangent)

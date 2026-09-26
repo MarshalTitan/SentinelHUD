@@ -24,6 +24,8 @@ public sealed class HudRenderer
     private readonly ActorInteractionRenderer actorInteractions;
     private readonly HudEditorInteractionRenderer hudEditor;
     private readonly IExtendedCameraZoomService cameraZoom;
+    private readonly EncounterAwarenessService encounterAwareness;
+    private readonly AntiAfkService antiAfk;
     private readonly IGameGui gameGui;
     private readonly IClientState clientState;
     private readonly ICondition condition;
@@ -34,6 +36,7 @@ public sealed class HudRenderer
     private Vector2 headerMinimum;
     private Vector2 headerMaximum;
     private bool hasHeaderBounds;
+    private int renderedMeterCount;
     private HudDiagnosticState lastDiagnosticState;
     private bool hasDiagnosticState;
 
@@ -46,6 +49,8 @@ public sealed class HudRenderer
         ActorInteractionRenderer actorInteractions,
         HudEditorInteractionRenderer hudEditor,
         IExtendedCameraZoomService cameraZoom,
+        EncounterAwarenessService encounterAwareness,
+        AntiAfkService antiAfk,
         IGameGui gameGui,
         IClientState clientState,
         ICondition condition,
@@ -59,6 +64,8 @@ public sealed class HudRenderer
         this.actorInteractions = actorInteractions;
         this.hudEditor = hudEditor;
         this.cameraZoom = cameraZoom;
+        this.encounterAwareness = encounterAwareness;
+        this.antiAfk = antiAfk;
         this.gameGui = gameGui;
         this.clientState = clientState;
         this.condition = condition;
@@ -95,16 +102,30 @@ public sealed class HudRenderer
     public string NativeTargetDetectedLayout => nativeTargetOverlay.DetectedLayout;
     public string NativeTargetAnchorSource => nativeTargetOverlay.AnchorSource;
     public string FocusTargetClickState => actorInteractions.LastActionResult;
+    public string ActorContextMenuState => actorInteractions.LastContextMenuResult;
     public bool CameraZoomActive => cameraZoom.IsActive;
     public string CameraZoomState => cameraZoom.StateReason;
     public string? CameraConflict => cameraZoom.ConflictingPluginName;
     public float CameraCurrentMaximum => cameraZoom.CurrentMaximum;
+    public bool EncounterAwarenessEnabled => encounterAwareness.IsEnabled;
+    public bool PlayerInDanger => encounterAwareness.IsPlayerInDanger;
+    public int EncounterHazardCount => encounterAwareness.ActiveHazardCount;
+    public string EncounterNativeState => encounterAwareness.NativeState;
+    public string EncounterSplatoonState => encounterAwareness.SplatoonState;
+    public bool SplatoonInstalled => encounterAwareness.SplatoonInstalled;
+    public bool SplatoonConnected => encounterAwareness.SplatoonConnected;
+    public string ActiveEncounter => encounterAwareness.ActiveEncounter;
+    public bool AntiAfkActive => antiAfk.IsActive;
+    public string AntiAfkState => antiAfk.State;
 
     public void UpdateGameState()
     {
         var config = configuration.Current;
         cameraZoom.Update(config.Camera, config.Enabled);
         selfHighlight.Update(config.SelfHighlight, config.Enabled);
+        encounterAwareness.Update(config.EncounterAwareness, config.Enabled,
+            clientState.IsLoggedIn, clientState.TerritoryType, data.LocalPlayer);
+        antiAfk.Update(config.Convenience.PreventAfkDisconnect, clientState.IsLoggedIn);
     }
 
     public void Draw()
@@ -118,7 +139,8 @@ public sealed class HudRenderer
         var target = config.Enabled ? data.Target : null;
 
         positionMarker.Draw(config.PlayerPositionMarker, config.Enabled, player,
-            runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty);
+            runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty,
+            encounterAwareness.IsPlayerInDanger);
         nativeTargetOverlay.Draw(config.Target.NativeHpOverlay, config.Enabled,
             runtime.IsLoggedIn, runtime.IsInCombat, target);
 
@@ -254,6 +276,7 @@ public sealed class HudRenderer
             {
                 ImGui.SetWindowFontScale(module.Scale * root.GlobalScale);
                 hasHeaderBounds = false;
+                renderedMeterCount = 0;
                 if (began)
                 {
                     if (actor is null)
@@ -282,14 +305,17 @@ public sealed class HudRenderer
                 var maximum = actualPosition + state.LastContentSize;
                 if (!root.Locked)
                 {
-                    hudEditor.Register(kind, actualPosition, maximum, module.Width);
+                    hudEditor.Register(kind, actualPosition, maximum, module.Width,
+                        module.BarHeight, renderedMeterCount);
                 }
-                else if (actor is not null && module.ClickToTarget)
+                else if (actor is not null && (module.ClickToTarget || module.RightClickContextMenu))
                 {
                     if (module.ClickableArea == ModuleClickableArea.WholeModule)
-                        actorInteractions.Register(actualPosition, maximum, actor.GameObjectId);
+                        actorInteractions.Register(actualPosition, maximum, actor.GameObjectId,
+                            module.ClickToTarget, module.RightClickContextMenu);
                     else if (hasHeaderBounds)
-                        actorInteractions.Register(headerMinimum, headerMaximum, actor.GameObjectId);
+                        actorInteractions.Register(headerMinimum, headerMaximum, actor.GameObjectId,
+                            module.ClickToTarget, module.RightClickContextMenu);
                 }
             }
             finally
@@ -527,9 +553,10 @@ public sealed class HudRenderer
         }
     }
 
-    private static void DrawMeter(float fraction, float shieldFraction, float height,
+    private void DrawMeter(float fraction, float shieldFraction, float height,
         string overlay, HudTextAlignment alignment, Vector4 fillColour, Vector4 shieldColour)
     {
+        renderedMeterCount++;
         var width = Math.Max(60f, ImGui.GetContentRegionAvail().X);
         var size = new Vector2(width, height);
         var minimum = ImGui.GetCursorScreenPos();
@@ -670,8 +697,9 @@ public sealed class HudRenderer
         {
             ImGui.PopStyleColor();
         }
-        if (config.ClickToTarget)
-            actorInteractions.RegisterLastItem(actor.GameObjectId);
+        if (config.ClickToTarget || config.RightClickContextMenu)
+            actorInteractions.RegisterLastItem(actor.GameObjectId, config.ClickToTarget,
+                config.RightClickContextMenu);
     }
 
     private void AppendFocusTargetPart(string value)

@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Interactive HUD refinement release: adds per-module safe click-to-target regions; a titleless drag-and-right-edge-resize visual editor with drift-free geometry; schema-6 stepwise migration with one-time backups and a guarded raw JSON live-update fallback; and truthful native Self Highlight colour handling that never substitutes Yellow for unsupported White or Custom requests."
+            --notes "Awareness and interaction refinement release: adds native actor context menus, full edge/corner drag resizing for width and bar height, schema-7 configuration migration, exact-position AoE danger colouring with conservative native-cast and optional Splatoon IPC providers, restored truthful Custom native-palette selection, and an opt-in direct inactivity-timer reset that does not synthesize input."
 
       - name: Verify public release asset
         shell: pwsh

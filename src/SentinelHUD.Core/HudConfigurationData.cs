@@ -90,6 +90,14 @@ public enum HighlightColourPreset
     Custom,
 }
 
+public enum DangerColourPreset
+{
+    Red,
+    Orange,
+    Yellow,
+    Custom,
+}
+
 public sealed class ModuleLayoutConfiguration
 {
     public float AnchorX { get; set; }
@@ -101,6 +109,7 @@ public abstract class HudModuleConfiguration
     public bool Enabled { get; set; } = true;
     public ModuleVisibilityCondition Visibility { get; set; } = ModuleVisibilityCondition.Always;
     public bool ClickToTarget { get; set; } = true;
+    public bool RightClickContextMenu { get; set; } = true;
     public ModuleClickableArea ClickableArea { get; set; } = ModuleClickableArea.WholeModule;
     public float Scale { get; set; } = 1f;
     public float Opacity { get; set; } = 0.92f;
@@ -178,6 +187,7 @@ public sealed class FocusTargetsTargetConfiguration
     public bool ShowJob { get; set; } = true;
     public bool ShowLevel { get; set; } = true;
     public bool ClickToTarget { get; set; } = true;
+    public bool RightClickContextMenu { get; set; } = true;
 }
 
 public sealed class TargetOfTargetModuleConfiguration : HudModuleConfiguration
@@ -238,6 +248,28 @@ public sealed class PlayerPositionMarkerConfiguration
     public float Opacity { get; set; } = 0.88f;
     public bool ShowBorder { get; set; } = true;
     public float BorderThickness { get; set; } = 1.25f;
+    public bool DangerDetectionEnabled { get; set; } = true;
+    public DangerColourPreset DangerColourPreset { get; set; } = DangerColourPreset.Red;
+    public SerializableColour CustomDangerColour { get; set; } = new()
+    {
+        Red = 1f,
+        Green = 0.12f,
+        Blue = 0.08f,
+        Alpha = 1f,
+    };
+}
+
+public sealed class EncounterAwarenessConfiguration
+{
+    public bool Enabled { get; set; }
+    public bool NativeDetectionEnabled { get; set; } = true;
+    public bool SplatoonIntegrationEnabled { get; set; }
+    public bool TreatUnclassifiedSplatoonGeometryAsDanger { get; set; }
+}
+
+public sealed class ConvenienceConfiguration
+{
+    public bool PreventAfkDisconnect { get; set; }
 }
 
 public sealed class NativeTargetOverlayConfiguration
@@ -269,7 +301,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 6;
+    public const int CurrentVersion = 7;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -283,6 +315,8 @@ public class HudConfigurationData
     public SelfHighlightConfiguration SelfHighlight { get; set; } = new();
     public PlayerPositionMarkerConfiguration PlayerPositionMarker { get; set; } = new();
     public ExtendedCameraZoomConfiguration Camera { get; set; } = new();
+    public EncounterAwarenessConfiguration EncounterAwareness { get; set; } = new();
+    public ConvenienceConfiguration Convenience { get; set; } = new();
     public HudAppearanceConfiguration Appearance { get; set; } = new();
 }
 
@@ -344,6 +378,8 @@ public static class HudConfigurationMigrator
         configuration.SelfHighlight ??= new SelfHighlightConfiguration();
         configuration.PlayerPositionMarker ??= new PlayerPositionMarkerConfiguration();
         configuration.Camera ??= new ExtendedCameraZoomConfiguration();
+        configuration.EncounterAwareness ??= new EncounterAwarenessConfiguration();
+        configuration.Convenience ??= new ConvenienceConfiguration();
         configuration.Appearance ??= new HudAppearanceConfiguration();
         configuration.Target.NativeHpOverlay ??= new NativeTargetOverlayConfiguration();
         configuration.FocusTarget.TargetOfFocus ??= new FocusTargetsTargetConfiguration();
@@ -359,6 +395,13 @@ public static class HudConfigurationMigrator
             Red = 1f,
             Green = 1f,
             Blue = 1f,
+            Alpha = 1f,
+        };
+        configuration.PlayerPositionMarker.CustomDangerColour ??= new SerializableColour
+        {
+            Red = 1f,
+            Green = 0.12f,
+            Blue = 0.08f,
             Alpha = 1f,
         };
 
@@ -409,6 +452,9 @@ public static class HudConfigurationMigrator
         markerColour.Blue = ClampFinite(markerColour.Blue, 0f, 1f, 1f);
         markerColour.Alpha = ClampFinite(markerColour.Alpha, 0f, 1f, 1f);
 
+        NormalizeColour(configuration.PlayerPositionMarker.CustomDangerColour,
+            new Vector4(1f, 0.12f, 0.08f, 1f));
+
         NormalizeColour(configuration.Appearance.PlayerHealth, new Vector4(0.28f, 0.76f, 0.43f, 1f));
         NormalizeColour(configuration.Appearance.FriendlyHealth, new Vector4(0.30f, 0.72f, 0.48f, 1f));
         NormalizeColour(configuration.Appearance.HostileHealth, new Vector4(0.88f, 0.20f, 0.18f, 1f));
@@ -424,6 +470,8 @@ public static class HudConfigurationMigrator
             configuration.PlayerPositionMarker.ColourPreset = HighlightColourPreset.White;
         if (!Enum.IsDefined(configuration.PlayerPositionMarker.Mode))
             configuration.PlayerPositionMarker.Mode = SelfHighlightMode.Off;
+        if (!Enum.IsDefined(configuration.PlayerPositionMarker.DangerColourPreset))
+            configuration.PlayerPositionMarker.DangerColourPreset = DangerColourPreset.Red;
         if (!Enum.IsDefined(configuration.Player.ShieldDisplay))
             configuration.Player.ShieldDisplay = ShieldDisplayMode.BarAndText;
         if (!Enum.IsDefined(configuration.Target.ShieldDisplay))
@@ -543,6 +591,17 @@ public static class HudConfigurationMigrator
                     configuration.FocusTarget.ClickableArea = ModuleClickableArea.WholeModule;
                     configuration.TargetOfTarget.ClickableArea = ModuleClickableArea.WholeModule;
                     version = 6;
+                    break;
+                case 6:
+                    // Schema 7 adds independent native context menus, two-axis editor state,
+                    // encounter awareness and opt-in convenience settings. Existing values are
+                    // preserved; only the new capabilities receive defaults.
+                    configuration.Player.RightClickContextMenu = true;
+                    configuration.Target.RightClickContextMenu = true;
+                    configuration.FocusTarget.RightClickContextMenu = true;
+                    configuration.TargetOfTarget.RightClickContextMenu = true;
+                    configuration.FocusTarget.TargetOfFocus.RightClickContextMenu = true;
+                    version = 7;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;
