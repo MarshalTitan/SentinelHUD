@@ -13,6 +13,7 @@ var tests = new (string Name, Action Run)[]
     ("version-four settings survive current migration", TestVersionFourMigration),
     ("version-five update preserves customized settings", TestVersionFiveUpgradePersistence),
     ("version-six update preserves customized settings", TestVersionSixUpgradePersistence),
+    ("version-seven marker style migration", TestVersionSevenMarkerStyleMigration),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
@@ -83,6 +84,7 @@ static void TestDefaults()
     Equal(HighlightColourPreset.Yellow, config.SelfHighlight.ColourPreset);
     False(config.PlayerPositionMarker.Enabled);
     Equal(SelfHighlightMode.Off, config.PlayerPositionMarker.Mode);
+    Equal(PlayerPositionMarkerStyle.CameraFacing, config.PlayerPositionMarker.Style);
     Equal(HighlightColourPreset.White, config.PlayerPositionMarker.ColourPreset);
     True(config.PlayerPositionMarker.DangerDetectionEnabled);
     Equal(DangerColourPreset.Red, config.PlayerPositionMarker.DangerColourPreset);
@@ -166,6 +168,7 @@ static void TestSerialization()
     source.SelfHighlight.ColourPreset = HighlightColourPreset.Custom;
     source.SelfHighlight.CustomColour.Set(new Vector4(0.1f, 0.2f, 0.3f, 0.9f));
     source.PlayerPositionMarker.Mode = SelfHighlightMode.Always;
+    source.PlayerPositionMarker.Style = PlayerPositionMarkerStyle.GroundProjected;
     source.PlayerPositionMarker.Radius = 0.27f;
     source.PlayerPositionMarker.BorderThickness = 0.75f;
     source.PlayerPositionMarker.ColourPreset = HighlightColourPreset.Green;
@@ -211,6 +214,7 @@ static void TestSerialization()
     Equal(SelfHighlightMode.DutyOnly, restored.SelfHighlight.Mode);
     Near(0.3f, restored.SelfHighlight.CustomColour.Blue);
     Equal(SelfHighlightMode.Always, restored.PlayerPositionMarker.Mode);
+    Equal(PlayerPositionMarkerStyle.GroundProjected, restored.PlayerPositionMarker.Style);
     True(restored.PlayerPositionMarker.Enabled);
     Near(0.27f, restored.PlayerPositionMarker.Radius);
     Near(0.75f, restored.PlayerPositionMarker.BorderThickness);
@@ -862,6 +866,47 @@ static void TestPositionMarkerConfiguration()
     Near(0.5f, danger.X);
     Near(0.1f, danger.Y);
     Near(0.8f, danger.Z);
+
+    Near(1f, PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(0.01f));
+    Near(1.3084745f, PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(0.02f));
+    Near(6.244068f, PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(0.18f));
+    Near(19.2f, PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(0.60f));
+}
+
+static void TestVersionSevenMarkerStyleMigration()
+{
+    var versionA = new HudConfigurationData
+    {
+        Version = 7,
+        PlayerPositionMarker = new PlayerPositionMarkerConfiguration
+        {
+            Mode = SelfHighlightMode.CombatOnly,
+            Style = PlayerPositionMarkerStyle.GroundProjected,
+            Radius = 0.04f,
+            Opacity = 0.61f,
+            ColourPreset = HighlightColourPreset.Green,
+            ShowBorder = false,
+            DangerDetectionEnabled = true,
+            DangerColourPreset = DangerColourPreset.Orange,
+        },
+    };
+
+    var document = JsonNode.Parse(JsonSerializer.Serialize(versionA))!.AsObject();
+    document["PlayerPositionMarker"]!.AsObject().Remove("Style");
+    var source = JsonSerializer.Deserialize<HudConfigurationData>(document.ToJsonString());
+    NotNull(source);
+
+    HudConfigurationMigrator.Normalize(source!);
+
+    Equal(HudConfigurationData.CurrentVersion, source!.Version);
+    Equal(PlayerPositionMarkerStyle.CameraFacing, source.PlayerPositionMarker.Style);
+    Equal(SelfHighlightMode.CombatOnly, source.PlayerPositionMarker.Mode);
+    Near(0.04f, source.PlayerPositionMarker.Radius);
+    Near(0.61f, source.PlayerPositionMarker.Opacity);
+    Equal(HighlightColourPreset.Green, source.PlayerPositionMarker.ColourPreset);
+    False(source.PlayerPositionMarker.ShowBorder);
+    True(source.PlayerPositionMarker.DangerDetectionEnabled);
+    Equal(DangerColourPreset.Orange, source.PlayerPositionMarker.DangerColourPreset);
 }
 
 static void TestDangerGeometryContainment()

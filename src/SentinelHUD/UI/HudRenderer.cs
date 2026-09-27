@@ -767,7 +767,7 @@ public sealed class HudRenderer
             + $"focus={FocusTargetVisible}/{FocusTargetResolved}, target-of-target={TargetOfTargetVisible}/{TargetOfTargetResolved}, "
             + $"focus-target-of-target={FocusTargetTargetResolved}, "
             + $"highlight={config.SelfHighlight.Mode}/{SelfHighlightActive} ({SelfHighlightState}), "
-            + $"marker={config.PlayerPositionMarker.Mode}/{PositionMarkerActive} ({PositionMarkerState}), "
+            + $"marker={config.PlayerPositionMarker.Mode}/{config.PlayerPositionMarker.Style}/{PositionMarkerActive} ({PositionMarkerState}), "
             + $"native-target={config.Target.NativeHpOverlay.Mode}/{NativeTargetOverlayActive} ({NativeTargetOverlayState}), "
             + $"camera={config.Camera.Enabled}/{CameraZoomActive} ({CameraZoomState}).");
     }

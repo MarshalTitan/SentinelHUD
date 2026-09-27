@@ -14,6 +14,7 @@ public sealed class ConfigurationWindow : Window
     private static readonly string[] HighlightModes = ["Off", "Always", "Combat Only", "Duty Only"];
     private static readonly string[] HighlightColours = ["Yellow", "Green", "Blue", "White", "Custom"];
     private static readonly string[] DangerColours = ["Red", "Orange", "Yellow", "Custom"];
+    private static readonly string[] MarkerStyles = ["Ground Projected", "Camera Facing"];
     private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target"];
     private static readonly string[] ClickableAreas = ["Whole module", "Header / name only"];
     private static readonly string[] ModuleVisibilityModes = ["Always", "Combat Only", "Duty Only", "Combat or Duty"];
@@ -261,6 +262,13 @@ public sealed class ConfigurationWindow : Window
         var markerMode = (int)marker.Mode;
         if (ImGui.Combo("Mode##PositionMarker", ref markerMode, HighlightModes, HighlightModes.Length))
             Update(c => c.PlayerPositionMarker.Mode = (SelfHighlightMode)markerMode);
+        var markerStyle = (int)marker.Style;
+        if (ImGui.Combo("Style##PositionMarker", ref markerStyle,
+                MarkerStyles, MarkerStyles.Length))
+            Update(c => c.PlayerPositionMarker.Style = (PlayerPositionMarkerStyle)markerStyle);
+        ImGui.TextDisabled(marker.Style == PlayerPositionMarkerStyle.CameraFacing
+            ? "Camera Facing projects the same true-position point, then keeps the dot circular and readable on screen."
+            : "Ground Projected follows the terrain plane and naturally flattens at shallow camera angles.");
         DrawHighlightColour(marker.ColourPreset, marker.CustomColour, "PositionMarker",
             value => Update(c => c.PlayerPositionMarker.ColourPreset = value),
             value => Update(c => c.PlayerPositionMarker.CustomColour.Set(value)));
@@ -268,9 +276,12 @@ public sealed class ConfigurationWindow : Window
         var radius = marker.Radius;
         ImGui.SetNextItemWidth(320f);
         if (ImGui.SliderFloat("Marker radius", ref radius, PlayerPositionMarkerPolicy.MinimumRadius,
-                PlayerPositionMarkerPolicy.MaximumRadius, "%.2f yalms"))
+                PlayerPositionMarkerPolicy.MaximumRadius,
+                marker.Style == PlayerPositionMarkerStyle.CameraFacing ? "%.2f size" : "%.2f yalms"))
             Update(c => c.PlayerPositionMarker.Radius = radius);
-        ImGui.TextDisabled("Radius is the total outside radius, including any border.");
+        ImGui.TextDisabled(marker.Style == PlayerPositionMarkerStyle.CameraFacing
+            ? $"Total outside radius: {PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(marker.Radius):0.0} px, including any border."
+            : "Radius is the total outside world radius, including any border.");
         var opacity = marker.Opacity;
         if (ImGui.SliderFloat("Marker opacity", ref opacity, 0.1f, 1f, "%.2f"))
             Update(c => c.PlayerPositionMarker.Opacity = opacity);
@@ -460,7 +471,7 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextUnformatted($"Self highlight mode / active: {config.SelfHighlight.Mode} / {renderer.SelfHighlightActive}");
         ImGui.TextUnformatted($"Self highlight applied colour: {renderer.SelfHighlightAppliedColour}");
         ImGui.TextWrapped($"Self highlight state: {renderer.SelfHighlightState}");
-        ImGui.TextUnformatted($"Position marker mode / active: {config.PlayerPositionMarker.Mode} / {renderer.PositionMarkerActive}");
+        ImGui.TextUnformatted($"Position marker mode / style / active: {config.PlayerPositionMarker.Mode} / {config.PlayerPositionMarker.Style} / {renderer.PositionMarkerActive}");
         ImGui.TextUnformatted($"Position marker terrain projection: {renderer.PositionMarkerUsedTerrainProjection}");
         ImGui.TextWrapped($"Position marker state: {renderer.PositionMarkerState}");
         ImGui.TextUnformatted($"Encounter awareness enabled / player unsafe: {renderer.EncounterAwarenessEnabled} / {renderer.PlayerInDanger}");

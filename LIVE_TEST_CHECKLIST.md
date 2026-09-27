@@ -1,10 +1,10 @@
-# Sentinel HUD 0.7.2.0 — Live Test
+# Sentinel HUD 0.7.3.0 — Live Test
 
 ## Startup and configuration migration
 
 - [ ] Update Sentinel HUD from the Sentinel custom repository without deleting the existing configuration.
 - [ ] Existing module positions, widths, scale, bar heights, colours, field toggles, visibility modes, HP/MP/shield/cast settings, Awareness settings, marker radius/opacity, camera settings and native-target offsets remain intact.
-- [ ] Diagnostics reports configuration schema 7 and, when upgrading schema 6, shows a one-time `SentinelHUD.schema-v6.backup.json` path.
+- [ ] Diagnostics reports configuration schema 8 and, when upgrading schema 7, shows a one-time `SentinelHUD.schema-v7.backup.json` path.
 - [ ] Reload again and confirm the schema backup is not replaced or multiplied.
 - [ ] `/shud` opens and closes configuration.
 - [ ] The normal title-bar collapse arrow is available.
@@ -19,9 +19,14 @@
 - [ ] Marker and Self Highlight modes remain independent.
 - [ ] Yellow, Green, Blue and White display correctly.
 - [ ] Custom opens the colour picker and persists its colour.
-- [ ] Set radius to 0.01, 0.02, 0.03, 0.04, 0.05 and 0.06 yalms.
-- [ ] The marker remains tied to the actor/world origin while walking, running and animating.
-- [ ] Rotate and zoom the camera, including extended zoom.
+- [ ] In Camera Facing, set size to 0.01, 0.02, 0.03, 0.04, 0.05 and 0.06; confirm each remains compact and selectable.
+- [ ] In Ground Projected, confirm those values retain their yalm-radius meaning.
+- [ ] Camera Facing is selected after update and remains tied to the exact actor/terrain-resolved position while walking, running and animating.
+- [ ] Tilt the camera to a shallow angle; Camera Facing remains circular and does not collapse into a line.
+- [ ] Zoom out normally and with Extended Zoom; Camera Facing remains readable and centred without drift.
+- [ ] Switch to Ground Projected; the original terrain-plane disc remains available and follows perspective.
+- [ ] Switch repeatedly between both styles; position, visibility, colour, radius, opacity, border and danger settings remain unchanged.
+- [ ] Reload the plugin and restart FFXIV; the selected style persists.
 - [ ] Mount/dismount and test slopes or uneven ground.
 - [ ] Enabling the thin border does not increase the marker's outside radius.
 - [ ] Border Thickness remains subtle and is drawn inward.

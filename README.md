@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.7.2.0** · Dalamud API **15** · .NET **10**
+Current release: **0.7.3.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
@@ -16,7 +16,7 @@ Current release: **0.7.2.0** · Dalamud API **15** · .NET **10**
 - Optional exact-HP supplement anchored read-only beneath the visible native target HP gauge. It supports both combined `_TargetInfo` and split `_TargetInfoMainTarget` layouts, including Always/Combat Only modes and X/Y fine tuning.
 - Resolution-safe normalized positions with screen-boundary protection and delayed persistent saves.
 - Native, model-conforming self silhouette with Off, Always, Combat Only and Duty Only modes. It follows the animated model, equipment, weapons, mount and ornament without changing any target state.
-- Independent Player Position Marker: a terrain-projected dot centred on the local actor's actual origin, with Off/Always/Combat Only/Duty Only modes, independent colour, 0.01–0.60-yalm radius, opacity and inward border controls. An optional Encounter Awareness layer changes it to a separately configured danger colour when that exact point intersects a trusted hazard.
+- Independent Player Position Marker centred on the local actor's exact terrain-resolved origin. Camera Facing (default) stays circular and readable at shallow camera angles and extended zoom; Ground Projected retains the original terrain-plane presentation. Both support Off/Always/Combat Only/Duty Only modes, independent colour, 0.01–0.60 size control, opacity and inward border controls. Encounter Awareness changes either style to a separately configured danger colour when that exact point intersects a trusted hazard.
 - Encounter Awareness providers: conservative current hostile-cast geometry for standard visible circle/donut/rectangle/cone/line/cross actions, plus optional fail-closed Splatoon geometry IPC. Unknown and encounter-specific mechanics are not guessed.
 - Optional extended third-person zoom with a configurable 20–100-yalm maximum, automatic restoration, special-camera safeguards and known camera-plugin conflict handling.
 - Optional Prevent AFK Disconnect convenience switch, default Off, which periodically resets current client inactivity timers without movement, chat, key presses or controller input.
@@ -61,7 +61,7 @@ Focus Target's Target is a compact child row in the Focus Target module. It is r
 
 ### Configuration persistence
 
-Schema 7 performs stepwise migrations and changes only fields introduced by the applicable schema. The reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
+Schema 8 performs stepwise migrations and changes only fields introduced by the applicable schema. Schema 8 adds the marker Style field and selects Camera Facing on upgrade while preserving the existing position source, visibility mode, radius, colour, opacity, border and danger settings. The earlier reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
 
 ### Integrated health bars
 
@@ -81,7 +81,9 @@ The current FFXIVClientStructs renderer exposes a fixed `ObjectHighlightColor` p
 
 ### Player Position Marker
 
-The marker begins at the local actor's real world origin, casts a short downward collision ray using current FFXIVClientStructs terrain collision, and draws a small world-space disc on the returned surface plane. The projected disc follows camera movement and extended zoom and does not derive its location from the animated model, head, feet, or screen-space bounds. The optional contrasting border is drawn inward, so Radius remains the total outside radius. If collision data is temporarily unavailable, it fails safely to the actor origin and reports that fallback in Diagnostics.
+The marker begins at the local actor's real world origin and casts a short downward collision ray using current FFXIVClientStructs terrain collision. Neither style derives its centre from the animated model, head, feet or screen-space bounds. **Camera Facing** projects that exact resolved point once and draws a compact screen-space circle, so camera pitch cannot compress it into a line and extended zoom cannot make it unreadably small. The existing 0.01–0.60 radius setting maps deterministically to a 1.0–19.2 px outside radius in this mode. **Ground Projected** retains the 24-point terrain-plane disc for users who prefer a perspective-grounded marker.
+
+This presentation follows the current Avarice player-dot principle (project the actor position and draw a screen-space filled circle) while keeping Sentinel's independent terrain-resolution, conditional visibility, border and danger-provider systems; no Avarice source or runtime dependency is included. The optional contrasting border is drawn inward in both styles, so it never enlarges the configured outside radius. Danger changes only the colour. If collision data is temporarily unavailable, the renderer fails safely to the actor origin and reports that fallback and active style in Diagnostics.
 
 ### Encounter Awareness
 
@@ -145,7 +147,7 @@ Screenshots will be added after the first in-game layout and colour pass.
 - Splatoon geometry IPC v1 does not classify all drawings as danger versus safe/informational. Unclassified geometry is ignored by default; the opt-in trust mode can produce false danger states.
 - Prevent AFK Disconnect touches current internal inactivity timer fields and may need maintenance after game updates. It is default Off, isolated behind one service and never synthesizes user input.
 - The position marker's downward terrain ray can be unavailable during loading or on unusual collision surfaces; the actor origin is used temporarily and Diagnostics reports the fallback.
-- The position disc is world-projected but rendered as a Dalamud overlay without depth-buffer occlusion, so foreground terrain can occasionally cover incorrectly at extreme camera angles.
+- Both position-marker styles are Dalamud overlays without depth-buffer occlusion, so foreground terrain can occasionally cover incorrectly. Camera Facing intentionally keeps a stable screen-space radius for readability rather than shrinking with camera distance; Ground Projected retains natural perspective scaling and can flatten at shallow angles.
 - Extended zoom changes an internal camera limit and can require maintenance after FFXIV patches. It defaults off, is isolated behind one service, validates camera state, and restores on disable/disposal.
 - Sentinel HUD intentionally yields camera control when a known camera plugin is loaded; use one zoom controller at a time.
 - Status display is intentionally a compact first-five summary; filtering and prioritization are future work.

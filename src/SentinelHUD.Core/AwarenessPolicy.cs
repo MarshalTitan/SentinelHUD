@@ -73,6 +73,16 @@ public static class PlayerPositionMarkerPolicy
     public const float MinimumBorderThickness = 0.5f;
     public const float MaximumBorderThickness = 2.5f;
     public const float DefaultBorderThickness = 1.25f;
+    public const float MinimumCameraFacingRadius = 1f;
+    public const float MaximumCameraFacingRadius = 19.2f;
+
+    public static float ResolveCameraFacingRadius(float configuredRadius)
+    {
+        var normalized = (Math.Clamp(configuredRadius, MinimumRadius, MaximumRadius) - MinimumRadius)
+                         / (MaximumRadius - MinimumRadius);
+        return MinimumCameraFacingRadius
+               + (normalized * (MaximumCameraFacingRadius - MinimumCameraFacingRadius));
+    }
 
     public static Vector4 ResolveColour(PlayerPositionMarkerConfiguration configuration,
         bool isDanger = false)

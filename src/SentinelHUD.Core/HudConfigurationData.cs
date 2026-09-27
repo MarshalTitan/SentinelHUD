@@ -98,6 +98,12 @@ public enum DangerColourPreset
     Custom,
 }
 
+public enum PlayerPositionMarkerStyle
+{
+    GroundProjected,
+    CameraFacing,
+}
+
 public sealed class ModuleLayoutConfiguration
 {
     public float AnchorX { get; set; }
@@ -236,6 +242,7 @@ public sealed class PlayerPositionMarkerConfiguration
     // Kept as a migration bridge for schema-v2 configurations.
     public bool Enabled { get; set; }
     public SelfHighlightMode Mode { get; set; } = SelfHighlightMode.Off;
+    public PlayerPositionMarkerStyle Style { get; set; } = PlayerPositionMarkerStyle.CameraFacing;
     public HighlightColourPreset ColourPreset { get; set; } = HighlightColourPreset.White;
     public SerializableColour CustomColour { get; set; } = new()
     {
@@ -301,7 +308,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 7;
+    public const int CurrentVersion = 8;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -470,6 +477,8 @@ public static class HudConfigurationMigrator
             configuration.PlayerPositionMarker.ColourPreset = HighlightColourPreset.White;
         if (!Enum.IsDefined(configuration.PlayerPositionMarker.Mode))
             configuration.PlayerPositionMarker.Mode = SelfHighlightMode.Off;
+        if (!Enum.IsDefined(configuration.PlayerPositionMarker.Style))
+            configuration.PlayerPositionMarker.Style = PlayerPositionMarkerStyle.CameraFacing;
         if (!Enum.IsDefined(configuration.PlayerPositionMarker.DangerColourPreset))
             configuration.PlayerPositionMarker.DangerColourPreset = DangerColourPreset.Red;
         if (!Enum.IsDefined(configuration.Player.ShieldDisplay))
@@ -602,6 +611,13 @@ public static class HudConfigurationMigrator
                     configuration.TargetOfTarget.RightClickContextMenu = true;
                     configuration.FocusTarget.TargetOfFocus.RightClickContextMenu = true;
                     version = 7;
+                    break;
+                case 7:
+                    // Schema 8 changes only the marker presentation default. The exact actor/
+                    // terrain origin, visibility, radius, colours, opacity, border and danger
+                    // settings remain untouched.
+                    configuration.PlayerPositionMarker.Style = PlayerPositionMarkerStyle.CameraFacing;
+                    version = 8;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;

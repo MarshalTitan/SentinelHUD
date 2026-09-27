@@ -90,6 +90,32 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
             return;
         }
 
+        var colour = PlayerPositionMarkerPolicy.ResolveColour(configuration, isInDanger);
+        var drawn = configuration.Style switch
+        {
+            PlayerPositionMarkerStyle.CameraFacing => DrawCameraFacing(configuration, centreScreen, colour),
+            _ => DrawGroundProjected(configuration, centre, centreScreen, groundNormal, colour),
+        };
+        if (!drawn)
+            return;
+
+        IsActive = true;
+        StateReason = (UsedTerrainProjection
+            ? "Active at collision-projected actor origin"
+            : "Active at actor origin (terrain collision unavailable)")
+            + $" — {configuration.Style}"
+            + (isInDanger && configuration.DangerDetectionEnabled
+                ? " — danger colour active"
+                : string.Empty);
+    }
+
+    private bool DrawGroundProjected(
+        PlayerPositionMarkerConfiguration configuration,
+        Vector3 centre,
+        Vector2 centreScreen,
+        Vector3 groundNormal,
+        Vector4 colour)
+    {
         BuildTangentBasis(groundNormal, out var tangent, out var bitangent);
         for (var index = 0; index < SegmentCount; index++)
         {
@@ -100,11 +126,10 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
             if (!gameGui.WorldToScreen(point, out projectedPoints[index]))
             {
                 StateReason = "Marker edge is outside the viewport";
-                return;
+                return false;
             }
         }
 
-        var colour = PlayerPositionMarkerPolicy.ResolveColour(configuration, isInDanger);
         var drawList = ImGui.GetBackgroundDrawList();
         if (configuration.ShowBorder)
         {
@@ -144,13 +169,35 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
                 ImGui.ColorConvertFloat4ToU32(colour));
         }
 
-        IsActive = true;
-        StateReason = (UsedTerrainProjection
-            ? "Active at collision-projected actor origin"
-            : "Active at actor origin (terrain collision unavailable)")
-            + (isInDanger && configuration.DangerDetectionEnabled
-                ? " — danger colour active"
-                : string.Empty);
+        return true;
+    }
+
+    private static bool DrawCameraFacing(
+        PlayerPositionMarkerConfiguration configuration,
+        Vector2 centreScreen,
+        Vector4 colour)
+    {
+        var screenRadius = PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(configuration.Radius);
+        var drawList = ImGui.GetBackgroundDrawList();
+        if (!configuration.ShowBorder)
+        {
+            drawList.AddCircleFilled(centreScreen, screenRadius,
+                ImGui.ColorConvertFloat4ToU32(colour), SegmentCount);
+            return true;
+        }
+
+        var luminance = (colour.X * 0.2126f) + (colour.Y * 0.7152f) + (colour.Z * 0.0722f);
+        var border = luminance > 0.55f
+            ? new Vector4(0.02f, 0.02f, 0.02f, colour.W)
+            : new Vector4(1f, 1f, 1f, colour.W);
+        drawList.AddCircleFilled(centreScreen, screenRadius,
+            ImGui.ColorConvertFloat4ToU32(border), SegmentCount);
+
+        var inwardThickness = Math.Min(configuration.BorderThickness, screenRadius * 0.45f);
+        var innerRadius = Math.Max(0.1f, screenRadius - inwardThickness);
+        drawList.AddCircleFilled(centreScreen, innerRadius,
+            ImGui.ColorConvertFloat4ToU32(colour), SegmentCount);
+        return true;
     }
 
     private static void BuildTangentBasis(Vector3 normal, out Vector3 tangent, out Vector3 bitangent)
