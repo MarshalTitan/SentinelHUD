@@ -6,21 +6,23 @@ namespace SentinelHUD.Services;
 /// Resolves an actor again at click time and uses Dalamud's hard-target property.
 /// It never simulates a world click or retains a native actor pointer.
 /// </summary>
-public sealed class ActorTargetingService(IObjectTable objectTable, ITargetManager targetManager)
+public sealed class ActorTargetingService(ActorReferenceResolver resolver, ITargetManager targetManager)
 {
-    private readonly IObjectTable objectTable = objectTable;
+    private readonly ActorReferenceResolver resolver = resolver;
     private readonly ITargetManager targetManager = targetManager;
 
     public string LastActionResult { get; private set; } = "No click attempted";
 
     public bool TryTarget(ulong gameObjectId)
+        => TryTarget(ActorReference.Direct(gameObjectId));
+
+    public bool TryTarget(ActorReference reference)
     {
         try
         {
-            var actor = objectTable.SearchById(gameObjectId);
-            if (actor is null || !actor.IsValid() || actor.Address == nint.Zero)
+            if (!resolver.TryResolve(reference, out var actor, out var failureReason))
             {
-                LastActionResult = "Actor left the object table before the click";
+                LastActionResult = $"Target request skipped: {failureReason}";
                 return false;
             }
             if (!actor.IsTargetable)

@@ -22,34 +22,68 @@ public sealed class ActorInteractionRenderer(
 
     public string LastActionResult => targeting.LastActionResult;
     public string LastContextMenuResult => contextMenus.LastActionResult;
+    public bool NativeContextMenuVisible => contextMenus.NativeMenuVisible;
+    public bool ShouldSuppressActorHud => contextMenus.ShouldSuppressHud;
 
     public void BeginFrame() => interactions.Clear();
 
+    public void RefreshContextMenuState() => contextMenus.RefreshVisibility();
+
     public void RegisterLastItem(ulong gameObjectId, bool allowTargeting = true,
         bool allowContextMenu = true, int priority = 10)
+        => RegisterLastItem(ActorReference.Direct(gameObjectId), allowTargeting, allowContextMenu, priority);
+
+    public void RegisterLastItem(ActorReference reference, bool allowTargeting = true,
+        bool allowContextMenu = true, int priority = 10, bool expandToContentWidth = false)
     {
-        Register(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), gameObjectId,
-            allowTargeting, allowContextMenu, priority);
+        var minimum = ImGui.GetItemRectMin();
+        var maximum = ImGui.GetItemRectMax();
+        if (expandToContentWidth)
+        {
+            maximum.X = Math.Max(maximum.X,
+                ImGui.GetWindowPos().X + ImGui.GetWindowSize().X - ImGui.GetStyle().WindowPadding.X);
+            minimum.Y -= 2f;
+            maximum.Y += 2f;
+        }
+        Register(minimum, maximum, reference, allowTargeting, allowContextMenu, priority);
     }
 
     public void Register(Vector2 minimum, Vector2 maximum, ulong gameObjectId,
         bool allowTargeting = true, bool allowContextMenu = true, int priority = 0)
+        => Register(minimum, maximum, ActorReference.Direct(gameObjectId),
+            allowTargeting, allowContextMenu, priority);
+
+    public void Register(Vector2 minimum, Vector2 maximum, ActorReference reference,
+        bool allowTargeting = true, bool allowContextMenu = true, int priority = 0)
     {
-        if (gameObjectId == 0 || gameObjectId == ulong.MaxValue || interactions.Count >= MaximumInteractions)
+        if (!reference.IsWellFormed || interactions.Count >= MaximumInteractions)
             return;
         if (maximum.X <= minimum.X || maximum.Y <= minimum.Y)
             return;
         if (!allowTargeting && !allowContextMenu)
             return;
-        interactions.Add(new ActorInteraction(minimum, maximum, gameObjectId,
+        interactions.Add(new ActorInteraction(minimum, maximum, reference,
             allowTargeting, allowContextMenu, priority));
     }
 
     public void Draw()
     {
         interactions.Sort(static (left, right) => left.Priority.CompareTo(right.Priority));
+        var mousePosition = ImGui.GetMousePos();
+        var winningPriority = int.MinValue;
+        foreach (var interaction in interactions)
+        {
+            if (interaction.Contains(mousePosition))
+                winningPriority = Math.Max(winningPriority, interaction.Priority);
+        }
+
         for (var index = 0; index < interactions.Count; index++)
-            Draw(interactions[index], index);
+        {
+            var interaction = interactions[index];
+            if (interaction.Contains(mousePosition) && interaction.Priority < winningPriority)
+                continue;
+            Draw(interaction, index);
+        }
     }
 
     private void Draw(ActorInteraction interaction, int index)
@@ -90,9 +124,9 @@ public sealed class ActorInteractionRenderer(
                         1f);
                 }
                 if (interaction.AllowTargeting && ImGui.IsItemClicked(ImGuiMouseButton.Left))
-                    targeting.TryTarget(interaction.GameObjectId);
+                    targeting.TryTarget(interaction.Reference);
                 if (interaction.AllowContextMenu && ImGui.IsItemClicked(ImGuiMouseButton.Right))
-                    contextMenus.TryOpen(interaction.GameObjectId);
+                    contextMenus.TryOpen(interaction.Reference);
             }
             finally
             {
@@ -108,8 +142,13 @@ public sealed class ActorInteractionRenderer(
     private readonly record struct ActorInteraction(
         Vector2 Minimum,
         Vector2 Maximum,
-        ulong GameObjectId,
+        ActorReference Reference,
         bool AllowTargeting,
         bool AllowContextMenu,
-        int Priority);
+        int Priority)
+    {
+        public bool Contains(Vector2 point)
+            => point.X >= Minimum.X && point.X <= Maximum.X
+               && point.Y >= Minimum.Y && point.Y <= Maximum.Y;
+    }
 }

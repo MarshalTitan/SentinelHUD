@@ -448,6 +448,8 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextUnformatted($"Focus Target's Target resolved: {renderer.FocusTargetTargetResolved}");
         ImGui.TextWrapped($"Focus Target click state: {renderer.FocusTargetClickState}");
         ImGui.TextWrapped($"Actor context-menu state: {renderer.ActorContextMenuState}");
+        ImGui.TextUnformatted($"Native context menu visible: {renderer.NativeActorContextMenuVisible}");
+        ImGui.TextUnformatted($"Actor HUD suppressed for menu: {renderer.ActorHudSuppressedForContextMenu}");
         ImGui.TextUnformatted($"Target-of-target visible / resolved: {renderer.TargetOfTargetVisible} / {renderer.TargetOfTargetResolved}");
         ImGui.TextUnformatted($"Self highlight mode / active: {config.SelfHighlight.Mode} / {renderer.SelfHighlightActive}");
         ImGui.TextUnformatted($"Self highlight applied colour: {renderer.SelfHighlightAppliedColour}");

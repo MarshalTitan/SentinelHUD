@@ -18,6 +18,13 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
     public bool UsedTerrainProjection { get; private set; }
     public string StateReason { get; private set; } = "Off";
 
+    public void SuppressForNativeContextMenu()
+    {
+        IsActive = false;
+        UsedTerrainProjection = false;
+        StateReason = "Suppressed while a native context menu has input priority";
+    }
+
     public unsafe void Draw(
         PlayerPositionMarkerConfiguration configuration,
         bool hudEnabled,

@@ -27,6 +27,7 @@ var tests = new (string Name, Action Run)[]
     ("two-axis editor resize", TestTwoAxisEditorResize),
     ("edit chrome lock-unlock stability", TestEditChromeStability),
     ("native target anchor bounds", TestNativeTargetAnchorBounds),
+    ("native context-menu HUD suppression", TestContextMenuSuppression),
     ("module independence", TestModuleIndependence),
     ("module visibility conditions", TestModuleVisibilityConditions),
     ("self-highlight conditional modes", TestHighlightModes),
@@ -691,6 +692,26 @@ static void TestNativeTargetAnchorBounds()
         0f,
         4f,
         out _));
+}
+
+static void TestContextMenuSuppression()
+{
+    var policy = new ContextMenuSuppressionPolicy(openGraceMilliseconds: 100);
+
+    False(policy.Update(nativeMenuVisible: false, nowMilliseconds: 0));
+    policy.NotifyOpenRequested(nowMilliseconds: 10);
+    True(policy.Update(nativeMenuVisible: false, nowMilliseconds: 10));
+    True(policy.Update(nativeMenuVisible: true, nowMilliseconds: 20));
+    False(policy.Update(nativeMenuVisible: false, nowMilliseconds: 30));
+
+    // A stock native context menu receives the same priority even without a Sentinel request.
+    True(policy.Update(nativeMenuVisible: true, nowMilliseconds: 40));
+    False(policy.Update(nativeMenuVisible: false, nowMilliseconds: 50));
+
+    // A failed/delayed open cannot leave the HUD permanently suppressed.
+    policy.NotifyOpenRequested(nowMilliseconds: 100);
+    True(policy.Update(nativeMenuVisible: false, nowMilliseconds: 199));
+    False(policy.Update(nativeMenuVisible: false, nowMilliseconds: 200));
 }
 
 static void TestModuleIndependence()

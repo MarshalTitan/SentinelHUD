@@ -67,8 +67,9 @@ public sealed class Plugin : IDalamudPlugin
             new NativeSelfHighlightService(ClientState, Condition, GameGui, data));
         var positionMarker = new PlayerPositionMarkerRenderer(GameGui);
         var nativeTargetOverlay = new NativeTargetHpOverlayRenderer(GameGui);
-        var actorTargeting = new ActorTargetingService(ObjectTable, TargetManager);
-        var actorContextMenus = new ActorContextMenuService(ObjectTable);
+        var actorResolver = new ActorReferenceResolver(ObjectTable, TargetManager);
+        var actorTargeting = new ActorTargetingService(actorResolver, TargetManager);
+        var actorContextMenus = new ActorContextMenuService(actorResolver, GameGui);
         var actorInteractions = new ActorInteractionRenderer(actorTargeting, actorContextMenus);
         var hudEditor = new HudEditorInteractionRenderer(configuration);
         var encounterAwareness = lifetime.Add(new EncounterAwarenessService(
@@ -130,7 +131,8 @@ public sealed class Plugin : IDalamudPlugin
         try
         {
             hudRenderer.Draw();
-            windows.Draw();
+            if (!hudRenderer.ActorHudSuppressedForContextMenu)
+                windows.Draw();
             configuration.FlushIfDue();
         }
         catch (Exception exception)

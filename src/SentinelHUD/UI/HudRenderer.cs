@@ -103,6 +103,8 @@ public sealed class HudRenderer
     public string NativeTargetAnchorSource => nativeTargetOverlay.AnchorSource;
     public string FocusTargetClickState => actorInteractions.LastActionResult;
     public string ActorContextMenuState => actorInteractions.LastContextMenuResult;
+    public bool NativeActorContextMenuVisible => actorInteractions.NativeContextMenuVisible;
+    public bool ActorHudSuppressedForContextMenu => actorInteractions.ShouldSuppressActorHud;
     public bool CameraZoomActive => cameraZoom.IsActive;
     public string CameraZoomState => cameraZoom.StateReason;
     public string? CameraConflict => cameraZoom.ConflictingPluginName;
@@ -132,17 +134,27 @@ public sealed class HudRenderer
     {
         var config = configuration.Current;
         actorInteractions.BeginFrame();
+        actorInteractions.RefreshContextMenuState();
         hudEditor.BeginFrame();
         ResetVisibilityState();
         var runtime = GetRuntimeVisibilityState();
         var player = config.Enabled ? data.LocalPlayer : null;
         var target = config.Enabled ? data.Target : null;
+        var contextMenuHasPriority = actorInteractions.ShouldSuppressActorHud;
 
-        positionMarker.Draw(config.PlayerPositionMarker, config.Enabled, player,
-            runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty,
-            encounterAwareness.IsPlayerInDanger);
-        nativeTargetOverlay.Draw(config.Target.NativeHpOverlay, config.Enabled,
-            runtime.IsLoggedIn, runtime.IsInCombat, target);
+        if (contextMenuHasPriority)
+        {
+            positionMarker.SuppressForNativeContextMenu();
+            nativeTargetOverlay.SuppressForNativeContextMenu(target is not null);
+        }
+        else
+        {
+            positionMarker.Draw(config.PlayerPositionMarker, config.Enabled, player,
+                runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty,
+                encounterAwareness.IsPlayerInDanger);
+            nativeTargetOverlay.Draw(config.Target.NativeHpOverlay, config.Enabled,
+                runtime.IsLoggedIn, runtime.IsInCombat, target);
+        }
 
         if (!config.Enabled || gameGui.GameUiHidden)
         {
@@ -157,6 +169,12 @@ public sealed class HudRenderer
         FocusTargetResolved = focus is not null;
         TargetOfTargetResolved = targetOfTarget is not null;
         FocusTargetTargetResolved = focusTargetTarget is not null;
+
+        if (contextMenuHasPriority)
+        {
+            RecordState(config);
+            return;
+        }
 
         if (ShouldDrawModule(config.Player, config.Locked, runtime) && (player is not null || !config.Locked))
         {
@@ -698,8 +716,9 @@ public sealed class HudRenderer
             ImGui.PopStyleColor();
         }
         if (config.ClickToTarget || config.RightClickContextMenu)
-            actorInteractions.RegisterLastItem(actor.GameObjectId, config.ClickToTarget,
-                config.RightClickContextMenu);
+            actorInteractions.RegisterLastItem(ActorReference.CurrentFocusTargetTarget,
+                config.ClickToTarget, config.RightClickContextMenu,
+                expandToContentWidth: true);
     }
 
     private void AppendFocusTargetPart(string value)

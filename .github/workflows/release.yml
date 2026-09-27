@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Awareness and interaction refinement release: adds native actor context menus, full edge/corner drag resizing for width and bar height, schema-7 configuration migration, exact-position AoE danger colouring with conservative native-cast and optional Splatoon IPC providers, restored truthful Custom native-palette selection, and an opt-in direct inactivity-timer reset that does not synthesize input."
+            --notes "Actor interaction fix release: makes Focus Target's Target use relationship-aware click-time resolution for players, enemies, NPCs and targetable world objects; gives its visible child row priority over the parent Focus panel; and temporarily suppresses Sentinel ImGui surfaces while FFXIV's native ContextMenu addon is open so the menu remains fully visible and receives input without changing saved HUD geometry."
 
       - name: Verify public release asset
         shell: pwsh

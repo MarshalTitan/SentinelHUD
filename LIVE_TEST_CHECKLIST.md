@@ -1,4 +1,4 @@
-# Sentinel HUD 0.7.0.0 — Live Test
+# Sentinel HUD 0.7.1.0 — Live Test
 
 ## Startup and configuration migration
 
@@ -146,6 +146,9 @@
 - [ ] Have the Focus Target clear target; the row disappears without stale information.
 - [ ] Focus an enemy that targets the player and confirm its target resolves when exposed by the client.
 - [ ] NPCs do not receive a fabricated player job.
+- [ ] Specific regression: Focus Target `Rocky Bear`, have Rocky Bear target `Market Board`, click `Target: Market Board`, and confirm Market Board becomes the normal hard target while Rocky Bear remains the Focus Target.
+- [ ] Have the Focus Target switch between a player, enemy, NPC and targetable world object; each currently displayed entry targets where FFXIV permits it.
+- [ ] Change or clear the Focus Target's target immediately before clicking; stale text clears/updates and no old object is targeted.
 
 ## Module targeting
 
@@ -174,6 +177,11 @@
 - [ ] Select Header / name only; transparent space outside that region remains pass-through.
 - [ ] Unlock the HUD; neither left-click targeting nor right-click menus fire while moving/resizing.
 - [ ] Change/clear an actor before interacting; no stale actor menu opens.
+- [ ] The native menu is completely unobstructed; no Player, Target, ToT, Focus or Focus-child panel renders over it.
+- [ ] Select an option and confirm normal menu input works without Sentinel stealing the click.
+- [ ] Dismiss the menu by clicking outside; Sentinel panels return immediately in exactly the same position and size.
+- [ ] Repeat from Player, Target, Target-of-Target, Focus Target and Focus Target's Target.
+- [ ] After the menu closes, left-click actor targeting still works normally.
 
 ## Visual editor and full drag resize
 
