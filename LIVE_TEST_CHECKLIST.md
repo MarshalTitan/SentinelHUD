@@ -1,4 +1,4 @@
-# Sentinel HUD 0.7.1.0 — Live Test
+# Sentinel HUD 0.7.2.0 — Live Test
 
 ## Startup and configuration migration
 
@@ -177,11 +177,13 @@
 - [ ] Select Header / name only; transparent space outside that region remains pass-through.
 - [ ] Unlock the HUD; neither left-click targeting nor right-click menus fire while moving/resizing.
 - [ ] Change/clear an actor before interacting; no stale actor menu opens.
-- [ ] The native menu is completely unobstructed; no Player, Target, ToT, Focus or Focus-child panel renders over it.
+- [ ] The originating module remains continuously visible with its HP/MP/cast bars unchanged.
+- [ ] The native menu opens adjacent to the module and remains completely readable.
 - [ ] Select an option and confirm normal menu input works without Sentinel stealing the click.
-- [ ] Dismiss the menu by clicking outside; Sentinel panels return immediately in exactly the same position and size.
+- [ ] Dismiss the menu by clicking outside; the continuously visible module remains in exactly the same position and size.
 - [ ] Repeat from Player, Target, Target-of-Target, Focus Target and Focus Target's Target.
 - [ ] After the menu closes, left-click actor targeting still works normally.
+- [ ] Unlock the HUD and confirm normal editing still takes precedence without opening an actor menu.
 
 ## Visual editor and full drag resize
 

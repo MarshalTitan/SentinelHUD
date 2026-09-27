@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Actor interaction fix release: makes Focus Target's Target use relationship-aware click-time resolution for players, enemies, NPCs and targetable world objects; gives its visible child row priority over the parent Focus panel; and temporarily suppresses Sentinel ImGui surfaces while FFXIV's native ContextMenu addon is open so the menu remains fully visible and receives input without changing saved HUD geometry."
+            --notes "Focused native-menu presentation fix: keeps every Sentinel HUD module and bar visible while FFXIV's actor ContextMenu is open, positions that native popup beside the originating interaction region using current AgentContext/AtkUnitBase positioning, and pauses only transparent actor-input hitboxes until the menu closes. The working relationship-aware Focus Target's Target selection path is unchanged."
 
       - name: Verify public release asset
         shell: pwsh

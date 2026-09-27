@@ -27,7 +27,8 @@ var tests = new (string Name, Action Run)[]
     ("two-axis editor resize", TestTwoAxisEditorResize),
     ("edit chrome lock-unlock stability", TestEditChromeStability),
     ("native target anchor bounds", TestNativeTargetAnchorBounds),
-    ("native context-menu HUD suppression", TestContextMenuSuppression),
+    ("native context-menu input suspension", TestContextMenuSuppression),
+    ("native context-menu adjacent placement", TestContextMenuPlacement),
     ("module independence", TestModuleIndependence),
     ("module visibility conditions", TestModuleVisibilityConditions),
     ("self-highlight conditional modes", TestHighlightModes),
@@ -712,6 +713,36 @@ static void TestContextMenuSuppression()
     policy.NotifyOpenRequested(nowMilliseconds: 100);
     True(policy.Update(nativeMenuVisible: false, nowMilliseconds: 199));
     False(policy.Update(nativeMenuVisible: false, nowMilliseconds: 200));
+}
+
+static void TestContextMenuPlacement()
+{
+    var viewport = new ScreenRectangle(0f, 0f, 1920f, 1080f);
+    var origin = new ScreenRectangle(100f, 300f, 360f, 400f);
+    var size = new Vector2(220f, 300f);
+    var right = ContextMenuPlacementPolicy.Place(origin, size, viewport);
+    Equal(ContextMenuPlacementSide.Right, right.Side);
+    Near(368f, right.Position.X);
+    False(right.Bounds(size).Intersects(origin));
+
+    origin = new ScreenRectangle(1_700f, 300f, 1_900f, 400f);
+    var left = ContextMenuPlacementPolicy.Place(origin, size, viewport);
+    Equal(ContextMenuPlacementSide.Left, left.Side);
+    Near(1_472f, left.Position.X);
+    False(left.Bounds(size).Intersects(origin));
+
+    var compactViewport = new ScreenRectangle(0f, 0f, 800f, 600f);
+    origin = new ScreenRectangle(250f, 80f, 550f, 200f);
+    var below = ContextMenuPlacementPolicy.Place(origin, new Vector2(240f, 120f), compactViewport);
+    Equal(ContextMenuPlacementSide.Below, below.Side);
+    Near(208f, below.Position.Y);
+    False(below.Bounds(new Vector2(240f, 120f)).Intersects(origin));
+
+    origin = new ScreenRectangle(250f, 400f, 550f, 590f);
+    var above = ContextMenuPlacementPolicy.Place(origin, new Vector2(240f, 180f), compactViewport);
+    Equal(ContextMenuPlacementSide.Above, above.Side);
+    Near(212f, above.Position.Y);
+    False(above.Bounds(new Vector2(240f, 180f)).Intersects(origin));
 }
 
 static void TestModuleIndependence()

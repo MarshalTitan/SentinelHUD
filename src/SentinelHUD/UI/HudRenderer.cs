@@ -104,7 +104,10 @@ public sealed class HudRenderer
     public string FocusTargetClickState => actorInteractions.LastActionResult;
     public string ActorContextMenuState => actorInteractions.LastContextMenuResult;
     public bool NativeActorContextMenuVisible => actorInteractions.NativeContextMenuVisible;
-    public bool ActorHudSuppressedForContextMenu => actorInteractions.ShouldSuppressActorHud;
+    public bool ActorInputSuspendedForContextMenu => actorInteractions.ShouldSuspendActorInput;
+    public string ActorContextMenuPlacementState => actorInteractions.ContextMenuPlacementState;
+    public Vector2 ActorContextMenuPosition => actorInteractions.ContextMenuPosition;
+    public Vector2 ActorContextMenuSize => actorInteractions.ContextMenuSize;
     public bool CameraZoomActive => cameraZoom.IsActive;
     public string CameraZoomState => cameraZoom.StateReason;
     public string? CameraConflict => cameraZoom.ConflictingPluginName;
@@ -140,21 +143,12 @@ public sealed class HudRenderer
         var runtime = GetRuntimeVisibilityState();
         var player = config.Enabled ? data.LocalPlayer : null;
         var target = config.Enabled ? data.Target : null;
-        var contextMenuHasPriority = actorInteractions.ShouldSuppressActorHud;
 
-        if (contextMenuHasPriority)
-        {
-            positionMarker.SuppressForNativeContextMenu();
-            nativeTargetOverlay.SuppressForNativeContextMenu(target is not null);
-        }
-        else
-        {
-            positionMarker.Draw(config.PlayerPositionMarker, config.Enabled, player,
-                runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty,
-                encounterAwareness.IsPlayerInDanger);
-            nativeTargetOverlay.Draw(config.Target.NativeHpOverlay, config.Enabled,
-                runtime.IsLoggedIn, runtime.IsInCombat, target);
-        }
+        positionMarker.Draw(config.PlayerPositionMarker, config.Enabled, player,
+            runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty,
+            encounterAwareness.IsPlayerInDanger);
+        nativeTargetOverlay.Draw(config.Target.NativeHpOverlay, config.Enabled,
+            runtime.IsLoggedIn, runtime.IsInCombat, target);
 
         if (!config.Enabled || gameGui.GameUiHidden)
         {
@@ -169,12 +163,6 @@ public sealed class HudRenderer
         FocusTargetResolved = focus is not null;
         TargetOfTargetResolved = targetOfTarget is not null;
         FocusTargetTargetResolved = focusTargetTarget is not null;
-
-        if (contextMenuHasPriority)
-        {
-            RecordState(config);
-            return;
-        }
 
         if (ShouldDrawModule(config.Player, config.Locked, runtime) && (player is not null || !config.Locked))
         {
@@ -200,9 +188,14 @@ public sealed class HudRenderer
         }
 
         if (config.Locked)
-            actorInteractions.Draw();
+        {
+            if (!actorInteractions.ShouldSuspendActorInput)
+                actorInteractions.Draw();
+        }
         else
+        {
             hudEditor.Draw();
+        }
         RecordState(config);
     }
 
@@ -333,7 +326,8 @@ public sealed class HudRenderer
                             module.ClickToTarget, module.RightClickContextMenu);
                     else if (hasHeaderBounds)
                         actorInteractions.Register(headerMinimum, headerMaximum, actor.GameObjectId,
-                            module.ClickToTarget, module.RightClickContextMenu);
+                            module.ClickToTarget, module.RightClickContextMenu,
+                            placementMinimum: actualPosition, placementMaximum: maximum);
                 }
             }
             finally

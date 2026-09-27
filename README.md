@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.7.1.0** · Dalamud API **15** · .NET **10**
+Current release: **0.7.2.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
@@ -55,7 +55,7 @@ MP Display supports Off, Text Only, Bar Only and Bar + Text. Player defaults to 
 
 Player casting can independently show the current action name, progress bar, percentage and remaining time. It uses the Player module's width, scale, bar height and text alignment and occupies no space while the player is not casting.
 
-Player, Target, Focus Target and Target-of-Target each have independent **Click to Target**, **Right-click native context menu** and **Clickable Area** settings. Direct actors are represented by object ID and re-resolved from the current object table at interaction time. Left-click assigns the current result through Dalamud's supported hard-target property. Right-click passes it to FFXIV's own HUD context-menu path, so the game decides which actions are valid for that actor and situation. While the native `ContextMenu` addon is visible, Sentinel's ImGui surfaces and interaction regions become dormant so the native menu has complete visual and input priority; the saved module geometry is never touched. Unlocking removes all gameplay interaction regions and activates the move/resize editor instead.
+Player, Target, Focus Target and Target-of-Target each have independent **Click to Target**, **Right-click native context menu** and **Clickable Area** settings. Direct actors are represented by object ID and re-resolved from the current object table at interaction time. Left-click assigns the current result through Dalamud's supported hard-target property. Right-click passes it to FFXIV's own HUD context-menu path, so the game decides which actions are valid for that actor and situation. Sentinel requests an adjacent on-screen popup position through the current `AgentContext` position facility, then refines it from the visible native `ContextMenu` addon's actual size. HUD modules, bars and awareness visuals continue drawing unchanged; only the transparent actor-input regions pause until the native menu closes. Unlocking removes all gameplay interaction regions and activates the move/resize editor instead.
 
 Focus Target's Target is a compact child row in the Focus Target module. It is resolved fresh from the current Focus Target ID and current object table on every draw; absent actors are hidden rather than retained. On click, the shared actor resolver repeats the complete `current Focus Target → current target ID → current object-table object` lookup before setting the hard target. The full visible row is interactive and wins overlapping input over the parent Focus panel, so player, enemy, NPC and targetable world-object entries use the same final hard-target path as the working Target-of-Target module without retaining a child pointer.
 

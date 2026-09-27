@@ -33,12 +33,6 @@ public sealed class NativeTargetHpOverlayRenderer(IGameGui gameGui)
     public Vector2 AnchorPosition { get; private set; }
     public Vector2 AnchorSize { get; private set; }
 
-    public void SuppressForNativeContextMenu(bool targetExists)
-    {
-        ResetRuntimeState(targetExists);
-        StateReason = "Suppressed while a native context menu has input priority";
-    }
-
     public unsafe void Draw(
         NativeTargetOverlayConfiguration configuration,
         bool hudEnabled,

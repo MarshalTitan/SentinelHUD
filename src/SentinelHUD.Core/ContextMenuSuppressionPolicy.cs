@@ -1,8 +1,8 @@
 namespace SentinelHUD.Core;
 
 /// <summary>
-/// Keeps ImGui overlays dormant while a native context menu opened by Sentinel is becoming visible.
-/// Once the native addon has been observed, suppression ends immediately when it closes.
+/// Keeps only Sentinel's actor-input overlays dormant while a native context menu is becoming visible.
+/// Visual HUD modules continue drawing, and input suspension ends immediately when the menu closes.
 /// </summary>
 public sealed class ContextMenuSuppressionPolicy(long openGraceMilliseconds = 2_000)
 {

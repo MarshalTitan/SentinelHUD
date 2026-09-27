@@ -1,6 +1,7 @@
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using SentinelCore.UI;
+using SentinelHUD.Core;
 using SentinelHUD.Services;
 
 namespace SentinelHUD.UI;
@@ -23,7 +24,10 @@ public sealed class ActorInteractionRenderer(
     public string LastActionResult => targeting.LastActionResult;
     public string LastContextMenuResult => contextMenus.LastActionResult;
     public bool NativeContextMenuVisible => contextMenus.NativeMenuVisible;
-    public bool ShouldSuppressActorHud => contextMenus.ShouldSuppressHud;
+    public bool ShouldSuspendActorInput => contextMenus.ShouldSuspendActorInput;
+    public string ContextMenuPlacementState => contextMenus.PlacementState;
+    public Vector2 ContextMenuPosition => contextMenus.LastMenuPosition;
+    public Vector2 ContextMenuSize => contextMenus.LastMenuSize;
 
     public void BeginFrame() => interactions.Clear();
 
@@ -49,12 +53,14 @@ public sealed class ActorInteractionRenderer(
     }
 
     public void Register(Vector2 minimum, Vector2 maximum, ulong gameObjectId,
-        bool allowTargeting = true, bool allowContextMenu = true, int priority = 0)
+        bool allowTargeting = true, bool allowContextMenu = true, int priority = 0,
+        Vector2? placementMinimum = null, Vector2? placementMaximum = null)
         => Register(minimum, maximum, ActorReference.Direct(gameObjectId),
-            allowTargeting, allowContextMenu, priority);
+            allowTargeting, allowContextMenu, priority, placementMinimum, placementMaximum);
 
     public void Register(Vector2 minimum, Vector2 maximum, ActorReference reference,
-        bool allowTargeting = true, bool allowContextMenu = true, int priority = 0)
+        bool allowTargeting = true, bool allowContextMenu = true, int priority = 0,
+        Vector2? placementMinimum = null, Vector2? placementMaximum = null)
     {
         if (!reference.IsWellFormed || interactions.Count >= MaximumInteractions)
             return;
@@ -62,8 +68,9 @@ public sealed class ActorInteractionRenderer(
             return;
         if (!allowTargeting && !allowContextMenu)
             return;
-        interactions.Add(new ActorInteraction(minimum, maximum, reference,
-            allowTargeting, allowContextMenu, priority));
+        interactions.Add(new ActorInteraction(minimum, maximum,
+            placementMinimum ?? minimum, placementMaximum ?? maximum,
+            reference, allowTargeting, allowContextMenu, priority));
     }
 
     public void Draw()
@@ -126,7 +133,17 @@ public sealed class ActorInteractionRenderer(
                 if (interaction.AllowTargeting && ImGui.IsItemClicked(ImGuiMouseButton.Left))
                     targeting.TryTarget(interaction.Reference);
                 if (interaction.AllowContextMenu && ImGui.IsItemClicked(ImGuiMouseButton.Right))
-                    contextMenus.TryOpen(interaction.Reference);
+                {
+                    var viewport = ImGui.GetMainViewport();
+                    contextMenus.TryOpen(
+                        interaction.Reference,
+                        new ScreenRectangle(
+                            interaction.PlacementMinimum.X,
+                            interaction.PlacementMinimum.Y,
+                            interaction.PlacementMaximum.X,
+                            interaction.PlacementMaximum.Y),
+                        ScreenRectangle.FromPositionSize(viewport.WorkPos, viewport.WorkSize));
+                }
             }
             finally
             {
@@ -142,6 +159,8 @@ public sealed class ActorInteractionRenderer(
     private readonly record struct ActorInteraction(
         Vector2 Minimum,
         Vector2 Maximum,
+        Vector2 PlacementMinimum,
+        Vector2 PlacementMaximum,
         ActorReference Reference,
         bool AllowTargeting,
         bool AllowContextMenu,

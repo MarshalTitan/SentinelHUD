@@ -131,8 +131,7 @@ public sealed class Plugin : IDalamudPlugin
         try
         {
             hudRenderer.Draw();
-            if (!hudRenderer.ActorHudSuppressedForContextMenu)
-                windows.Draw();
+            windows.Draw();
             configuration.FlushIfDue();
         }
         catch (Exception exception)

@@ -5,8 +5,8 @@
     "Punchline": "Modular, configurable awareness enhancements for the FFXIV HUD.",
     "Description": "Adds configurable actor panels, HP/MP/shield/cast bars, native actor interactions, exact-position awareness, optional encounter danger providers, and extended camera zoom.",
     "InternalName": "SentinelHUD",
-    "AssemblyVersion": "0.7.1.0",
-    "TestingAssemblyVersion": "0.7.1.0",
+    "AssemblyVersion": "0.7.2.0",
+    "TestingAssemblyVersion": "0.7.2.0",
     "RepoUrl": "https://github.com/MarshalTitan/SentinelHUD",
     "IconUrl": "https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png",
     "ApplicableVersion": "any",
@@ -15,11 +15,11 @@
     "IsHide": false,
     "IsTestingExclusive": false,
     "DownloadCount": 0,
-    "LastUpdate": 1790536326,
+    "LastUpdate": 1790538578,
     "LoadPriority": 0,
-    "DownloadLinkInstall": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.7.1.0/SentinelHUD.zip",
-    "DownloadLinkUpdate": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.7.1.0/SentinelHUD.zip",
-    "DownloadLinkTesting": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.7.1.0/SentinelHUD.zip",
+    "DownloadLinkInstall": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.7.2.0/SentinelHUD.zip",
+    "DownloadLinkUpdate": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.7.2.0/SentinelHUD.zip",
+    "DownloadLinkTesting": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.7.2.0/SentinelHUD.zip",
     "Tags": ["hud", "overlay", "target", "accessibility", "sentinel"]
   }
 ]
