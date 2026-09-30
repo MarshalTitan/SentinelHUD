@@ -39,6 +39,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly DiagnosticTracker diagnosticTracker = new();
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer hudRenderer;
+    private readonly QuestConvenienceService questConvenience;
     private readonly ConfigurationWindow configurationWindow;
 
     public Plugin()
@@ -76,6 +77,8 @@ public sealed class Plugin : IDalamudPlugin
             ObjectTable, DataManager, PluginInterface));
         var antiAfk = new AntiAfkService();
         lifetime.Add(antiAfk.Disable);
+        questConvenience = lifetime.Add(new QuestConvenienceService(
+            GameGui, Condition, ObjectTable, DataManager, diagnostics));
         var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
             new ExtendedCameraZoomService(PluginInterface, ClientState, Condition));
         hudRenderer = new HudRenderer(
@@ -93,7 +96,8 @@ public sealed class Plugin : IDalamudPlugin
             ClientState,
             Condition,
             diagnostics);
-        configurationWindow = new ConfigurationWindow(configuration, hudRenderer, diagnostics, store);
+        configurationWindow = new ConfigurationWindow(
+            configuration, hudRenderer, questConvenience, diagnostics, store);
         windows.AddWindow(configurationWindow);
         lifetime.Add(() => windows.RemoveAllWindows());
 
@@ -156,6 +160,19 @@ public sealed class Plugin : IDalamudPlugin
             {
                 diagnostics.Error("An awareness/camera update failed; it will retry automatically.", exception);
                 logger.Error("Sentinel HUD awareness/camera update failed; retrying.", exception);
+            }
+        }
+
+        try
+        {
+            questConvenience.Update(configuration.Current.Convenience, ClientState.IsLoggedIn);
+        }
+        catch (Exception exception)
+        {
+            if (diagnosticTracker.Throttled("quest-convenience-update-failure", TimeSpan.FromSeconds(15)))
+            {
+                diagnostics.Error("A quest convenience update failed; automation paused for this frame.", exception);
+                logger.Error("Sentinel HUD quest convenience update failed; retrying safely.", exception);
             }
         }
     }

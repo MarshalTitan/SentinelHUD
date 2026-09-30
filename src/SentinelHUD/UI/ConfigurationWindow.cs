@@ -6,6 +6,7 @@ using SentinelCore.Diagnostics;
 using SentinelCore.UI;
 using SentinelHUD.Core;
 using SentinelHUD.Persistence;
+using SentinelHUD.Services;
 
 namespace SentinelHUD.UI;
 
@@ -25,9 +26,11 @@ public sealed class ConfigurationWindow : Window
     private static readonly string[] NumberFormats = ["Full", "Compact"];
     private static readonly string[] NativeOverlayModes = ["Off", "Always", "Combat Only"];
     private static readonly string[] NativeOverlayFormats = ["Current / Maximum", "Percentage", "Current / Maximum + Percentage"];
+    private static readonly string[] QuestRewardModes = ["Manual", "First Reward", "Current Job Reward", "Allagan Piece"];
 
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer renderer;
+    private readonly QuestConvenienceService questConvenience;
     private readonly DiagnosticBuffer diagnostics;
     private readonly ResilientConfigurationStore configurationStore;
     private int selectedLayoutModule;
@@ -35,12 +38,14 @@ public sealed class ConfigurationWindow : Window
     public ConfigurationWindow(
         ConfigurationCoordinator<Configuration> configuration,
         HudRenderer renderer,
+        QuestConvenienceService questConvenience,
         DiagnosticBuffer diagnostics,
         ResilientConfigurationStore configurationStore)
         : base("Sentinel HUD Configuration##SentinelHUD-Configuration")
     {
         this.configuration = configuration;
         this.renderer = renderer;
+        this.questConvenience = questConvenience;
         this.diagnostics = diagnostics;
         this.configurationStore = configurationStore;
         Size = new Vector2(760f, 720f);
@@ -66,7 +71,7 @@ public sealed class ConfigurationWindow : Window
             DrawTab("Awareness", DrawAwareness);
             DrawTab("Encounter Awareness", DrawEncounterAwareness);
             DrawTab("Camera", DrawCamera);
-            DrawTab("Convenience", DrawConvenience);
+            DrawTab("Questing / Convenience", DrawConvenience);
             DrawTab("Appearance", DrawAppearance);
             DrawTab("Layout", DrawLayout);
             DrawTab("Diagnostics", DrawDiagnostics);
@@ -359,8 +364,33 @@ public sealed class ConfigurationWindow : Window
 
     private void DrawConvenience()
     {
-        SentinelUi.SectionHeader("Prevent AFK Disconnect");
         var convenience = configuration.Current.Convenience;
+        SentinelUi.SectionHeader("Questing / Convenience");
+        DrawToggle("Skip Dialogue", convenience.SkipDialogue,
+            value => Update(c => c.Convenience.SkipDialogue = value));
+        ImGui.TextWrapped("Advances only the ordinary Talk text box. Sentinel pauses whenever a response list or Yes/No prompt is visible and never chooses a dialogue response.");
+        ImGui.TextDisabled($"Dialogue runtime: {questConvenience.DialogueState}");
+
+        DrawToggle("Skip Cutscenes", convenience.SkipCutscenes,
+            value => Update(c => c.Convenience.SkipCutscenes = value));
+        ImGui.TextWrapped("Requests FFXIV's normal skip dialog only when the client exposes a skippable cutscene, then confirms that dedicated dialog. Protected and unskippable cutscenes are left alone.");
+        ImGui.TextDisabled($"Cutscene runtime: {questConvenience.CutsceneState}");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        SentinelUi.SectionHeader("Quest Reward Selection");
+        var rewardMode = (int)convenience.QuestRewardSelection;
+        if (ImGui.Combo("Reward selection", ref rewardMode, QuestRewardModes, QuestRewardModes.Length))
+            Update(c => c.Convenience.QuestRewardSelection = (QuestRewardSelectionMode)rewardMode);
+        ImGui.TextWrapped("Manual never touches rewards. Automatic modes act only on positively identified choose-one entries in JournalResult; guaranteed gil, EXP, items and unlocks are not selected or altered.");
+        ImGui.TextDisabled($"Reward runtime: {questConvenience.RewardState}");
+        ImGui.TextDisabled($"Current job: {questConvenience.CurrentJob}");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        SentinelUi.SectionHeader("Prevent AFK Disconnect");
         DrawToggle("Prevent AFK Disconnect", convenience.PreventAfkDisconnect,
             value => Update(c => c.Convenience.PreventAfkDisconnect = value));
         ImGui.TextWrapped("Default Off. When enabled, Sentinel periodically resets the client's inactivity timers directly. It does not move your character, send chat, synthesize keys, or alter controller input. Disabling resumes ordinary timer accumulation.");
@@ -494,6 +524,16 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextWrapped($"Extended zoom state: {renderer.CameraZoomState}");
         ImGui.TextUnformatted($"Prevent AFK Disconnect enabled / active: {config.Convenience.PreventAfkDisconnect} / {renderer.AntiAfkActive}");
         ImGui.TextWrapped($"Anti-AFK state: {renderer.AntiAfkState}");
+        ImGui.TextUnformatted($"Dialogue skipping enabled: {config.Convenience.SkipDialogue}");
+        ImGui.TextWrapped($"Dialogue skipping state: {questConvenience.DialogueState}");
+        ImGui.TextUnformatted($"Cutscene skipping enabled: {config.Convenience.SkipCutscenes}");
+        ImGui.TextWrapped($"Cutscene skipping state: {questConvenience.CutsceneState}");
+        ImGui.TextUnformatted($"Quest reward mode: {config.Convenience.QuestRewardSelection}");
+        ImGui.TextUnformatted($"Current job: {questConvenience.CurrentJob}");
+        ImGui.TextUnformatted($"Reward window detected: {questConvenience.RewardWindowDetected}");
+        ImGui.TextWrapped($"Reward runtime: {questConvenience.RewardState}");
+        ImGui.TextWrapped($"Last selected reward: {questConvenience.LastSelectedRewardName} ({questConvenience.LastSelectedRewardId})");
+        ImGui.TextWrapped($"Last selection reason: {questConvenience.LastSelectionReason}");
         if (ImGui.Button("Clear diagnostic history"))
             diagnostics.Clear();
         ImGui.Separator();

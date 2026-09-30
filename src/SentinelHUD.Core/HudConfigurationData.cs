@@ -104,6 +104,14 @@ public enum PlayerPositionMarkerStyle
     CameraFacing,
 }
 
+public enum QuestRewardSelectionMode
+{
+    Manual,
+    FirstReward,
+    CurrentJobReward,
+    AllaganPiece,
+}
+
 public sealed class ModuleLayoutConfiguration
 {
     public float AnchorX { get; set; }
@@ -277,6 +285,9 @@ public sealed class EncounterAwarenessConfiguration
 public sealed class ConvenienceConfiguration
 {
     public bool PreventAfkDisconnect { get; set; }
+    public bool SkipDialogue { get; set; }
+    public bool SkipCutscenes { get; set; }
+    public QuestRewardSelectionMode QuestRewardSelection { get; set; } = QuestRewardSelectionMode.Manual;
 }
 
 public sealed class NativeTargetOverlayConfiguration
@@ -308,7 +319,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 8;
+    public const int CurrentVersion = 9;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -503,6 +514,8 @@ public static class HudConfigurationMigrator
             configuration.Target.NativeHpOverlay.HpFormat = NativeTargetHpFormat.CurrentMaximumAndPercentage;
         if (!Enum.IsDefined(configuration.Target.NativeHpOverlay.NumberFormat))
             configuration.Target.NativeHpOverlay.NumberFormat = HudNumberFormat.Full;
+        if (!Enum.IsDefined(configuration.Convenience.QuestRewardSelection))
+            configuration.Convenience.QuestRewardSelection = QuestRewardSelectionMode.Manual;
 
         configuration.Target.NativeHpOverlay.OffsetX = ClampFinite(configuration.Target.NativeHpOverlay.OffsetX, -500f, 500f, 0f);
         configuration.Target.NativeHpOverlay.OffsetY = ClampFinite(configuration.Target.NativeHpOverlay.OffsetY, -250f, 250f, 4f);
@@ -618,6 +631,12 @@ public static class HudConfigurationMigrator
                     // settings remain untouched.
                     configuration.PlayerPositionMarker.Style = PlayerPositionMarkerStyle.CameraFacing;
                     version = 8;
+                    break;
+                case 8:
+                    // Schema 9 adds opt-in dialogue/cutscene skipping and reward selection.
+                    // Property initializers provide Off/Manual defaults only for the new fields;
+                    // every pre-existing convenience and HUD value remains unchanged.
+                    version = 9;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;

@@ -14,6 +14,7 @@ var tests = new (string Name, Action Run)[]
     ("version-five update preserves customized settings", TestVersionFiveUpgradePersistence),
     ("version-six update preserves customized settings", TestVersionSixUpgradePersistence),
     ("version-seven marker style migration", TestVersionSevenMarkerStyleMigration),
+    ("version-eight quest convenience migration", TestVersionEightQuestConvenienceMigration),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
@@ -39,6 +40,7 @@ var tests = new (string Name, Action Run)[]
     ("danger geometry containment", TestDangerGeometryContainment),
     ("HP colour modes", TestHpColourModes),
     ("camera zoom policy", TestCameraZoomPolicy),
+    ("quest reward selection policy", TestQuestRewardSelectionPolicy),
 };
 
 var failures = new List<string>();
@@ -92,6 +94,9 @@ static void TestDefaults()
     True(config.EncounterAwareness.NativeDetectionEnabled);
     False(config.EncounterAwareness.SplatoonIntegrationEnabled);
     False(config.Convenience.PreventAfkDisconnect);
+    False(config.Convenience.SkipDialogue);
+    False(config.Convenience.SkipCutscenes);
+    Equal(QuestRewardSelectionMode.Manual, config.Convenience.QuestRewardSelection);
     Near(0.01f, PlayerPositionMarkerPolicy.MinimumRadius);
     Equal(ShieldDisplayMode.BarAndText, config.Player.ShieldDisplay);
     Equal(MpDisplayMode.BarAndText, config.Player.MpDisplay);
@@ -180,6 +185,9 @@ static void TestSerialization()
     source.EncounterAwareness.SplatoonIntegrationEnabled = true;
     source.EncounterAwareness.TreatUnclassifiedSplatoonGeometryAsDanger = true;
     source.Convenience.PreventAfkDisconnect = true;
+    source.Convenience.SkipDialogue = true;
+    source.Convenience.SkipCutscenes = true;
+    source.Convenience.QuestRewardSelection = QuestRewardSelectionMode.CurrentJobReward;
     source.Camera.Enabled = true;
     source.Camera.MaximumZoomDistance = 42f;
     source.Target.ShieldDisplay = ShieldDisplayMode.BarOnly;
@@ -227,6 +235,9 @@ static void TestSerialization()
     True(restored.EncounterAwareness.SplatoonIntegrationEnabled);
     True(restored.EncounterAwareness.TreatUnclassifiedSplatoonGeometryAsDanger);
     True(restored.Convenience.PreventAfkDisconnect);
+    True(restored.Convenience.SkipDialogue);
+    True(restored.Convenience.SkipCutscenes);
+    Equal(QuestRewardSelectionMode.CurrentJobReward, restored.Convenience.QuestRewardSelection);
     True(restored.Camera.Enabled);
     Near(42f, restored.Camera.MaximumZoomDistance);
     Equal(ShieldDisplayMode.BarOnly, restored.Target.ShieldDisplay);
@@ -909,6 +920,37 @@ static void TestVersionSevenMarkerStyleMigration()
     Equal(DangerColourPreset.Orange, source.PlayerPositionMarker.DangerColourPreset);
 }
 
+static void TestVersionEightQuestConvenienceMigration()
+{
+    var versionA = new HudConfigurationData
+    {
+        Version = 8,
+        Locked = false,
+    };
+    versionA.Convenience.PreventAfkDisconnect = true;
+    versionA.Player.Layout.AnchorX = 0.314f;
+    versionA.Target.Width = 471f;
+
+    var document = JsonNode.Parse(JsonSerializer.Serialize(versionA))!.AsObject();
+    var convenience = document["Convenience"]!.AsObject();
+    convenience.Remove("SkipDialogue");
+    convenience.Remove("SkipCutscenes");
+    convenience.Remove("QuestRewardSelection");
+    var source = JsonSerializer.Deserialize<HudConfigurationData>(document.ToJsonString());
+    NotNull(source);
+
+    HudConfigurationMigrator.Normalize(source!);
+
+    Equal(HudConfigurationData.CurrentVersion, source!.Version);
+    False(source.Locked);
+    True(source.Convenience.PreventAfkDisconnect);
+    False(source.Convenience.SkipDialogue);
+    False(source.Convenience.SkipCutscenes);
+    Equal(QuestRewardSelectionMode.Manual, source.Convenience.QuestRewardSelection);
+    Near(0.314f, source.Player.Layout.AnchorX);
+    Near(471f, source.Target.Width);
+}
+
 static void TestDangerGeometryContainment()
 {
     var circle = DangerArea.Circle(Vector3.Zero, 5f, "test", "circle");
@@ -967,6 +1009,59 @@ static void TestCameraZoomPolicy()
     Near(42f, CameraZoomPolicy.NormalizeMaximum(42f));
     Near(CameraZoomPolicy.MaximumSupported, CameraZoomPolicy.NormalizeMaximum(500f));
     Near(CameraZoomPolicy.DefaultExtendedMaximum, CameraZoomPolicy.NormalizeMaximum(float.NaN));
+}
+
+static void TestQuestRewardSelectionPolicy()
+{
+    var candidates = new[]
+    {
+        new QuestRewardCandidate(0, 100, 1, "First", false, 0, 1, false, 20),
+        new QuestRewardCandidate(1, 101, 1, "Shared role", true, 10, 700, false, 30),
+        new QuestRewardCandidate(2, 102, 1, "Specific job", true, 20, 690, false, 40),
+        new QuestRewardCandidate(3, 5826, 2, "Allagan Gold Piece", false, 0, 0, true, 2_500),
+        new QuestRewardCandidate(4, 5827, 1, "Allagan Platinum Piece", false, 0, 0, true, 10_000),
+    };
+
+    Equal<QuestRewardDecision?>(null,
+        QuestRewardSelectionPolicy.Select(QuestRewardSelectionMode.Manual, candidates));
+
+    var first = QuestRewardSelectionPolicy.Select(QuestRewardSelectionMode.FirstReward, candidates);
+    NotNull(first);
+    Equal(0, first!.Value.Index);
+    Equal(QuestRewardSelectionPolicy.FirstRewardReason, first.Value.Reason);
+
+    var job = QuestRewardSelectionPolicy.Select(QuestRewardSelectionMode.CurrentJobReward, candidates);
+    NotNull(job);
+    Equal(2, job!.Value.Index);
+    Equal(QuestRewardSelectionPolicy.CurrentJobMatchReason, job.Value.Reason);
+
+    var jobFallback = QuestRewardSelectionPolicy.Select(
+        QuestRewardSelectionMode.CurrentJobReward,
+        candidates.Where(candidate => !candidate.IsCurrentJobCompatible).ToArray());
+    NotNull(jobFallback);
+    Equal(0, jobFallback!.Value.Index);
+    Equal(QuestRewardSelectionPolicy.NoJobMatchFallbackReason, jobFallback.Value.Reason);
+
+    var allagan = QuestRewardSelectionPolicy.Select(QuestRewardSelectionMode.AllaganPiece, candidates);
+    NotNull(allagan);
+    Equal(4, allagan!.Value.Index);
+    Equal(QuestRewardSelectionPolicy.AllaganPieceReason, allagan.Value.Reason);
+
+    var allaganFallback = QuestRewardSelectionPolicy.Select(
+        QuestRewardSelectionMode.AllaganPiece,
+        candidates.Where(candidate => !candidate.IsAllaganPiece).ToArray());
+    NotNull(allaganFallback);
+    Equal(0, allaganFallback!.Value.Index);
+    Equal(QuestRewardSelectionPolicy.NoAllaganPieceFallbackReason, allaganFallback.Value.Reason);
+
+    var itemLevelTieBreak = QuestRewardSelectionPolicy.Select(
+        QuestRewardSelectionMode.CurrentJobReward,
+        new[]
+        {
+            new QuestRewardCandidate(0, 201, 1, "Lower", true, 12, 650, false, 0),
+            new QuestRewardCandidate(1, 202, 1, "Higher", true, 12, 660, false, 0),
+        });
+    Equal(1, itemLevelTieBreak!.Value.Index);
 }
 
 static void True(bool value)
