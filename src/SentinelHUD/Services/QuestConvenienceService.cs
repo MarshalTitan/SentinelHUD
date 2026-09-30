@@ -48,7 +48,9 @@ public sealed unsafe class QuestConvenienceService : IDisposable
     private long nextRewardTick;
     private long rewardConfirmAfterTick;
     private bool cutsceneConfirmationSent;
+    private uint cachedCurrentJobId;
     private ulong activeRewardSignature;
+    private QuestRewardSelectionMode activeRewardMode = QuestRewardSelectionMode.Manual;
     private bool rewardSelectionSent;
     private bool rewardCompletionSent;
     private QuestRewardDecision pendingReward;
@@ -214,6 +216,7 @@ public sealed unsafe class QuestConvenienceService : IDisposable
         {
             RewardState = mode == QuestRewardSelectionMode.Manual ? "Manual" : "Waiting for login";
             CurrentJob = "Unavailable";
+            cachedCurrentJobId = 0;
             RewardWindowDetected = false;
             ResetRewardWindow();
             return;
@@ -253,9 +256,10 @@ public sealed unsafe class QuestConvenienceService : IDisposable
             return;
         }
 
-        if (signature != activeRewardSignature)
+        if (signature != activeRewardSignature || mode != activeRewardMode)
         {
             activeRewardSignature = signature;
+            activeRewardMode = mode;
             rewardSelectionSent = false;
             rewardCompletionSent = false;
             rewardConfirmAfterTick = 0;
@@ -407,6 +411,9 @@ public sealed unsafe class QuestConvenienceService : IDisposable
     {
         IPlayerCharacter? player = objectTable.LocalPlayer;
         var jobId = player?.ClassJob.RowId ?? 0;
+        if (jobId == cachedCurrentJobId)
+            return;
+        cachedCurrentJobId = jobId;
         CurrentJob = jobId != 0 && dataManager.GetExcelSheet<ClassJob>().TryGetRow(jobId, out var job)
             ? $"{job.Abbreviation} ({jobId})"
             : "Unavailable";
@@ -477,6 +484,7 @@ public sealed unsafe class QuestConvenienceService : IDisposable
     private void ResetRewardWindow()
     {
         activeRewardSignature = 0;
+        activeRewardMode = QuestRewardSelectionMode.Manual;
         rewardSelectionSent = false;
         rewardCompletionSent = false;
         rewardConfirmAfterTick = 0;

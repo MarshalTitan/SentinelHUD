@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.7.3.0** · Dalamud API **15** · .NET **10**
+Current release: **0.8.0.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
@@ -20,6 +20,7 @@ Current release: **0.7.3.0** · Dalamud API **15** · .NET **10**
 - Encounter Awareness providers: conservative current hostile-cast geometry for standard visible circle/donut/rectangle/cone/line/cross actions, plus optional fail-closed Splatoon geometry IPC. Unknown and encounter-specific mechanics are not guessed.
 - Optional extended third-person zoom with a configurable 20–100-yalm maximum, automatic restoration, special-camera safeguards and known camera-plugin conflict handling.
 - Optional Prevent AFK Disconnect convenience switch, default Off, which periodically resets current client inactivity timers without movement, chat, key presses or controller input.
+- Independent quest convenience controls, all defaulting to Off/Manual: ordinary-dialogue advancement that pauses for choices, game-permitted cutscene skipping through FFXIV's normal skip dialog, and validated choose-one reward selection by first option, current-job equipment compatibility or stable Allagan Piece IDs/value.
 - Compact state diagnostics without frame-by-frame logging.
 
 ## Installation
@@ -47,7 +48,7 @@ Install **Sentinel HUD** from the plugin installer. No other Sentinel plugin is 
 
 ## Configuration
 
-Settings are separated into General, Player, Target, Focus Target, Target-of-Target, Awareness, Encounter Awareness, Camera, Convenience, Appearance, Layout and Diagnostics tabs. Module tabs use collapsible Visibility, Information, Size/Layout and Appearance groups. The configuration window uses the standard ImGui collapse control.
+Settings are separated into General, Player, Target, Focus Target, Target-of-Target, Awareness, Encounter Awareness, Camera, Questing / Convenience, Appearance, Layout and Diagnostics tabs. Module tabs use collapsible Visibility, Information, Size/Layout and Appearance groups. The configuration window uses the standard ImGui collapse control.
 
 HP presentation is controlled by independent current, maximum and percentage switches, allowing number-only, percentage-only, current/maximum or combined formats. Full numbers remain the default; Compact displays values such as `295.9k` and `12.48m`. Shield Display supports Off, Text Only, Bar Only and Bar + Text.
 
@@ -61,7 +62,7 @@ Focus Target's Target is a compact child row in the Focus Target module. It is r
 
 ### Configuration persistence
 
-Schema 8 performs stepwise migrations and changes only fields introduced by the applicable schema. Schema 8 adds the marker Style field and selects Camera Facing on upgrade while preserving the existing position source, visibility mode, radius, colour, opacity, border and danger settings. The earlier reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
+Schema 9 performs stepwise migrations and changes only fields introduced by the applicable schema. Schema 8 added marker Style; schema 9 adds Skip Dialogue, Skip Cutscenes and Quest Reward Selection with Off/Off/Manual migration defaults. Existing position, visibility, colour, camera, awareness and convenience values remain untouched. The earlier reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
 
 ### Integrated health bars
 
@@ -96,6 +97,14 @@ Before creating any Sentinel-owned encounter definition, check Splatoon's mainta
 ### Prevent AFK Disconnect
 
 The opt-in convenience service checks the current FFXIVClientStructs inactivity timer module every ten seconds and resets positive timers only after 30 seconds. It does not create a worker thread, synthesize keyboard/controller input, move the actor or send chat. Disabling or unloading stops resets immediately, after which the client resumes normal timer accumulation.
+
+### Questing / Convenience
+
+`QuestConvenienceService` is owned directly by the plugin lifecycle and does not run through `HudRenderer`. **Skip Dialogue** touches only the visible `Talk` addon at a bounded cadence. It explicitly pauses while `SelectString`, `SelectIconString` or `SelectYesno` is visible, so it never chooses branching responses or Yes/No answers.
+
+**Skip Cutscenes** asks the current `AgentCutscene` to open FFXIV's own skip dialog using the live cutscene callback. If the game does not expose that callback or rejects the request, Sentinel does nothing. It confirms only the dedicated `CutSceneSelectString` dialog and resets state when the cutscene ends; it does not patch the skippable check or synthesize Escape/confirm input.
+
+Reward automation activates only for a visible `JournalResult` with positively identified choose-one entries. Each action re-resolves the addon and fingerprints item IDs, quantities and indices. Selection and completion are separate, throttled steps; completion requires the same fingerprint and the game's enabled Complete button. Manual mode never acts, and windows containing only guaranteed rewards are left untouched. Current Job uses `Item`, `EquipSlotCategory`, `ClassJobCategory`, current `ClassJob` and item-level game data—not localized item names—and ranks narrower compatible categories before item level and source order. Allagan mode recognizes stable item rows 5824–5827 and ranks their `PriceLow × quantity`, falling back to the first selectable reward when required.
 
 ### Extended camera zoom
 
@@ -146,6 +155,8 @@ Screenshots will be added after the first in-game layout and colour pass.
 - Generic native danger detection covers only currently casting hostile actions with a supported standard telegraph shape. Many encounter mechanics require maintained encounter scripts and are intentionally not guessed.
 - Splatoon geometry IPC v1 does not classify all drawings as danger versus safe/informational. Unclassified geometry is ignored by default; the opt-in trust mode can produce false danger states.
 - Prevent AFK Disconnect touches current internal inactivity timer fields and may need maintenance after game updates. It is default Off, isolated behind one service and never synthesizes user input.
+- Quest reward parsing and UI actions depend on the current `JournalResult` value layout and FFXIVClientStructs addon functions. They are isolated, default Manual, validate the complete window fingerprint before confirmation and may fail closed after a game UI change until updated.
+- Dialogue skipping deliberately ignores response lists and Yes/No prompts. Cutscene skipping acts only when FFXIV exposes its normal skip callback; protected or unskippable cutscenes remain untouched.
 - The position marker's downward terrain ray can be unavailable during loading or on unusual collision surfaces; the actor origin is used temporarily and Diagnostics reports the fallback.
 - Both position-marker styles are Dalamud overlays without depth-buffer occlusion, so foreground terrain can occasionally cover incorrectly. Camera Facing intentionally keeps a stable screen-space radius for readability rather than shrinking with camera distance; Ground Projected retains natural perspective scaling and can flatten at shallow angles.
 - Extended zoom changes an internal camera limit and can require maintenance after FFXIV patches. It defaults off, is isolated behind one service, validates camera state, and restores on disable/disposal.

@@ -1,10 +1,10 @@
-# Sentinel HUD 0.7.3.0 — Live Test
+# Sentinel HUD 0.8.0.0 — Live Test
 
 ## Startup and configuration migration
 
 - [ ] Update Sentinel HUD from the Sentinel custom repository without deleting the existing configuration.
 - [ ] Existing module positions, widths, scale, bar heights, colours, field toggles, visibility modes, HP/MP/shield/cast settings, Awareness settings, marker radius/opacity, camera settings and native-target offsets remain intact.
-- [ ] Diagnostics reports configuration schema 8 and, when upgrading schema 7, shows a one-time `SentinelHUD.schema-v7.backup.json` path.
+- [ ] Diagnostics reports configuration schema 9 and, when upgrading schema 8, shows a one-time `SentinelHUD.schema-v8.backup.json` path.
 - [ ] Reload again and confirm the schema backup is not replaced or multiplied.
 - [ ] `/shud` opens and closes configuration.
 - [ ] The normal title-bar collapse arrow is available.
@@ -249,6 +249,51 @@
 - [ ] Change zones and confirm the service resumes cleanly.
 - [ ] Disable and re-enable it; normal timer accumulation resumes while disabled.
 - [ ] Reload/unload Sentinel HUD with it enabled; disposal is clean and no background worker remains.
+
+## Skip Dialogue
+
+- [ ] Leave Skip Dialogue Off and confirm ordinary dialogue remains fully manual.
+- [ ] Enable Skip Dialogue and confirm ordinary NPC/quest `Talk` text advances.
+- [ ] Reach a multiple-response dialogue prompt; Sentinel pauses and waits for manual input.
+- [ ] Reach a Yes/No prompt; Sentinel does not choose either answer.
+- [ ] Close/end dialogue and confirm automation stops without interacting with gameplay UI.
+- [ ] Open a quest reward window with Reward Selection set to Manual; dialogue skipping does not select or confirm a reward.
+
+## Skip Cutscenes
+
+- [ ] Leave Skip Cutscenes Off and confirm cutscenes retain normal manual behavior.
+- [ ] Enable it and enter a normally skippable cutscene; FFXIV's skip flow is requested and confirmed.
+- [ ] Enter an unskippable/protected cutscene; Sentinel leaves it playing and Diagnostics reports that the game did not permit skipping.
+- [ ] Finish or leave the cutscene and confirm the service resets cleanly for the next one.
+
+## Quest Rewards — Manual
+
+- [ ] Set Quest Reward Selection to Manual and open a choose-one reward screen.
+- [ ] Sentinel makes no selection and does not click Complete.
+- [ ] Guaranteed EXP, gil, items and unlocks remain unaffected.
+
+## Quest Rewards — First Reward
+
+- [ ] Open a reward screen with multiple selectable choices.
+- [ ] The first selectable reward is selected.
+- [ ] The quest completes through the enabled Complete button.
+- [ ] Change/close the reward window during the flow and confirm no stale action reaches a later window.
+
+## Quest Rewards — Current Job
+
+- [ ] On WAR, open a reward with tank/WAR-compatible equipment; the appropriate item is selected.
+- [ ] Change to another combat job and confirm the compatible reward changes.
+- [ ] Test shared role gear and confirm it is recognized from ClassJobCategory data.
+- [ ] Test a crafting or gathering job with applicable gear where practical.
+- [ ] When two compatible rewards exist, confirm narrower job/role compatibility wins, then higher item level, then first source order.
+- [ ] When no compatible equipment exists, the first selectable reward is used and Diagnostics reports `No Job Match -> First Reward`.
+
+## Quest Rewards — Allagan Piece
+
+- [ ] With an Allagan Piece offered, confirm it is selected by stable item data rather than localized display text.
+- [ ] If multiple supported pieces are offered, confirm the greatest `vendor value × quantity` wins.
+- [ ] With no Allagan Piece offered, the first selectable reward is used and Diagnostics reports `No Allagan Piece -> First Reward`.
+- [ ] Confirm the selected reward name/ID, current job, window detection and selection reason appear in Diagnostics without frame-by-frame log spam.
 
 ## Cleanup and diagnostics
 

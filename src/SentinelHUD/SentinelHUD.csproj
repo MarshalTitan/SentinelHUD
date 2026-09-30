@@ -6,7 +6,7 @@
     <Author>MTitan</Author>
     <Name>Sentinel HUD</Name>
     <Punchline>Modular, configurable awareness enhancements for the FFXIV HUD.</Punchline>
-    <Description>Adds configurable actor panels, HP/MP/shield/cast bars, native actor interactions, exact-position awareness, optional encounter danger providers, and extended camera zoom.</Description>
+    <Description>Adds configurable actor panels, HP/MP/shield/cast bars, native actor interactions, exact-position awareness, optional encounter danger providers, extended camera zoom, and opt-in quest convenience controls.</Description>
     <RepoUrl>https://github.com/MarshalTitan/SentinelHUD</RepoUrl>
     <IconUrl>https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png</IconUrl>
     <Tags>hud;overlay;target;accessibility;sentinel</Tags>
