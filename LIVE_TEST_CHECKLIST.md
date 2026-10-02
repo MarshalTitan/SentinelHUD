@@ -1,14 +1,35 @@
-# Sentinel HUD 0.8.0.0 — Live Test
+# Sentinel HUD 0.8.1.0 — Live Test
 
 ## Startup and configuration migration
 
 - [ ] Update Sentinel HUD from the Sentinel custom repository without deleting the existing configuration.
 - [ ] Existing module positions, widths, scale, bar heights, colours, field toggles, visibility modes, HP/MP/shield/cast settings, Awareness settings, marker radius/opacity, camera settings and native-target offsets remain intact.
-- [ ] Diagnostics reports configuration schema 9 and, when upgrading schema 8, shows a one-time `SentinelHUD.schema-v8.backup.json` path.
+- [ ] Diagnostics reports configuration schema 10 and, when upgrading schema 9, shows a one-time `SentinelHUD.schema-v9.backup.json` path.
 - [ ] Reload again and confirm the schema backup is not replaced or multiplied.
 - [ ] `/shud` opens and closes configuration.
 - [ ] The normal title-bar collapse arrow is available.
 - [ ] Collapse and reopen the configuration window successfully.
+
+## Targeting Me Counter
+
+- [ ] In PvE and outside a PvP duty, the counter remains inactive and Diagnostics explains why.
+- [ ] In Frontline Only mode, enter Frontline and confirm the counter activates; enter another PvP duty and confirm it remains inactive.
+- [ ] In All PvP Duties mode, confirm the counter activates in supported non-Frontline PvP.
+- [ ] With no enemy hard-targeting the local player, Hide When Zero hides the counter; disabling it displays a normal-colour `0`.
+- [ ] Have one enemy player hard-target the local player; the count becomes `1` promptly.
+- [ ] Have several enemies hard-target the local player; the count matches the visible current hard targeters and warning colour changes at the documented threat levels.
+- [ ] Enemy soft target, mouseover or nearby presence alone does not increment the count.
+- [ ] Show Jobs lists each observed targeter's current job abbreviation without changing the count.
+- [ ] Show Targeter Details lists current name/job/distance rows and removes them immediately when the targeter changes target or disappears.
+- [ ] In Frontline, Diagnostics reports a local Battalion of 0, 1 or 2 and `BattalionTeam` as authoritative; same-Battalion allies never count and other valid Battalions can count.
+- [ ] If Battalion classification is unavailable, Diagnostics reports the conservative hostile fallback; party, alliance and roster allies are still excluded.
+- [ ] A dead, untargetable, despawned or out-of-object-table actor is removed without a stale row or count.
+- [ ] Local death, logout, zone change and duty exit clear the snapshot safely.
+- [ ] Unlock, drag and horizontally resize the counter; lock it and confirm no drift.
+- [ ] Adjust scale, width, opacity, number/job/detail sizes and warning colours; reload and restart FFXIV and confirm persistence.
+- [ ] Enable existing HUD, Awareness, Camera, Encounter and Convenience systems and confirm the counter remains independent.
+- [ ] Run without PvP Sentinel installed; the counter works. Install/enable PvP Sentinel separately and confirm neither plugin is a hard dependency of the other.
+- [ ] Diagnostics shows PvP mode, classification source, observed players/enemies, nearby enemies/allies, target count, threat level and a bounded targeter list without frame-by-frame log spam.
 
 ## Position Marker
 

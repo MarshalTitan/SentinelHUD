@@ -1,12 +1,12 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.8.0.0</Version>
+    <Version>0.8.1.0</Version>
     <AssemblyName>SentinelHUD</AssemblyName>
     <RootNamespace>SentinelHUD</RootNamespace>
     <Author>MTitan</Author>
     <Name>Sentinel HUD</Name>
     <Punchline>Modular, configurable awareness enhancements for the FFXIV HUD.</Punchline>
-    <Description>Adds configurable actor panels, HP/MP/shield/cast bars, native actor interactions, exact-position awareness, optional encounter danger providers, extended camera zoom, and opt-in quest convenience controls.</Description>
+    <Description>Adds configurable actor panels, PvP targeting-me awareness, HP/MP/shield/cast bars, native actor interactions, exact-position awareness, optional encounter danger providers, extended camera zoom, and opt-in quest convenience controls.</Description>
     <RepoUrl>https://github.com/MarshalTitan/SentinelHUD</RepoUrl>
     <IconUrl>https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png</IconUrl>
     <Tags>hud;overlay;target;accessibility;sentinel</Tags>

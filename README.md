@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.0.0** · Dalamud API **15** · .NET **10**
+Current release: **0.8.1.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
@@ -18,6 +18,7 @@ Current release: **0.8.0.0** · Dalamud API **15** · .NET **10**
 - Native, model-conforming self silhouette with Off, Always, Combat Only and Duty Only modes. It follows the animated model, equipment, weapons, mount and ornament without changing any target state.
 - Independent Player Position Marker centred on the local actor's exact terrain-resolved origin. Camera Facing (default) stays circular and readable at shallow camera angles and extended zoom; Ground Projected retains the original terrain-plane presentation. Both support Off/Always/Combat Only/Duty Only modes, independent colour, 0.01–0.60 size control, opacity and inward border controls. Encounter Awareness changes either style to a separately configured danger colour when that exact point intersects a trusted hazard.
 - Encounter Awareness providers: conservative current hostile-cast geometry for standard visible circle/donut/rectangle/cone/line/cross actions, plus optional fail-closed Splatoon geometry IPC. Unknown and encounter-specific mechanics are not guessed.
+- Independent PvP Targeting Me Counter with Frontline-only or all-PvP visibility, optional zero hiding, optional job/detail rows, scalable crisp digits and configurable normal/moderate/high/extreme colours. It requires no PvP Sentinel installation.
 - Optional extended third-person zoom with a configurable 20–100-yalm maximum, automatic restoration, special-camera safeguards and known camera-plugin conflict handling.
 - Optional Prevent AFK Disconnect convenience switch, default Off, which periodically resets current client inactivity timers without movement, chat, key presses or controller input.
 - Independent quest convenience controls, all defaulting to Off/Manual: ordinary-dialogue advancement that pauses for choices, game-permitted cutscene skipping through FFXIV's normal skip dialog, and validated choose-one reward selection by first option, current-job equipment compatibility or stable Allagan Piece IDs/value.
@@ -62,7 +63,7 @@ Focus Target's Target is a compact child row in the Focus Target module. It is r
 
 ### Configuration persistence
 
-Schema 9 performs stepwise migrations and changes only fields introduced by the applicable schema. Schema 8 added marker Style; schema 9 adds Skip Dialogue, Skip Cutscenes and Quest Reward Selection with Off/Off/Manual migration defaults. Existing position, visibility, colour, camera, awareness and convenience values remain untouched. The earlier reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
+Schema 10 performs stepwise migrations and changes only fields introduced by the applicable schema. Schema 8 added marker Style; schema 9 added Skip Dialogue, Skip Cutscenes and Quest Reward Selection with Off/Off/Manual migration defaults; schema 10 adds the Targeting Me Counter with its own default layout and presentation settings. Existing position, visibility, colour, camera, awareness and convenience values remain untouched. The earlier reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
 
 ### Integrated health bars
 
@@ -93,6 +94,12 @@ This presentation follows the current Avarice player-dot principle (project the 
 `SplatoonDangerProvider` uses Splatoon's current optional `Splatoon.GetActiveDrawGeometryV1` IPC; no Splatoon code is copied and Sentinel HUD works normally without it. Geometry IPC v1 does not label every active drawing as danger, safe or informational. Sentinel therefore ignores unclassified drawings by default. An explicit advanced opt-in can treat all supported visible Splatoon shapes as danger, but it can also flag safe-zone artwork. Encounter-specific scripts and presets remain in Splatoon or a future separately maintained Sentinel encounter-resource repository, not in the HUD core assembly. Current Avarice was also reviewed for future hitbox/melee/positional concepts; no Avarice code or dependency is included in this release.
 
 Before creating any Sentinel-owned encounter definition, check Splatoon's maintained [official presets and scripts](https://github.com/PunishXIV/Splatoon/tree/main/Presets). Existing vetted upstream resources should be preferred; a future Sentinel resource repository is for uncovered encounters or Sentinel-specific metadata, keyed by territory/content/actor IDs rather than localized display names.
+
+### Targeting Me Counter
+
+The counter is a standalone Sentinel HUD awareness module; it does not load, call or require PvP Sentinel, MINION, RSR or another targeting plugin. `PvPThreatTracker` samples the current object table at a bounded 125 ms cadence and never retains game-object pointers. In Frontline it treats native zero-based Battalion values `0`, `1` and `2` as authoritative teams. If authoritative team data is unavailable, the counter alone falls back conservatively to the current hostile flag while excluding the local player, party, alliance and roster allies.
+
+Only live, targetable, non-dead enemy player characters currently present in the client actor set are eligible. A player counts only when their current hard-target object ID equals the local player's object ID; soft targets, mouseover, queued/future actions and opponents outside the client actor set are not observable and are not guessed. The default borderless presentation can hide zero, render a large dedicated digit font, and optionally list jobs or targeter name/job/distance. Warning colour derives from the same targeter/nearby-density policy as PvP Sentinel, while a zero count always remains visually normal. Diagnostics exposes PvP scope, local Battalion, classification source/authority, observed player/enemy and nearby ally/enemy counts, current targeters and the reason when the module is inactive.
 
 ### Prevent AFK Disconnect
 
@@ -150,6 +157,7 @@ Screenshots will be added after the first in-game layout and colour pass.
 
 ## Known limitations
 
+- Targeting Me Counter sees only current hard targets for enemy player actors presently loaded and resolvable by the client. It cannot see soft-target, mouseover, intent, queued/future actions or distant/unloaded enemies; conservative fallback classification may intentionally undercount rather than label an ally as hostile.
 - FFXIV's native silhouette API has a fixed seven-colour palette. Custom chooses and explicitly reports the nearest real palette colour; it is not arbitrary RGB. White is unavailable and disables the outline rather than rendering the wrong colour. Native opacity/intensity is also unavailable.
 - Exact White/arbitrary-RGB model silhouettes would require a separate depth/stencil render path that Dalamud does not currently expose as a supported high-level API; this release deliberately does not inject one.
 - Generic native danger detection covers only currently casting hostile actions with a supported standard telegraph shape. Many encounter mechanics require maintained encounter scripts and are intentionally not guessed.
