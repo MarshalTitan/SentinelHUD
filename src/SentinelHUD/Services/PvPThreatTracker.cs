@@ -333,7 +333,7 @@ public sealed class PvPThreatTracker
         Current = PvPThreatSnapshot.Inactive(explanation, isPvP, isFrontline, pvpMode);
     }
 
-    private static unsafe byte ReadBattalion(IPlayerCharacter player)
+    private static unsafe byte ReadBattalion(IBattleChara player)
     {
         var native = (Character*)player.Address;
         return native is null ? byte.MaxValue : native->Battalion;
