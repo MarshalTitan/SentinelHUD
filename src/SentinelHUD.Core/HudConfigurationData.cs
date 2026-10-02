@@ -8,6 +8,7 @@ public enum HudModuleKind
     Target,
     FocusTarget,
     TargetOfTarget,
+    TargetingMeCounter,
 }
 
 public enum SelfHighlightMode
@@ -112,6 +113,12 @@ public enum QuestRewardSelectionMode
     AllaganPiece,
 }
 
+public enum PvPThreatVisibility
+{
+    AllPvPDuties,
+    FrontlineOnly,
+}
+
 public sealed class ModuleLayoutConfiguration
 {
     public float AnchorX { get; set; }
@@ -211,6 +218,45 @@ public sealed class TargetOfTargetModuleConfiguration : HudModuleConfiguration
     public bool ShowMaximumHp { get; set; }
     public bool ShowHpPercentage { get; set; } = true;
     public bool ShowDistance { get; set; }
+}
+
+public sealed class TargetingMeCounterConfiguration : HudModuleConfiguration
+{
+    public PvPThreatVisibility PvPVisibility { get; set; } = PvPThreatVisibility.FrontlineOnly;
+    public bool HideWhenZero { get; set; } = true;
+    public bool ShowJobs { get; set; }
+    public bool ShowTargeterDetails { get; set; }
+    public float NumberSize { get; set; } = 64f;
+    public float JobTextSize { get; set; } = 16f;
+    public float DetailTextSize { get; set; } = 14f;
+    public SerializableColour NormalColour { get; set; } = new()
+    {
+        Red = 0.94f,
+        Green = 0.94f,
+        Blue = 0.96f,
+        Alpha = 1f,
+    };
+    public SerializableColour ModerateColour { get; set; } = new()
+    {
+        Red = 1f,
+        Green = 0.82f,
+        Blue = 0.20f,
+        Alpha = 1f,
+    };
+    public SerializableColour HighColour { get; set; } = new()
+    {
+        Red = 1f,
+        Green = 0.48f,
+        Blue = 0.12f,
+        Alpha = 1f,
+    };
+    public SerializableColour ExtremeColour { get; set; } = new()
+    {
+        Red = 1f,
+        Green = 0.14f,
+        Blue = 0.12f,
+        Alpha = 1f,
+    };
 }
 
 public sealed class SerializableColour
@@ -319,7 +365,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 9;
+    public const int CurrentVersion = 10;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -330,6 +376,7 @@ public class HudConfigurationData
     public TargetModuleConfiguration Target { get; set; } = HudConfigurationDefaults.CreateTarget();
     public FocusTargetModuleConfiguration FocusTarget { get; set; } = HudConfigurationDefaults.CreateFocusTarget();
     public TargetOfTargetModuleConfiguration TargetOfTarget { get; set; } = HudConfigurationDefaults.CreateTargetOfTarget();
+    public TargetingMeCounterConfiguration TargetingMeCounter { get; set; } = HudConfigurationDefaults.CreateTargetingMeCounter();
     public SelfHighlightConfiguration SelfHighlight { get; set; } = new();
     public PlayerPositionMarkerConfiguration PlayerPositionMarker { get; set; } = new();
     public ExtendedCameraZoomConfiguration Camera { get; set; } = new();
@@ -378,6 +425,17 @@ public static class HudConfigurationDefaults
         BarHeight = 16f,
     };
 
+    public static TargetingMeCounterConfiguration CreateTargetingMeCounter() => new()
+    {
+        Layout = new ModuleLayoutConfiguration { AnchorX = 0.45f, AnchorY = 0.24f },
+        Width = 220f,
+        Opacity = 1f,
+        BorderEnabled = false,
+        BorderOpacity = 0f,
+        ClickToTarget = false,
+        RightClickContextMenu = false,
+    };
+
     public static HudConfigurationData CreateAll() => new();
 }
 
@@ -393,6 +451,7 @@ public static class HudConfigurationMigrator
         configuration.Target ??= HudConfigurationDefaults.CreateTarget();
         configuration.FocusTarget ??= HudConfigurationDefaults.CreateFocusTarget();
         configuration.TargetOfTarget ??= HudConfigurationDefaults.CreateTargetOfTarget();
+        configuration.TargetingMeCounter ??= HudConfigurationDefaults.CreateTargetingMeCounter();
         configuration.SelfHighlight ??= new SelfHighlightConfiguration();
         configuration.PlayerPositionMarker ??= new PlayerPositionMarkerConfiguration();
         configuration.Camera ??= new ExtendedCameraZoomConfiguration();
@@ -429,6 +488,10 @@ public static class HudConfigurationMigrator
         configuration.Appearance.NeutralHealth ??= new HudAppearanceConfiguration().NeutralHealth;
         configuration.Appearance.Shield ??= new HudAppearanceConfiguration().Shield;
         configuration.Appearance.Mp ??= new HudAppearanceConfiguration().Mp;
+        configuration.TargetingMeCounter.NormalColour ??= HudConfigurationDefaults.CreateTargetingMeCounter().NormalColour;
+        configuration.TargetingMeCounter.ModerateColour ??= HudConfigurationDefaults.CreateTargetingMeCounter().ModerateColour;
+        configuration.TargetingMeCounter.HighColour ??= HudConfigurationDefaults.CreateTargetingMeCounter().HighColour;
+        configuration.TargetingMeCounter.ExtremeColour ??= HudConfigurationDefaults.CreateTargetingMeCounter().ExtremeColour;
 
         ApplyMigrations(configuration, sourceVersion);
 
@@ -436,6 +499,7 @@ public static class HudConfigurationMigrator
         NormalizeModule(configuration.Target, HudConfigurationDefaults.CreateTarget().Layout);
         NormalizeModule(configuration.FocusTarget, HudConfigurationDefaults.CreateFocusTarget().Layout);
         NormalizeModule(configuration.TargetOfTarget, HudConfigurationDefaults.CreateTargetOfTarget().Layout);
+        NormalizeModule(configuration.TargetingMeCounter, HudConfigurationDefaults.CreateTargetingMeCounter().Layout);
 
         configuration.GlobalScale = ClampFinite(configuration.GlobalScale, 0.65f, 1.75f, 1f);
         configuration.GlobalOpacity = ClampFinite(configuration.GlobalOpacity, 0.2f, 1f, 1f);
@@ -479,6 +543,10 @@ public static class HudConfigurationMigrator
         NormalizeColour(configuration.Appearance.NeutralHealth, new Vector4(0.56f, 0.56f, 0.60f, 1f));
         NormalizeColour(configuration.Appearance.Shield, new Vector4(0.18f, 0.55f, 1f, 1f));
         NormalizeColour(configuration.Appearance.Mp, new Vector4(0.22f, 0.45f, 0.92f, 1f));
+        NormalizeColour(configuration.TargetingMeCounter.NormalColour, new Vector4(0.94f, 0.94f, 0.96f, 1f));
+        NormalizeColour(configuration.TargetingMeCounter.ModerateColour, new Vector4(1f, 0.82f, 0.20f, 1f));
+        NormalizeColour(configuration.TargetingMeCounter.HighColour, new Vector4(1f, 0.48f, 0.12f, 1f));
+        NormalizeColour(configuration.TargetingMeCounter.ExtremeColour, new Vector4(1f, 0.14f, 0.12f, 1f));
 
         if (!Enum.IsDefined(configuration.SelfHighlight.Mode))
             configuration.SelfHighlight.Mode = SelfHighlightMode.Off;
@@ -516,6 +584,15 @@ public static class HudConfigurationMigrator
             configuration.Target.NativeHpOverlay.NumberFormat = HudNumberFormat.Full;
         if (!Enum.IsDefined(configuration.Convenience.QuestRewardSelection))
             configuration.Convenience.QuestRewardSelection = QuestRewardSelectionMode.Manual;
+        if (!Enum.IsDefined(configuration.TargetingMeCounter.PvPVisibility))
+            configuration.TargetingMeCounter.PvPVisibility = PvPThreatVisibility.FrontlineOnly;
+
+        configuration.TargetingMeCounter.NumberSize = ClampFinite(
+            configuration.TargetingMeCounter.NumberSize, 24f, 120f, 64f);
+        configuration.TargetingMeCounter.JobTextSize = ClampFinite(
+            configuration.TargetingMeCounter.JobTextSize, 10f, 40f, 16f);
+        configuration.TargetingMeCounter.DetailTextSize = ClampFinite(
+            configuration.TargetingMeCounter.DetailTextSize, 10f, 28f, 14f);
 
         configuration.Target.NativeHpOverlay.OffsetX = ClampFinite(configuration.Target.NativeHpOverlay.OffsetX, -500f, 500f, 0f);
         configuration.Target.NativeHpOverlay.OffsetY = ClampFinite(configuration.Target.NativeHpOverlay.OffsetY, -250f, 250f, 4f);
@@ -637,6 +714,12 @@ public static class HudConfigurationMigrator
                     // Property initializers provide Off/Manual defaults only for the new fields;
                     // every pre-existing convenience and HUD value remains unchanged.
                     version = 9;
+                    break;
+                case 9:
+                    // Schema 10 adds the standalone PvP threat counter. Existing HUD,
+                    // awareness, camera and quest-convenience values remain untouched.
+                    configuration.TargetingMeCounter = HudConfigurationDefaults.CreateTargetingMeCounter();
+                    version = 10;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;

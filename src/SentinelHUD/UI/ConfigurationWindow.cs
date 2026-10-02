@@ -16,7 +16,7 @@ public sealed class ConfigurationWindow : Window
     private static readonly string[] HighlightColours = ["Yellow", "Green", "Blue", "White", "Custom"];
     private static readonly string[] DangerColours = ["Red", "Orange", "Yellow", "Custom"];
     private static readonly string[] MarkerStyles = ["Ground Projected", "Camera Facing"];
-    private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target"];
+    private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target", "Targeting Me Counter"];
     private static readonly string[] ClickableAreas = ["Whole module", "Header / name only"];
     private static readonly string[] ModuleVisibilityModes = ["Always", "Combat Only", "Duty Only", "Combat or Duty"];
     private static readonly string[] ShieldModes = ["Off", "Text Only", "Bar Only", "Bar + Text"];
@@ -27,6 +27,7 @@ public sealed class ConfigurationWindow : Window
     private static readonly string[] NativeOverlayModes = ["Off", "Always", "Combat Only"];
     private static readonly string[] NativeOverlayFormats = ["Current / Maximum", "Percentage", "Current / Maximum + Percentage"];
     private static readonly string[] QuestRewardModes = ["Manual", "First Reward", "Current Job Reward", "Allagan Piece"];
+    private static readonly string[] PvPThreatVisibilityModes = ["All PvP Duties", "Frontline Only"];
 
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer renderer;
@@ -306,6 +307,70 @@ public sealed class ConfigurationWindow : Window
         ImGui.SameLine();
         ImGui.ColorButton("Position marker preview##SentinelHUD", markerPreview);
         ImGui.TextDisabled($"Runtime state: {renderer.PositionMarkerState}");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        SentinelUi.SectionHeader("Threat Awareness");
+        var threat = configuration.Current.TargetingMeCounter;
+        DrawToggle("Enable Targeting Me Counter", threat.Enabled,
+            value => Update(c => c.TargetingMeCounter.Enabled = value));
+        ImGui.TextWrapped("Counts currently observed enemy PvP players whose hard target is you. It cannot detect soft targets, mouseover, queued attacks, future intent, or enemies outside the client-resolved actor set.");
+        var threatVisibility = (int)threat.PvPVisibility;
+        if (ImGui.Combo("PvP visibility", ref threatVisibility,
+                PvPThreatVisibilityModes, PvPThreatVisibilityModes.Length))
+            Update(c => c.TargetingMeCounter.PvPVisibility = (PvPThreatVisibility)threatVisibility);
+        DrawToggle("Hide when count is 0", threat.HideWhenZero,
+            value => Update(c => c.TargetingMeCounter.HideWhenZero = value));
+        DrawToggle("Show targeter jobs", threat.ShowJobs,
+            value => Update(c => c.TargetingMeCounter.ShowJobs = value));
+        DrawToggle("Show targeter name / job / distance details", threat.ShowTargeterDetails,
+            value => Update(c => c.TargetingMeCounter.ShowTargeterDetails = value));
+
+        var threatScale = threat.Scale;
+        if (ImGui.SliderFloat("Counter scale", ref threatScale, 0.6f, 1.8f, "%.2fx"))
+        {
+            Update(c => c.TargetingMeCounter.Scale = threatScale);
+            renderer.RequestReposition(HudModuleKind.TargetingMeCounter);
+        }
+        var threatWidth = threat.Width;
+        if (ImGui.SliderFloat("Counter width", ref threatWidth,
+                HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth, "%.0f px"))
+        {
+            Update(c => c.TargetingMeCounter.Width = threatWidth);
+            renderer.RequestReposition(HudModuleKind.TargetingMeCounter);
+        }
+        var threatOpacity = threat.Opacity;
+        if (ImGui.SliderFloat("Counter opacity", ref threatOpacity, 0.15f, 1f, "%.0f%%"))
+            Update(c => c.TargetingMeCounter.Opacity = threatOpacity);
+        var numberSize = threat.NumberSize;
+        if (ImGui.SliderFloat("Counter number size", ref numberSize, 24f, 120f, "%.0f px"))
+            Update(c => c.TargetingMeCounter.NumberSize = numberSize);
+        var jobSize = threat.JobTextSize;
+        if (ImGui.SliderFloat("Job text size", ref jobSize, 10f, 40f, "%.0f px"))
+            Update(c => c.TargetingMeCounter.JobTextSize = jobSize);
+        if (threat.ShowTargeterDetails)
+        {
+            var detailSize = threat.DetailTextSize;
+            if (ImGui.SliderFloat("Detail text size", ref detailSize, 10f, 28f, "%.0f px"))
+                Update(c => c.TargetingMeCounter.DetailTextSize = detailSize);
+        }
+
+        if (OpenSection("Threat warning colours"))
+        {
+            DrawColour("Normal / low", threat.NormalColour,
+                value => Update(c => c.TargetingMeCounter.NormalColour.Set(value)));
+            DrawColour("Moderate", threat.ModerateColour,
+                value => Update(c => c.TargetingMeCounter.ModerateColour.Set(value)));
+            DrawColour("High", threat.HighColour,
+                value => Update(c => c.TargetingMeCounter.HighColour.Set(value)));
+            DrawColour("Extreme", threat.ExtremeColour,
+                value => Update(c => c.TargetingMeCounter.ExtremeColour.Set(value)));
+            ImGui.TextDisabled("Preserves PvP Sentinel threat semantics: nearby enemy density can raise the warning level even before every enemy hard-targets you.");
+        }
+        if (ImGui.Button("Reset Targeting Me Counter position"))
+            renderer.ResetModuleLayout(HudModuleKind.TargetingMeCounter);
+        ImGui.TextDisabled($"Runtime: {renderer.PvPThreat.Explanation}");
     }
 
     private void DrawEncounterAwareness()
@@ -534,6 +599,23 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextWrapped($"Reward runtime: {questConvenience.RewardState}");
         ImGui.TextWrapped($"Last selected reward: {questConvenience.LastSelectedRewardName} ({questConvenience.LastSelectedRewardId})");
         ImGui.TextWrapped($"Last selection reason: {questConvenience.LastSelectionReason}");
+        ImGui.Separator();
+        ImGui.TextUnformatted($"Targeting Me Counter visible / active: {renderer.TargetingMeCounterVisible} / {renderer.PvPThreat.Active}");
+        ImGui.TextUnformatted($"PvP mode: {renderer.PvPThreat.PvPMode}");
+        ImGui.TextUnformatted($"Local Battalion/team: {(renderer.PvPThreat.LocalBattalion <= 2 ? renderer.PvPThreat.LocalBattalion.ToString() : "UNRESOLVED")}");
+        ImGui.TextUnformatted($"Classification source / authoritative: {renderer.PvPThreat.Source} / {renderer.PvPThreat.ClassificationAuthoritative}");
+        ImGui.TextUnformatted($"Observed players / enemies: {renderer.PvPThreat.ObservedPlayerCount} / {renderer.PvPThreat.ObservedEnemyCount}");
+        ImGui.TextUnformatted($"Nearby enemies / allies: {renderer.PvPThreat.NearbyEnemyCount} / {renderer.PvPThreat.NearbyFriendlyCount}");
+        ImGui.TextUnformatted($"Currently targeting me: {renderer.PvPThreat.TargeterCount}");
+        ImGui.TextUnformatted($"Threat warning level: {renderer.PvPThreat.Level}");
+        ImGui.TextWrapped($"Classification state: {renderer.PvPThreat.Explanation}");
+        if (renderer.PvPThreat.Targeters.Count > 0
+            && ImGui.TreeNode($"Observed hard targeters ({renderer.PvPThreat.TargeterCount})"))
+        {
+            foreach (var targeter in renderer.PvPThreat.Targeters)
+                ImGui.BulletText($"{targeter.JobAbbreviation} — {targeter.Name}, {targeter.Distance:0.0}y");
+            ImGui.TreePop();
+        }
         if (ImGui.Button("Clear diagnostic history"))
             diagnostics.Clear();
         ImGui.Separator();
@@ -720,6 +802,7 @@ public sealed class ConfigurationWindow : Window
             HudModuleKind.Player => config.Player,
             HudModuleKind.Target => config.Target,
             HudModuleKind.FocusTarget => config.FocusTarget,
-            _ => config.TargetOfTarget,
+            HudModuleKind.TargetOfTarget => config.TargetOfTarget,
+            _ => config.TargetingMeCounter,
         };
 }

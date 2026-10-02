@@ -15,6 +15,7 @@ var tests = new (string Name, Action Run)[]
     ("version-six update preserves customized settings", TestVersionSixUpgradePersistence),
     ("version-seven marker style migration", TestVersionSevenMarkerStyleMigration),
     ("version-eight quest convenience migration", TestVersionEightQuestConvenienceMigration),
+    ("version-nine targeting-me migration", TestVersionNineTargetingMeMigration),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
@@ -41,6 +42,7 @@ var tests = new (string Name, Action Run)[]
     ("HP colour modes", TestHpColourModes),
     ("camera zoom policy", TestCameraZoomPolicy),
     ("quest reward selection policy", TestQuestRewardSelectionPolicy),
+    ("PvP threat classification and warning policy", TestPvPThreatPolicy),
 };
 
 var failures = new List<string>();
@@ -97,6 +99,13 @@ static void TestDefaults()
     False(config.Convenience.SkipDialogue);
     False(config.Convenience.SkipCutscenes);
     Equal(QuestRewardSelectionMode.Manual, config.Convenience.QuestRewardSelection);
+    True(config.TargetingMeCounter.Enabled);
+    True(config.TargetingMeCounter.HideWhenZero);
+    False(config.TargetingMeCounter.ShowJobs);
+    False(config.TargetingMeCounter.ShowTargeterDetails);
+    Equal(PvPThreatVisibility.FrontlineOnly, config.TargetingMeCounter.PvPVisibility);
+    False(config.TargetingMeCounter.BorderEnabled);
+    Near(64f, config.TargetingMeCounter.NumberSize);
     Near(0.01f, PlayerPositionMarkerPolicy.MinimumRadius);
     Equal(ShieldDisplayMode.BarAndText, config.Player.ShieldDisplay);
     Equal(MpDisplayMode.BarAndText, config.Player.MpDisplay);
@@ -207,6 +216,16 @@ static void TestSerialization()
     source.Player.ClickToTarget = false;
     source.Player.RightClickContextMenu = false;
     source.Target.ClickableArea = ModuleClickableArea.HeaderOrName;
+    source.TargetingMeCounter.PvPVisibility = PvPThreatVisibility.AllPvPDuties;
+    source.TargetingMeCounter.HideWhenZero = false;
+    source.TargetingMeCounter.ShowJobs = true;
+    source.TargetingMeCounter.ShowTargeterDetails = true;
+    source.TargetingMeCounter.Scale = 1.31f;
+    source.TargetingMeCounter.Opacity = 0.63f;
+    source.TargetingMeCounter.Width = 377f;
+    source.TargetingMeCounter.NumberSize = 91f;
+    source.TargetingMeCounter.Layout.AnchorX = 0.284f;
+    source.TargetingMeCounter.HighColour.Set(new Vector4(0.7f, 0.2f, 0.8f, 1f));
 
     var json = JsonSerializer.Serialize(source);
     var restored = JsonSerializer.Deserialize<HudConfigurationData>(json);
@@ -257,6 +276,16 @@ static void TestSerialization()
     False(restored.Player.ClickToTarget);
     False(restored.Player.RightClickContextMenu);
     Equal(ModuleClickableArea.HeaderOrName, restored.Target.ClickableArea);
+    Equal(PvPThreatVisibility.AllPvPDuties, restored.TargetingMeCounter.PvPVisibility);
+    False(restored.TargetingMeCounter.HideWhenZero);
+    True(restored.TargetingMeCounter.ShowJobs);
+    True(restored.TargetingMeCounter.ShowTargeterDetails);
+    Near(1.31f, restored.TargetingMeCounter.Scale);
+    Near(0.63f, restored.TargetingMeCounter.Opacity);
+    Near(377f, restored.TargetingMeCounter.Width);
+    Near(91f, restored.TargetingMeCounter.NumberSize);
+    Near(0.284f, restored.TargetingMeCounter.Layout.AnchorX);
+    Near(0.8f, restored.TargetingMeCounter.HighColour.Blue);
 }
 
 static void TestVersionOneMigration()
@@ -951,6 +980,41 @@ static void TestVersionEightQuestConvenienceMigration()
     Near(471f, source.Target.Width);
 }
 
+static void TestVersionNineTargetingMeMigration()
+{
+    var versionA = new HudConfigurationData
+    {
+        Version = 9,
+        Locked = false,
+    };
+    versionA.Player.Layout.AnchorX = 0.219f;
+    versionA.Target.Width = 438f;
+    versionA.SelfHighlight.Mode = SelfHighlightMode.DutyOnly;
+    versionA.Convenience.SkipDialogue = true;
+
+    var document = JsonNode.Parse(JsonSerializer.Serialize(versionA))!.AsObject();
+    document.Remove("TargetingMeCounter");
+    var source = JsonSerializer.Deserialize<HudConfigurationData>(document.ToJsonString());
+    NotNull(source);
+
+    HudConfigurationMigrator.Normalize(source!);
+
+    Equal(HudConfigurationData.CurrentVersion, source!.Version);
+    False(source.Locked);
+    Near(0.219f, source.Player.Layout.AnchorX);
+    Near(438f, source.Target.Width);
+    Equal(SelfHighlightMode.DutyOnly, source.SelfHighlight.Mode);
+    True(source.Convenience.SkipDialogue);
+    True(source.TargetingMeCounter.Enabled);
+    Equal(PvPThreatVisibility.FrontlineOnly, source.TargetingMeCounter.PvPVisibility);
+    True(source.TargetingMeCounter.HideWhenZero);
+    False(source.TargetingMeCounter.ShowJobs);
+    False(source.TargetingMeCounter.ShowTargeterDetails);
+    False(source.TargetingMeCounter.BorderEnabled);
+    Near(0.45f, source.TargetingMeCounter.Layout.AnchorX);
+    Near(0.24f, source.TargetingMeCounter.Layout.AnchorY);
+}
+
 static void TestDangerGeometryContainment()
 {
     var circle = DangerArea.Circle(Vector3.Zero, 5f, "test", "circle");
@@ -1062,6 +1126,32 @@ static void TestQuestRewardSelectionPolicy()
             new QuestRewardCandidate(1, 202, 1, "Higher", true, 12, 660, false, 0),
         });
     Equal(1, itemLevelTieBreak!.Value.Index);
+}
+
+static void TestPvPThreatPolicy()
+{
+    True(PvPThreatPolicy.IsValidFrontlineBattalion(0));
+    True(PvPThreatPolicy.IsValidFrontlineBattalion(1));
+    True(PvPThreatPolicy.IsValidFrontlineBattalion(2));
+    False(PvPThreatPolicy.IsValidFrontlineBattalion(3));
+    False(PvPThreatPolicy.IsValidFrontlineBattalion(byte.MaxValue));
+    True(PvPThreatPolicy.IsBattalionEnemy(0, 1));
+    True(PvPThreatPolicy.IsBattalionEnemy(0, 2));
+    False(PvPThreatPolicy.IsBattalionEnemy(0, 0));
+    False(PvPThreatPolicy.IsBattalionEnemy(byte.MaxValue, 1));
+
+    True(PvPThreatPolicy.IsFallbackHostile(false, true, false, false, false));
+    False(PvPThreatPolicy.IsFallbackHostile(false, true, true, false, false));
+    False(PvPThreatPolicy.IsFallbackHostile(false, true, false, true, false));
+    False(PvPThreatPolicy.IsFallbackHostile(false, true, false, false, true));
+    False(PvPThreatPolicy.IsFallbackHostile(true, true, false, false, false));
+
+    Equal(PvPThreatLevel.None, PvPThreatPolicy.EvaluateLevel(0, 0));
+    Equal(PvPThreatLevel.Low, PvPThreatPolicy.EvaluateLevel(1, 1));
+    Equal(PvPThreatLevel.Moderate, PvPThreatPolicy.EvaluateLevel(2, 2));
+    Equal(PvPThreatLevel.High, PvPThreatPolicy.EvaluateLevel(4, 2));
+    Equal(PvPThreatLevel.Extreme, PvPThreatPolicy.EvaluateLevel(6, 2));
+    Equal(PvPThreatLevel.Extreme, PvPThreatPolicy.EvaluateLevel(0, 10));
 }
 
 static void True(bool value)

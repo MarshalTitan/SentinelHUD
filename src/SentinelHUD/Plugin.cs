@@ -1,5 +1,6 @@
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
+using Dalamud.Interface.ManagedFontAtlas;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -24,6 +25,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IChatGui ChatGui { get; private set; } = null!;
     [PluginService] internal static IPluginLog PluginLog { get; private set; } = null!;
     [PluginService] internal static IObjectTable ObjectTable { get; private set; } = null!;
+    [PluginService] internal static IPartyList PartyList { get; private set; } = null!;
     [PluginService] internal static ITargetManager TargetManager { get; private set; } = null!;
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IClientState ClientState { get; private set; } = null!;
@@ -77,6 +79,13 @@ public sealed class Plugin : IDalamudPlugin
             ObjectTable, DataManager, PluginInterface));
         var antiAfk = new AntiAfkService();
         lifetime.Add(antiAfk.Disable);
+        var pvpThreatTracker = new PvPThreatTracker(
+            ClientState, Condition, ObjectTable, PartyList, DataManager);
+        var threatCounterGlyphs = FontAtlasBuildToolkitUtilities.ToGlyphRange(
+            "0123456789", false, false);
+        var threatCounterFont = lifetime.Add(PluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(
+            step => step.OnPreBuild(toolkit =>
+                toolkit.AddDalamudDefaultFont(128f, threatCounterGlyphs))));
         questConvenience = lifetime.Add(new QuestConvenienceService(
             GameGui, Condition, ObjectTable, DataManager, diagnostics));
         var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
@@ -92,6 +101,8 @@ public sealed class Plugin : IDalamudPlugin
             cameraZoom,
             encounterAwareness,
             antiAfk,
+            pvpThreatTracker,
+            threatCounterFont,
             GameGui,
             ClientState,
             Condition,

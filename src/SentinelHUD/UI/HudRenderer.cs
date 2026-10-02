@@ -4,6 +4,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Interface.ManagedFontAtlas;
 using Dalamud.Plugin.Services;
 using SentinelCore.Configuration;
 using SentinelCore.Diagnostics;
@@ -26,6 +27,8 @@ public sealed class HudRenderer
     private readonly IExtendedCameraZoomService cameraZoom;
     private readonly EncounterAwarenessService encounterAwareness;
     private readonly AntiAfkService antiAfk;
+    private readonly PvPThreatTracker pvpThreatTracker;
+    private readonly IFontHandle threatCounterFont;
     private readonly IGameGui gameGui;
     private readonly IClientState clientState;
     private readonly ICondition condition;
@@ -51,6 +54,8 @@ public sealed class HudRenderer
         IExtendedCameraZoomService cameraZoom,
         EncounterAwarenessService encounterAwareness,
         AntiAfkService antiAfk,
+        PvPThreatTracker pvpThreatTracker,
+        IFontHandle threatCounterFont,
         IGameGui gameGui,
         IClientState clientState,
         ICondition condition,
@@ -66,6 +71,8 @@ public sealed class HudRenderer
         this.cameraZoom = cameraZoom;
         this.encounterAwareness = encounterAwareness;
         this.antiAfk = antiAfk;
+        this.pvpThreatTracker = pvpThreatTracker;
+        this.threatCounterFont = threatCounterFont;
         this.gameGui = gameGui;
         this.clientState = clientState;
         this.condition = condition;
@@ -122,6 +129,8 @@ public sealed class HudRenderer
     public string ActiveEncounter => encounterAwareness.ActiveEncounter;
     public bool AntiAfkActive => antiAfk.IsActive;
     public string AntiAfkState => antiAfk.State;
+    public bool TargetingMeCounterVisible { get; private set; }
+    public PvPThreatSnapshot PvPThreat => pvpThreatTracker.Current;
 
     public void UpdateGameState()
     {
@@ -131,6 +140,7 @@ public sealed class HudRenderer
         encounterAwareness.Update(config.EncounterAwareness, config.Enabled,
             clientState.IsLoggedIn, clientState.TerritoryType, data.LocalPlayer);
         antiAfk.Update(config.Convenience.PreventAfkDisconnect, clientState.IsLoggedIn);
+        pvpThreatTracker.Update(config.TargetingMeCounter, config.Enabled);
     }
 
     public void Draw()
@@ -185,6 +195,13 @@ public sealed class HudRenderer
             DrawModule(HudModuleKind.TargetOfTarget, config.TargetOfTarget, config,
                 targetOfTarget, DrawTargetOfTarget);
             TargetOfTargetVisible = true;
+        }
+        if (ShouldDrawThreatCounter(config.TargetingMeCounter, config.Locked,
+                pvpThreatTracker.Current))
+        {
+            DrawModule(HudModuleKind.TargetingMeCounter, config.TargetingMeCounter, config,
+                null, DrawTargetingMeCounter, actorRequired: false, transparentBackground: true);
+            TargetingMeCounterVisible = true;
         }
 
         if (config.Locked)
@@ -250,7 +267,8 @@ public sealed class HudRenderer
     public void RetryCameraZoom() => cameraZoom.RetryAfterConflict();
 
     private void DrawModule(HudModuleKind kind, HudModuleConfiguration module, Configuration root,
-        IGameObject? actor, Action<IGameObject?, HudModuleConfiguration> drawContent)
+        IGameObject? actor, Action<IGameObject?, HudModuleConfiguration> drawContent,
+        bool actorRequired = true, bool transparentBackground = false)
     {
         var viewport = ImGui.GetMainViewport();
         var state = layoutStates[kind];
@@ -269,18 +287,21 @@ public sealed class HudRenderer
         ImGui.PushStyleColor(ImGuiCol.Border, borderColour);
         try
         {
-            const ImGuiWindowFlags flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoScrollbar
+            var flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoScrollbar
                         | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoSavedSettings
                         | ImGuiWindowFlags.NoDocking | ImGuiWindowFlags.NoNav
                         | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoInputs
                         | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoTitleBar;
+            if (transparentBackground)
+                flags |= ImGuiWindowFlags.NoBackground;
 
             var title = kind switch
             {
                 HudModuleKind.Player => "Player##SentinelHUD-Player",
                 HudModuleKind.Target => "Target##SentinelHUD-Target",
                 HudModuleKind.FocusTarget => "Focus Target##SentinelHUD-FocusTarget",
-                _ => "Target of Target##SentinelHUD-TargetOfTarget",
+                HudModuleKind.TargetOfTarget => "Target of Target##SentinelHUD-TargetOfTarget",
+                _ => "Targeting Me Counter##SentinelHUD-TargetingMeCounter",
             };
             var began = ImGui.Begin(title, flags);
             try
@@ -290,7 +311,7 @@ public sealed class HudRenderer
                 renderedMeterCount = 0;
                 if (began)
                 {
-                    if (actor is null)
+                    if (actorRequired && actor is null)
                         SentinelUi.MutedText("No actor resolved — drag this module into place.");
                     else
                         drawContent(actor, module);
@@ -432,6 +453,76 @@ public sealed class HudRenderer
         if (config.ShowDistance)
             ImGui.TextUnformatted(HudFormatting.Distance(data.GetDistance(actor)));
     }
+
+    private void DrawTargetingMeCounter(IGameObject? _, HudModuleConfiguration baseConfiguration)
+    {
+        const float atlasFontSize = 128f;
+        var config = (TargetingMeCounterConfiguration)baseConfiguration;
+        var snapshot = pvpThreatTracker.Current;
+        var root = configuration.Current;
+        var opacity = Math.Clamp(config.Opacity * root.GlobalOpacity, 0.05f, 1f);
+        var colour = ResolveThreatColour(config, snapshot);
+        colour.W *= opacity;
+        var overallScale = config.Scale * root.GlobalScale;
+        var normalFontBaseSize = Math.Max(1f, ImGui.GetFontSize() / Math.Max(0.01f, overallScale));
+
+        ImGui.PushStyleVar(ImGuiStyleVar.Alpha, opacity);
+        try
+        {
+            using (threatCounterFont.Push())
+            {
+                ImGui.SetWindowFontScale(overallScale * config.NumberSize / atlasFontSize);
+                DrawCenteredText(snapshot.TargeterCount.ToString(), colour);
+            }
+
+            ImGui.SetWindowFontScale(overallScale);
+            if (config.ShowJobs && snapshot.Targeters.Count > 0)
+            {
+                ImGui.SetWindowFontScale(overallScale * config.JobTextSize / normalFontBaseSize);
+                DrawCenteredText(string.Join("  ", snapshot.Targeters.Select(targeter =>
+                    targeter.JobAbbreviation)), colour);
+            }
+
+            if (config.ShowTargeterDetails && snapshot.Targeters.Count > 0)
+            {
+                ImGui.SetWindowFontScale(overallScale * config.DetailTextSize / normalFontBaseSize);
+                foreach (var targeter in snapshot.Targeters)
+                    DrawCenteredText($"{targeter.JobAbbreviation}  {targeter.Name}  {targeter.Distance:0.0}y",
+                        colour);
+            }
+
+            if (!root.Locked && !snapshot.Active)
+            {
+                ImGui.SetWindowFontScale(overallScale);
+                DrawCenteredText("Targeting Me Counter", colour);
+            }
+        }
+        finally
+        {
+            ImGui.SetWindowFontScale(overallScale);
+            ImGui.PopStyleVar();
+        }
+    }
+
+    private static void DrawCenteredText(string text, Vector4 colour)
+    {
+        var width = ImGui.CalcTextSize(text).X;
+        var available = ImGui.GetContentRegionAvail().X;
+        if (available > width)
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (available - width) * 0.5f);
+        ImGui.TextColored(colour, text);
+    }
+
+    private static Vector4 ResolveThreatColour(TargetingMeCounterConfiguration config,
+        PvPThreatSnapshot snapshot) => snapshot.TargeterCount == 0
+        ? config.NormalColour.ToVector4()
+        : snapshot.Level switch
+        {
+            PvPThreatLevel.Extreme => config.ExtremeColour.ToVector4(),
+            PvPThreatLevel.High => config.HighColour.ToVector4(),
+            PvPThreatLevel.Moderate => config.ModerateColour.ToVector4(),
+            _ => config.NormalColour.ToVector4(),
+        };
 
     private void DrawCompactHeader(IGameObject actor, ICharacter character, bool showName,
         bool showJob, bool showRole, bool showLevel, bool allowPlayerJob)
@@ -732,6 +823,11 @@ public sealed class HudRenderer
         => module.Enabled && (!locked || HudVisibilityPolicy.ShouldShowModule(module.Visibility,
             runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty));
 
+    private static bool ShouldDrawThreatCounter(TargetingMeCounterConfiguration config,
+        bool locked, PvPThreatSnapshot snapshot) =>
+        config.Enabled
+        && (!locked || snapshot.Active && (!config.HideWhenZero || snapshot.TargeterCount > 0));
+
     private static string AppendHeaderPart(string current, string next)
         => current.Length == 0 ? next : $"{current}    {next}";
 
@@ -778,6 +874,7 @@ public sealed class HudRenderer
         TargetVisible = false;
         FocusTargetVisible = false;
         TargetOfTargetVisible = false;
+        TargetingMeCounterVisible = false;
         TargetResolved = false;
         FocusTargetResolved = false;
         TargetOfTargetResolved = false;
@@ -791,7 +888,8 @@ public sealed class HudRenderer
             HudModuleKind.Player => config.Player,
             HudModuleKind.Target => config.Target,
             HudModuleKind.FocusTarget => config.FocusTarget,
-            _ => config.TargetOfTarget,
+            HudModuleKind.TargetOfTarget => config.TargetOfTarget,
+            _ => config.TargetingMeCounter,
         };
 
     private static HudModuleConfiguration GetDefaultModule(HudModuleKind kind)
@@ -800,7 +898,8 @@ public sealed class HudRenderer
             HudModuleKind.Player => HudConfigurationDefaults.CreatePlayer(),
             HudModuleKind.Target => HudConfigurationDefaults.CreateTarget(),
             HudModuleKind.FocusTarget => HudConfigurationDefaults.CreateFocusTarget(),
-            _ => HudConfigurationDefaults.CreateTargetOfTarget(),
+            HudModuleKind.TargetOfTarget => HudConfigurationDefaults.CreateTargetOfTarget(),
+            _ => HudConfigurationDefaults.CreateTargetingMeCounter(),
         };
 
     private sealed class LayoutRuntimeState
