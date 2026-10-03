@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.1.0** · Dalamud API **15** · .NET **10**
+Current release: **0.8.2.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
@@ -109,7 +109,7 @@ The opt-in convenience service checks the current FFXIVClientStructs inactivity 
 
 `QuestConvenienceService` is owned directly by the plugin lifecycle and does not run through `HudRenderer`. **Skip Dialogue** touches only the visible `Talk` addon at a bounded cadence. It explicitly pauses while `SelectString`, `SelectIconString` or `SelectYesno` is visible, so it never chooses branching responses or Yes/No answers.
 
-**Skip Cutscenes** asks the current `AgentCutscene` to open FFXIV's own skip dialog using the live cutscene callback. If the game does not expose that callback or rejects the request, Sentinel does nothing. It confirms only the dedicated `CutSceneSelectString` dialog and resets state when the cutscene ends; it does not patch the skippable check or synthesize Escape/confirm input.
+**Skip Cutscenes** asks the current `AgentCutscene` to open FFXIV's own skip dialog using the live cutscene callback. A successful request creates a five-second confirmation token. While that token is active, Sentinel resolves the exact skip addon ID published by `AgentCutscene` (with the dedicated `CutSceneSelectString` name as a setup-frame fallback), validates its list structure and executes option zero through the addon's callback. This covers the list-style `Skip cutscene? / Yes. / No.` prompt used by FC submarine interactions. Merely highlighting a list item is not treated as confirmation. If the callback is absent, the request is rejected, the dedicated prompt is dismissed or the token expires, Sentinel fails closed and clears the token. It never confirms generic `SelectYesno`/`SelectString` prompts, patches the skippable check or synthesizes Escape/confirm input.
 
 Reward automation activates only for a visible `JournalResult` with positively identified choose-one entries. Each action re-resolves the addon and fingerprints item IDs, quantities and indices. Selection and completion are separate, throttled steps; completion requires the same fingerprint and the game's enabled Complete button. Manual mode never acts, and windows containing only guaranteed rewards are left untouched. Current Job uses `Item`, `EquipSlotCategory`, `ClassJobCategory`, current `ClassJob` and item-level game data—not localized item names—and ranks narrower compatible categories before item level and source order. Allagan mode recognizes stable item rows 5824–5827 and ranks their `PriceLow × quantity`, falling back to the first selectable reward when required.
 

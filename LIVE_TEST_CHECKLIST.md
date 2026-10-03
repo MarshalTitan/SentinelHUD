@@ -1,4 +1,4 @@
-# Sentinel HUD 0.8.1.0 — Live Test
+# Sentinel HUD 0.8.2.0 — Live Test
 
 ## Startup and configuration migration
 
@@ -283,8 +283,15 @@
 ## Skip Cutscenes
 
 - [ ] Leave Skip Cutscenes Off and confirm cutscenes retain normal manual behavior.
-- [ ] Enable it and enter a normally skippable cutscene; FFXIV's skip flow is requested and confirmed.
+- [ ] Enable it, start an FC submarine/voyage cutscene and confirm the list-style `Skip cutscene? / Yes. / No.` prompt is answered with Yes automatically.
+- [ ] Confirm the submarine interaction resumes normally after the cutscene closes.
+- [ ] Enter another normally skippable cutscene; FFXIV's skip flow is requested and confirmed.
 - [ ] Enter an unskippable/protected cutscene; Sentinel leaves it playing and Diagnostics reports that the game did not permit skipping.
+- [ ] After a skipped cutscene, open an unrelated Yes/No prompt and confirm Sentinel does not answer it.
+- [ ] Manually dismiss/cancel a skip prompt before Sentinel confirms it where practical; confirm no later unrelated prompt is accepted.
+- [ ] Turn Skip Cutscenes Off while a request is pending; confirm pending state clears and subsequent cutscenes behave normally.
+- [ ] Change territory or log out while pending where practical; confirm pending state clears.
+- [ ] In Diagnostics, confirm the progression reports skip request, waiting, detected addon, Yes selected and completion without frame-by-frame log spam.
 - [ ] Finish or leave the cutscene and confirm the service resets cleanly for the next one.
 
 ## Quest Rewards — Manual

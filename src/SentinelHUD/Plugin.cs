@@ -176,7 +176,10 @@ public sealed class Plugin : IDalamudPlugin
 
         try
         {
-            questConvenience.Update(configuration.Current.Convenience, ClientState.IsLoggedIn);
+            questConvenience.Update(
+                configuration.Current.Convenience,
+                ClientState.IsLoggedIn,
+                ClientState.TerritoryType);
         }
         catch (Exception exception)
         {

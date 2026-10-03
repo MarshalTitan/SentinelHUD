@@ -440,6 +440,8 @@ public sealed class ConfigurationWindow : Window
             value => Update(c => c.Convenience.SkipCutscenes = value));
         ImGui.TextWrapped("Requests FFXIV's normal skip dialog only when the client exposes a skippable cutscene, then confirms that dedicated dialog. Protected and unskippable cutscenes are left alone.");
         ImGui.TextDisabled($"Cutscene runtime: {questConvenience.CutsceneState}");
+        if (questConvenience.AwaitingCutsceneSkipConfirmation)
+            ImGui.TextDisabled("Confirmation state: Awaiting the game-provided cutscene skip prompt");
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -593,6 +595,9 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextWrapped($"Dialogue skipping state: {questConvenience.DialogueState}");
         ImGui.TextUnformatted($"Cutscene skipping enabled: {config.Convenience.SkipCutscenes}");
         ImGui.TextWrapped($"Cutscene skipping state: {questConvenience.CutsceneState}");
+        ImGui.TextUnformatted($"Awaiting cutscene confirmation: {questConvenience.AwaitingCutsceneSkipConfirmation}");
+        ImGui.TextWrapped($"Detected cutscene addon: {questConvenience.CutsceneDetectedAddon}");
+        ImGui.TextWrapped($"Last cutscene result: {questConvenience.CutsceneLastResult}");
         ImGui.TextUnformatted($"Quest reward mode: {config.Convenience.QuestRewardSelection}");
         ImGui.TextUnformatted($"Current job: {questConvenience.CurrentJob}");
         ImGui.TextUnformatted($"Reward window detected: {questConvenience.RewardWindowDetected}");

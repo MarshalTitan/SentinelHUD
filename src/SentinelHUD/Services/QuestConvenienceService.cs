@@ -20,6 +20,8 @@ public sealed unsafe class QuestConvenienceService : IDisposable
 {
     private const long DialogueIntervalMilliseconds = 120;
     private const long CutsceneRetryIntervalMilliseconds = 1_000;
+    private const long CutsceneConfirmationRetryIntervalMilliseconds = 250;
+    private const long CutsceneConfirmationTimeoutMilliseconds = 5_000;
     private const long RewardPollIntervalMilliseconds = 100;
     private const long RewardConfirmDelayMilliseconds = 250;
     private const int RewardCountMaximum = 5;
@@ -45,9 +47,13 @@ public sealed unsafe class QuestConvenienceService : IDisposable
     private readonly DiagnosticBuffer diagnostics;
     private long nextDialogueTick;
     private long nextCutsceneTick;
+    private long nextCutsceneConfirmationTick;
     private long nextRewardTick;
     private long rewardConfirmAfterTick;
-    private bool cutsceneConfirmationSent;
+    private ushort? lastTerritoryId;
+    private bool cutsceneSessionObserved;
+    private bool cutsceneAttemptFinished;
+    private CutsceneSkipConfirmationState cutsceneConfirmation;
     private uint cachedCurrentJobId;
     private ulong activeRewardSignature;
     private QuestRewardSelectionMode activeRewardMode = QuestRewardSelectionMode.Manual;
@@ -71,6 +77,9 @@ public sealed unsafe class QuestConvenienceService : IDisposable
 
     public string DialogueState { get; private set; } = "Disabled";
     public string CutsceneState { get; private set; } = "Disabled";
+    public string CutsceneDetectedAddon { get; private set; } = "None";
+    public string CutsceneLastResult { get; private set; } = "None";
+    public bool AwaitingCutsceneSkipConfirmation => cutsceneConfirmation.Pending;
     public string RewardState { get; private set; } = "Manual";
     public string CurrentJob { get; private set; } = "Unavailable";
     public bool RewardWindowDetected { get; private set; }
@@ -78,10 +87,16 @@ public sealed unsafe class QuestConvenienceService : IDisposable
     public string LastSelectedRewardName { get; private set; } = "None";
     public string LastSelectionReason { get; private set; } = "None";
 
-    public void Update(ConvenienceConfiguration configuration, bool isLoggedIn)
+    public void Update(ConvenienceConfiguration configuration, bool isLoggedIn, ushort territoryId)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var now = Environment.TickCount64;
+        if (lastTerritoryId is not null && lastTerritoryId != territoryId)
+        {
+            ResetCutsceneSession();
+            CutsceneLastResult = "Pending state cleared on territory change";
+        }
+        lastTerritoryId = territoryId;
         UpdateDialogue(configuration.SkipDialogue, isLoggedIn, now);
         UpdateCutscene(configuration.SkipCutscenes, isLoggedIn, now);
         UpdateRewards(configuration.QuestRewardSelection, isLoggedIn, now);
@@ -97,6 +112,7 @@ public sealed unsafe class QuestConvenienceService : IDisposable
         DialogueState = "Disabled";
         CutsceneState = "Disabled";
         RewardState = "Manual";
+        lastTerritoryId = null;
     }
 
     private void UpdateDialogue(bool enabled, bool isLoggedIn, long now)
@@ -142,12 +158,16 @@ public sealed unsafe class QuestConvenienceService : IDisposable
             CutsceneState = "Disabled";
             nextCutsceneTick = 0;
             ResetCutsceneSession();
+            CutsceneDetectedAddon = "None";
+            CutsceneLastResult = "None";
             return;
         }
         if (!isLoggedIn)
         {
             CutsceneState = "Waiting for login";
             ResetCutsceneSession();
+            CutsceneDetectedAddon = "None";
+            CutsceneLastResult = "Pending state cleared on logout";
             return;
         }
 
@@ -155,33 +175,98 @@ public sealed unsafe class QuestConvenienceService : IDisposable
             ConditionFlag.OccupiedInCutSceneEvent,
             ConditionFlag.WatchingCutscene,
             ConditionFlag.WatchingCutscene78);
-        if (!inCutscene)
-        {
-            CutsceneState = "Enabled; no cutscene active";
-            ResetCutsceneSession();
-            return;
-        }
 
-        if (cutsceneConfirmationSent)
-        {
-            CutsceneState = "Skip confirmed through the game dialog";
-            return;
-        }
+        var agentModule = AgentModule.Instance();
+        var agent = agentModule is null
+            ? null
+            : (AgentCutscene*)agentModule->GetAgentByInternalId(AgentId.Cutscene);
 
-        var prompt = GetVisibleAddon<AddonCutSceneSelectString>("CutSceneSelectString");
-        if (prompt is not null)
+        // The game's cutscene condition can fall while its dedicated confirmation is modal.
+        // A short-lived request token therefore owns confirmation; no unrelated prompt is ever
+        // eligible simply because it happens to be visible.
+        if (cutsceneConfirmation.Pending)
         {
-            var list = prompt->OptionList;
-            if (list is null || list->GetItemCount() < 1 || list->GetItemDisabledState(0))
+            var promptVisible = TryResolveCutsceneSkipPrompt(agent, out var prompt, out var addonIdentity,
+                out var confirmationAvailable);
+            if (promptVisible)
             {
-                CutsceneState = "Skip dialog is visible but its confirmation is unavailable";
-                return;
+                CutsceneDetectedAddon = addonIdentity;
+                CutsceneState = confirmationAvailable
+                    ? $"Skip confirmation addon detected: {addonIdentity}"
+                    : $"Skip confirmation detected but Yes is unavailable: {addonIdentity}";
             }
 
-            list->SelectItem(0, true);
-            cutsceneConfirmationSent = true;
-            CutsceneState = "Skip confirmed through the game dialog";
-            diagnostics.Information("Quest convenience confirmed a game-provided skippable cutscene dialog.");
+            var decision = CutsceneSkipConfirmationPolicy.Evaluate(
+                ref cutsceneConfirmation, now, promptVisible, confirmationAvailable);
+            switch (decision)
+            {
+                case CutsceneSkipConfirmationDecision.Confirm:
+                    if (now < nextCutsceneConfirmationTick)
+                        return;
+                    nextCutsceneConfirmationTick = now + CutsceneConfirmationRetryIntervalMilliseconds;
+                    if (prompt is not null && prompt->FireCallbackInt(0))
+                    {
+                        cutsceneConfirmation = default;
+                        cutsceneAttemptFinished = true;
+                        CutsceneState = $"Yes selected on {addonIdentity}";
+                        CutsceneLastResult = $"Skip confirmation accepted through {addonIdentity}";
+                        diagnostics.Information(
+                            $"Quest convenience selected Yes on the game-provided cutscene skip dialog ({addonIdentity}).");
+                    }
+                    else
+                    {
+                        CutsceneState = $"Skip confirmation callback was unavailable on {addonIdentity}";
+                    }
+                    return;
+
+                case CutsceneSkipConfirmationDecision.Dismissed:
+                    cutsceneConfirmation = default;
+                    cutsceneAttemptFinished = true;
+                    CutsceneState = "Skip confirmation was dismissed; no further action for this cutscene";
+                    CutsceneLastResult = "Skip confirmation dismissed manually";
+                    diagnostics.Information("Quest convenience observed the cutscene skip dialog close without confirmation; pending state cleared.");
+                    return;
+
+                case CutsceneSkipConfirmationDecision.TimedOut:
+                    cutsceneConfirmation = default;
+                    cutsceneAttemptFinished = true;
+                    CutsceneState = "Skip confirmation timed out; no further action for this cutscene";
+                    CutsceneLastResult = "Skip confirmation timed out";
+                    diagnostics.Information("Quest convenience cutscene skip confirmation timed out; pending state cleared.");
+                    return;
+
+                case CutsceneSkipConfirmationDecision.Wait:
+                    CutsceneState = promptVisible
+                        ? CutsceneState
+                        : "Skip requested; waiting for the dedicated confirmation addon";
+                    return;
+            }
+        }
+
+        if (!inCutscene)
+        {
+            if (cutsceneSessionObserved)
+            {
+                cutsceneSessionObserved = false;
+                cutsceneAttemptFinished = false;
+                nextCutsceneTick = 0;
+                CutsceneState = CutsceneLastResult.StartsWith("Skip confirmation accepted", StringComparison.Ordinal)
+                    ? "Skip completed"
+                    : "Enabled; no cutscene active";
+            }
+            else
+            {
+                CutsceneState = "Enabled; no cutscene active";
+            }
+            return;
+        }
+
+        cutsceneSessionObserved = true;
+        if (cutsceneAttemptFinished)
+        {
+            CutsceneState = CutsceneLastResult.StartsWith("Skip confirmation accepted", StringComparison.Ordinal)
+                ? "Yes selected; waiting for the cutscene to close"
+                : CutsceneState;
             return;
         }
 
@@ -190,7 +275,6 @@ public sealed unsafe class QuestConvenienceService : IDisposable
         nextCutsceneTick = now + CutsceneRetryIntervalMilliseconds;
 
         var uiModule = UIModule.Instance();
-        var agentModule = AgentModule.Instance();
         if (uiModule is null || agentModule is null)
         {
             CutsceneState = "Cutscene active; game UI services are unavailable";
@@ -198,16 +282,76 @@ public sealed unsafe class QuestConvenienceService : IDisposable
         }
 
         var input = uiModule->GetUIInputModule();
-        var agent = (AgentCutscene*)agentModule->GetAgentByInternalId(AgentId.Cutscene);
         if (input is null || agent is null || input->CutsceneSkipCallback is null)
         {
             CutsceneState = "Cutscene active; the game does not currently permit skipping";
             return;
         }
 
-        CutsceneState = agent->OpenSkipDialog(input->CutsceneSkipCallback)
-            ? "Game skip dialog requested"
-            : "Cutscene active; the game rejected the skip request";
+        if (agent->OpenSkipDialog(input->CutsceneSkipCallback))
+        {
+            cutsceneConfirmation = CutsceneSkipConfirmationState.Begin(
+                now, CutsceneConfirmationTimeoutMilliseconds);
+            nextCutsceneConfirmationTick = 0;
+            CutsceneDetectedAddon = agent->SkipDialogAddonId == 0
+                ? "Pending game-provided cutscene addon"
+                : $"AgentCutscene skip addon #{agent->SkipDialogAddonId}";
+            CutsceneState = "Skip requested; waiting for the dedicated confirmation addon";
+            CutsceneLastResult = "Skip requested";
+            diagnostics.Information("Quest convenience requested FFXIV's normal cutscene skip dialog; awaiting contextual confirmation.");
+        }
+        else
+        {
+            CutsceneState = "Cutscene active; the game rejected the skip request";
+        }
+    }
+
+    private bool TryResolveCutsceneSkipPrompt(
+        AgentCutscene* agent,
+        out AtkUnitBase* prompt,
+        out string addonIdentity,
+        out bool confirmationAvailable)
+    {
+        prompt = null;
+        addonIdentity = "None";
+        confirmationAvailable = false;
+
+        if (agent is not null && agent->SkipDialogAddonId is > 0 and <= ushort.MaxValue)
+        {
+            var manager = RaptureAtkUnitManager.Instance();
+            var byId = manager is null
+                ? null
+                : ((AtkUnitManager*)manager)->GetAddonById((ushort)agent->SkipDialogAddonId);
+            if (IsAddonVisible(byId))
+            {
+                prompt = byId;
+                addonIdentity = $"AgentCutscene skip addon #{agent->SkipDialogAddonId}";
+                confirmationAvailable = IsCutsceneSkipConfirmationAvailable((AddonCutSceneSelectString*)byId);
+                return true;
+            }
+        }
+
+        // Current API 15 identifies the normal list-style prompt by this dedicated addon name.
+        // This fallback covers the first setup frames before AgentCutscene publishes its addon ID.
+        var named = GetVisibleAddon<AddonCutSceneSelectString>("CutSceneSelectString");
+        if (named is null)
+            return false;
+
+        prompt = (AtkUnitBase*)named;
+        addonIdentity = "CutSceneSelectString";
+        confirmationAvailable = IsCutsceneSkipConfirmationAvailable(named);
+        return true;
+    }
+
+    private static bool IsCutsceneSkipConfirmationAvailable(AddonCutSceneSelectString* prompt)
+    {
+        if (prompt is null || !IsAddonVisible((AtkUnitBase*)prompt))
+            return false;
+
+        var list = prompt->OptionList;
+        return list is not null
+               && list->GetItemCount() >= 2
+               && !list->GetItemDisabledState(0);
     }
 
     private void UpdateRewards(QuestRewardSelectionMode mode, bool isLoggedIn, long now)
@@ -458,6 +602,9 @@ public sealed unsafe class QuestConvenienceService : IDisposable
 
     private bool IsAddonVisible(string name) => GetVisibleAddon<AtkUnitBase>(name) is not null;
 
+    private static bool IsAddonVisible(AtkUnitBase* addon)
+        => addon is not null && addon->IsReady && addon->IsVisible;
+
     private T* GetVisibleAddon<T>(string name)
         where T : unmanaged
     {
@@ -477,8 +624,11 @@ public sealed unsafe class QuestConvenienceService : IDisposable
 
     private void ResetCutsceneSession()
     {
-        cutsceneConfirmationSent = false;
+        cutsceneConfirmation = default;
+        cutsceneSessionObserved = false;
+        cutsceneAttemptFinished = false;
         nextCutsceneTick = 0;
+        nextCutsceneConfirmationTick = 0;
     }
 
     private void ResetRewardWindow()

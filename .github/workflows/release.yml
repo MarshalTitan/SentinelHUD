@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Adds an independent Targeting Me Counter to Sentinel HUD for Frontline or all PvP duties. It uses the current client actor set, preserves PvP Sentinel's zero-based Battalion 0/1/2 classification and conservative hostile fallback, counts only valid enemy players whose current hard target is the local player, and includes optional job/detail rows, configurable warning colours, a crisp large-number font, editor integration, schema-10 migration, diagnostics, and focused policy tests. PvP Sentinel is not required and was not modified."
+            --notes "Fixes automatic confirmation of FFXIV's normal cutscene-skip prompt, including the list-style prompt used by FC submarine interactions. Sentinel now opens the game-provided skip dialog, tracks a five-second contextual confirmation token, resolves the exact addon published by AgentCutscene, and executes the Yes option through the addon's selection callback. It never enables a generic auto-Yes path, leaves protected cutscenes alone, clears pending state on every lifecycle boundary, and adds focused state-machine tests and diagnostics."
 
       - name: Verify public release asset
         shell: pwsh

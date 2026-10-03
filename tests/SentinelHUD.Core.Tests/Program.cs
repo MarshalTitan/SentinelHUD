@@ -42,6 +42,7 @@ var tests = new (string Name, Action Run)[]
     ("HP colour modes", TestHpColourModes),
     ("camera zoom policy", TestCameraZoomPolicy),
     ("quest reward selection policy", TestQuestRewardSelectionPolicy),
+    ("cutscene skip confirmation policy", TestCutsceneSkipConfirmationPolicy),
     ("PvP threat classification and warning policy", TestPvPThreatPolicy),
 };
 
@@ -1126,6 +1127,50 @@ static void TestQuestRewardSelectionPolicy()
             new QuestRewardCandidate(1, 202, 1, "Higher", true, 12, 660, false, 0),
         });
     Equal(1, itemLevelTieBreak!.Value.Index);
+}
+
+static void TestCutsceneSkipConfirmationPolicy()
+{
+    var pending = CutsceneSkipConfirmationState.Begin(1_000, 5_000);
+    True(pending.Pending);
+    False(pending.PromptObserved);
+
+    // The request remains eligible while the dedicated modal is being created, even if the
+    // game's cutscene condition has already fallen. An unrelated prompt is never passed here.
+    Equal(
+        CutsceneSkipConfirmationDecision.Wait,
+        CutsceneSkipConfirmationPolicy.Evaluate(ref pending, 1_250, false, false));
+    True(pending.Pending);
+    False(pending.PromptObserved);
+
+    Equal(
+        CutsceneSkipConfirmationDecision.Wait,
+        CutsceneSkipConfirmationPolicy.Evaluate(ref pending, 1_500, true, false));
+    True(pending.PromptObserved);
+    Equal(
+        CutsceneSkipConfirmationDecision.Confirm,
+        CutsceneSkipConfirmationPolicy.Evaluate(ref pending, 1_600, true, true));
+
+    var dismissed = CutsceneSkipConfirmationState.Begin(2_000, 5_000);
+    Equal(
+        CutsceneSkipConfirmationDecision.Wait,
+        CutsceneSkipConfirmationPolicy.Evaluate(ref dismissed, 2_100, true, false));
+    Equal(
+        CutsceneSkipConfirmationDecision.Dismissed,
+        CutsceneSkipConfirmationPolicy.Evaluate(ref dismissed, 2_200, false, false));
+
+    var timedOut = CutsceneSkipConfirmationState.Begin(3_000, 5_000);
+    Equal(
+        CutsceneSkipConfirmationDecision.Wait,
+        CutsceneSkipConfirmationPolicy.Evaluate(ref timedOut, 7_999, false, false));
+    Equal(
+        CutsceneSkipConfirmationDecision.TimedOut,
+        CutsceneSkipConfirmationPolicy.Evaluate(ref timedOut, 8_000, false, false));
+
+    var idle = default(CutsceneSkipConfirmationState);
+    Equal(
+        CutsceneSkipConfirmationDecision.Wait,
+        CutsceneSkipConfirmationPolicy.Evaluate(ref idle, 9_000, true, true));
 }
 
 static void TestPvPThreatPolicy()
