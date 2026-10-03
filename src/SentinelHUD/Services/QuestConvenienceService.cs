@@ -50,7 +50,7 @@ public sealed unsafe class QuestConvenienceService : IDisposable
     private long nextCutsceneConfirmationTick;
     private long nextRewardTick;
     private long rewardConfirmAfterTick;
-    private ushort? lastTerritoryId;
+    private uint? lastTerritoryId;
     private bool cutsceneSessionObserved;
     private bool cutsceneAttemptFinished;
     private CutsceneSkipConfirmationState cutsceneConfirmation;
@@ -87,7 +87,7 @@ public sealed unsafe class QuestConvenienceService : IDisposable
     public string LastSelectedRewardName { get; private set; } = "None";
     public string LastSelectionReason { get; private set; } = "None";
 
-    public void Update(ConvenienceConfiguration configuration, bool isLoggedIn, ushort territoryId)
+    public void Update(ConvenienceConfiguration configuration, bool isLoggedIn, uint territoryId)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var now = Environment.TickCount64;
