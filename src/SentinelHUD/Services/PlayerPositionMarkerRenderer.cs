@@ -57,33 +57,36 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
             return;
         }
 
-        var groundPoint = player.Position;
+        var centre = player.Position;
         var groundNormal = Vector3.UnitY;
-        try
+        if (PlayerPositionMarkerPolicy.UsesTerrainProjection(configuration.Style))
         {
-            var rayOrigin = player.Position + new Vector3(0f, 2.5f, 0f);
-            if (BGCollisionModule.RaycastMaterialFilter(
-                    rayOrigin,
-                    -Vector3.UnitY,
-                    out var hit,
-                    maxDistance: 12f)
-                && IsFinite(hit.Point)
-                && Vector2.Distance(
-                    new Vector2(hit.Point.X, hit.Point.Z),
-                    new Vector2(player.Position.X, player.Position.Z)) < 0.75f)
+            try
             {
-                groundPoint = hit.Point;
-                if (IsFinite(hit.Normal) && hit.Normal.LengthSquared() > 0.25f)
-                    groundNormal = Vector3.Normalize(hit.Normal);
-                UsedTerrainProjection = true;
+                var rayOrigin = player.Position + new Vector3(0f, 2.5f, 0f);
+                if (BGCollisionModule.RaycastMaterialFilter(
+                        rayOrigin,
+                        -Vector3.UnitY,
+                        out var hit,
+                        maxDistance: 12f)
+                    && IsFinite(hit.Point)
+                    && Vector2.Distance(
+                        new Vector2(hit.Point.X, hit.Point.Z),
+                        new Vector2(player.Position.X, player.Position.Z)) < 0.75f)
+                {
+                    centre = hit.Point;
+                    if (IsFinite(hit.Normal) && hit.Normal.LengthSquared() > 0.25f)
+                        groundNormal = Vector3.Normalize(hit.Normal);
+                    UsedTerrainProjection = true;
+                }
             }
-        }
-        catch
-        {
-            // The actor origin is the fail-safe fallback when collision data is unavailable during transitions.
-        }
+            catch
+            {
+                // The actor origin is the fail-safe fallback when collision data is unavailable during transitions.
+            }
 
-        var centre = groundPoint + (groundNormal * 0.025f);
+            centre += groundNormal * 0.025f;
+        }
         if (!gameGui.WorldToScreen(centre, out var centreScreen))
         {
             StateReason = "Player origin is outside the viewport";
@@ -100,9 +103,11 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
             return;
 
         IsActive = true;
-        StateReason = (UsedTerrainProjection
-            ? "Active at collision-projected actor origin"
-            : "Active at actor origin (terrain collision unavailable)")
+        StateReason = (configuration.Style == PlayerPositionMarkerStyle.CameraFacing
+            ? "Active at exact actor world origin"
+            : UsedTerrainProjection
+                ? "Active at collision-projected actor origin"
+                : "Active at actor origin (terrain collision unavailable)")
             + $" — {configuration.Style}"
             + (isInDanger && configuration.DangerDetectionEnabled
                 ? " — danger colour active"

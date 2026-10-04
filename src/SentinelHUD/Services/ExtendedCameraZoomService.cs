@@ -13,7 +13,7 @@ public interface IExtendedCameraZoomService : IDisposable
     string StateReason { get; }
     string? ConflictingPluginName { get; }
     float CurrentMaximum { get; }
-    void Update(ExtendedCameraZoomConfiguration configuration, bool hudEnabled);
+    void Update(ExtendedCameraZoomConfiguration configuration, bool hudEnabled, bool isDead);
     void Restore();
     void RetryAfterConflict();
 }
@@ -36,6 +36,7 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly IClientState clientState;
     private readonly ICondition condition;
+    private readonly CameraZoomPersistencePolicy zoomPersistence = new();
     private bool conflictScanPending = true;
     private bool externalOverrideDetected;
     private bool wasRequested;
@@ -60,12 +61,13 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
     public string? ConflictingPluginName { get; private set; }
     public float CurrentMaximum { get; private set; } = CameraZoomPolicy.StockMaximum;
 
-    public void Update(ExtendedCameraZoomConfiguration configuration, bool hudEnabled)
+    public void Update(ExtendedCameraZoomConfiguration configuration, bool hudEnabled, bool isDead)
     {
         var requested = hudEnabled && configuration.Enabled;
         if (!requested)
         {
             Restore();
+            zoomPersistence.Reset();
             if (wasRequested)
                 externalOverrideDetected = false;
             wasRequested = false;
@@ -74,12 +76,15 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
             return;
         }
         wasRequested = true;
+        var desired = CameraZoomPolicy.NormalizeMaximum(configuration.MaximumZoomDistance);
+        var now = Environment.TickCount64;
 
         if (conflictScanPending)
             RefreshKnownConflicts();
         if (ConflictingPluginName is not null)
         {
             Restore();
+            zoomPersistence.Reset();
             if (!string.Equals(reportedConflictName, ConflictingPluginName, StringComparison.Ordinal))
             {
                 reportedConflictName = ConflictingPluginName;
@@ -90,6 +95,7 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
         reportedConflictName = null;
         if (externalOverrideDetected)
         {
+            zoomPersistence.Reset();
             IsActive = false;
             StateReason = "Paused after detecting another camera writer; disable/re-enable or press Retry";
             return;
@@ -97,11 +103,13 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
         if (!clientState.IsLoggedIn)
         {
             AbandonOwnership();
+            zoomPersistence.Reset();
             StateReason = "Not logged in";
             return;
         }
         if (IsSpecialCameraState())
         {
+            zoomPersistence.Update(isDead, float.NaN, desired, now);
             Restore();
             StateReason = GetSpecialStateReason();
             return;
@@ -111,12 +119,14 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
         var camera = manager is null ? null : (WorldCameraZoomState*)manager->Camera;
         if (camera is null)
         {
+            zoomPersistence.Update(isDead, float.NaN, desired, now);
             AbandonOwnership();
             StateReason = "World camera unavailable";
             return;
         }
         if (manager->ActiveCameraIndex != 0 || camera->Mode != 1)
         {
+            zoomPersistence.Update(isDead, float.NaN, desired, now);
             Restore();
             StateReason = camera->Mode == 0 ? "Paused in first-person mode" : "Paused for a non-standard camera";
             return;
@@ -141,12 +151,12 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
         {
             CurrentMaximum = camera->MaximumZoom;
             AbandonOwnership();
+            zoomPersistence.Reset();
             externalOverrideDetected = true;
             StateReason = "Paused after detecting another camera writer; disable/re-enable or press Retry";
             return;
         }
 
-        var desired = CameraZoomPolicy.NormalizeMaximum(configuration.MaximumZoomDistance);
         var stateChanged = !IsActive || !NearlyEqual(appliedMaximum, desired);
         camera->MaximumZoom = desired;
         if (camera->CurrentZoom > desired)
@@ -154,10 +164,18 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
             camera->CurrentZoom = desired;
             camera->InterpolatedZoom = Math.Min(camera->InterpolatedZoom, desired);
         }
+        var zoomRestore = zoomPersistence.Update(isDead, camera->CurrentZoom, desired, now);
+        if (zoomRestore.ShouldRestore)
+        {
+            camera->CurrentZoom = zoomRestore.Zoom;
+            camera->InterpolatedZoom = zoomRestore.Zoom;
+        }
         appliedMaximum = desired;
         CurrentMaximum = desired;
         IsActive = true;
-        if (stateChanged)
+        if (zoomRestore.ShouldRestore)
+            StateReason = $"Active (maximum {desired:0.0} yalms; restored {zoomRestore.Zoom:0.0} after death)";
+        else if (stateChanged)
             StateReason = $"Active (maximum {desired:0.0} yalms)";
     }
 
@@ -185,6 +203,7 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
     public void RetryAfterConflict()
     {
         externalOverrideDetected = false;
+        zoomPersistence.Reset();
         conflictScanPending = true;
         reportedConflictName = null;
         StateReason = "Retry requested";
@@ -194,6 +213,7 @@ public sealed unsafe class ExtendedCameraZoomService : IExtendedCameraZoomServic
     {
         pluginInterface.ActivePluginsChanged -= OnActivePluginsChanged;
         Restore();
+        zoomPersistence.Reset();
     }
 
     private void OnActivePluginsChanged(IActivePluginsChangedEventArgs _) => conflictScanPending = true;

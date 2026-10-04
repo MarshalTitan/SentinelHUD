@@ -135,10 +135,12 @@ public sealed class HudRenderer
     public void UpdateGameState()
     {
         var config = configuration.Current;
-        cameraZoom.Update(config.Camera, config.Enabled);
+        var localPlayer = data.LocalPlayer;
+        var isDead = localPlayer is not null && (localPlayer.IsDead || localPlayer.CurrentHp == 0);
+        cameraZoom.Update(config.Camera, config.Enabled, isDead);
         selfHighlight.Update(config.SelfHighlight, config.Enabled);
         encounterAwareness.Update(config.EncounterAwareness, config.Enabled,
-            clientState.IsLoggedIn, clientState.TerritoryType, data.LocalPlayer);
+            clientState.IsLoggedIn, clientState.TerritoryType, localPlayer);
         antiAfk.Update(config.Convenience.PreventAfkDisconnect, clientState.IsLoggedIn);
         pvpThreatTracker.Update(config.TargetingMeCounter, config.Enabled);
     }

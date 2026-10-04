@@ -84,6 +84,9 @@ public static class PlayerPositionMarkerPolicy
                + (normalized * (MaximumCameraFacingRadius - MinimumCameraFacingRadius));
     }
 
+    public static bool UsesTerrainProjection(PlayerPositionMarkerStyle style)
+        => style == PlayerPositionMarkerStyle.GroundProjected;
+
     public static Vector4 ResolveColour(PlayerPositionMarkerConfiguration configuration,
         bool isDanger = false)
     {
@@ -150,4 +153,92 @@ public static class CameraZoomPolicy
         => float.IsFinite(value)
             ? Math.Clamp(value, StockMaximum, MaximumSupported)
             : DefaultExtendedMaximum;
+}
+
+public readonly record struct CameraZoomRestoreDecision(bool ShouldRestore, float Zoom);
+
+/// <summary>
+/// Remembers the user's live third-person zoom while alive and requests a bounded restoration when
+/// the game resets that value during the death/respawn lifecycle. It never changes the configured
+/// maximum and stops enforcing the remembered value after the short death transition window.
+/// </summary>
+public sealed class CameraZoomPersistencePolicy
+{
+    public const long DeathRestoreWindowMilliseconds = 3_000;
+
+    private bool wasDead;
+    private bool hasRememberedZoom;
+    private bool restoreAfterDeathPending;
+    private float rememberedZoom;
+    private long deathRestoreDeadline;
+
+    public CameraZoomRestoreDecision Update(
+        bool isDead,
+        float currentZoom,
+        float maximumZoom,
+        long nowMilliseconds)
+    {
+        var maximum = CameraZoomPolicy.NormalizeMaximum(maximumZoom);
+        var currentIsValid = IsSaneZoom(currentZoom, maximum);
+
+        if (isDead)
+        {
+            if (!wasDead)
+            {
+                deathRestoreDeadline = nowMilliseconds + DeathRestoreWindowMilliseconds;
+                restoreAfterDeathPending = true;
+            }
+            wasDead = true;
+
+            if (!hasRememberedZoom && currentIsValid)
+            {
+                rememberedZoom = currentZoom;
+                hasRememberedZoom = true;
+            }
+
+            if (hasRememberedZoom && currentIsValid && nowMilliseconds <= deathRestoreDeadline)
+            {
+                var target = Math.Min(rememberedZoom, maximum);
+                if (!NearlyEqual(currentZoom, target))
+                    return new CameraZoomRestoreDecision(true, target);
+            }
+            return default;
+        }
+
+        if (wasDead)
+        {
+            wasDead = false;
+            restoreAfterDeathPending = true;
+        }
+
+        if (restoreAfterDeathPending && hasRememberedZoom && currentIsValid)
+        {
+            restoreAfterDeathPending = false;
+            var target = Math.Min(rememberedZoom, maximum);
+            if (!NearlyEqual(currentZoom, target))
+                return new CameraZoomRestoreDecision(true, target);
+        }
+
+        if (currentIsValid)
+        {
+            rememberedZoom = currentZoom;
+            hasRememberedZoom = true;
+        }
+        return default;
+    }
+
+    public void Reset()
+    {
+        wasDead = false;
+        hasRememberedZoom = false;
+        restoreAfterDeathPending = false;
+        rememberedZoom = 0f;
+        deathRestoreDeadline = 0;
+    }
+
+    private static bool IsSaneZoom(float value, float maximum)
+        => float.IsFinite(value) && value >= 1f && value <= maximum + 0.01f;
+
+    private static bool NearlyEqual(float left, float right)
+        => Math.Abs(left - right) < 0.01f;
 }

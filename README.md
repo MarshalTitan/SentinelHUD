@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.3.2** · Dalamud API **15** · .NET **10**
+Current release: **0.8.3.3** · Dalamud API **15** · .NET **10**
 
 ## Features
 
@@ -17,7 +17,7 @@ Current release: **0.8.3.2** · Dalamud API **15** · .NET **10**
 - Optional exact-HP supplement anchored read-only beneath the visible native target HP gauge. It supports both combined `_TargetInfo` and split `_TargetInfoMainTarget` layouts, including Always/Combat Only modes and X/Y fine tuning.
 - Resolution-safe normalized positions with screen-boundary protection and delayed persistent saves.
 - Native, model-conforming self silhouette with Off, Always, Combat Only and Duty Only modes. It follows the animated model, equipment, weapons, mount and ornament without changing any target state.
-- Independent Player Position Marker centred on the local actor's exact terrain-resolved origin. Camera Facing (default) stays circular and readable at shallow camera angles and extended zoom; Ground Projected retains the original terrain-plane presentation. Both support Off/Always/Combat Only/Duty Only modes, independent colour, 0.01–0.60 size control, opacity and inward border controls. Encounter Awareness changes either style to a separately configured danger colour when that exact point intersects a trusted hazard.
+- Independent Player Position Marker centred on the local actor's exact world origin. Camera Facing (default) never snaps downward, so it follows elevated platforms and flying mounts while remaining circular at shallow camera angles and extended zoom. Ground Projected retains the opt-in terrain-plane presentation. Both support Off/Always/Combat Only/Duty Only modes, independent colour, 0.01–0.60 size control, opacity and inward border controls. Encounter Awareness changes either style to a separately configured danger colour when that exact point intersects a trusted hazard.
 - Encounter Awareness providers: conservative current hostile-cast geometry for standard visible circle/donut/rectangle/cone/line/cross actions, plus optional fail-closed Splatoon geometry IPC. Unknown and encounter-specific mechanics are not guessed.
 - Independent PvP Targeting Me Counter with Frontline-only or all-PvP visibility, optional zero hiding, optional job/detail rows, scalable crisp digits and configurable normal/moderate/high/extreme colours. It requires no PvP Sentinel installation.
 - Optional extended third-person zoom with a configurable 20–100-yalm maximum, automatic restoration, special-camera safeguards and known camera-plugin conflict handling.
@@ -84,9 +84,9 @@ The current FFXIVClientStructs renderer exposes a fixed `ObjectHighlightColor` p
 
 ### Player Position Marker
 
-The marker begins at the local actor's real world origin and casts a short downward collision ray using current FFXIVClientStructs terrain collision. Neither style derives its centre from the animated model, head, feet or screen-space bounds. **Camera Facing** projects that exact resolved point once and draws a compact screen-space circle, so camera pitch cannot compress it into a line and extended zoom cannot make it unreadably small. The existing 0.01–0.60 radius setting maps deterministically to a 1.0–19.2 px outside radius in this mode. **Ground Projected** retains the 24-point terrain-plane disc for users who prefer a perspective-grounded marker.
+The marker begins at the local actor's real world origin. Neither style derives its centre from the animated model, head, feet animation or screen-space bounds. **Camera Facing** projects that exact actor point directly with no terrain ray and draws a compact screen-space circle. Elevated platforms and flying mounts therefore retain their actual vertical level, camera pitch cannot compress the marker into a line, and extended zoom cannot make it unreadably small. The existing 0.01–0.60 radius setting maps deterministically to a 1.0–19.2 px outside radius in this mode. **Ground Projected** alone casts the short downward FFXIVClientStructs collision ray and retains the 24-point terrain-plane disc for users who explicitly prefer a surface-snapped marker.
 
-This presentation follows the current Avarice player-dot principle (project the actor position and draw a screen-space filled circle) while keeping Sentinel's independent terrain-resolution, conditional visibility, border and danger-provider systems; no Avarice source or runtime dependency is included. The optional contrasting border is drawn inward in both styles, so it never enlarges the configured outside radius. Danger changes only the colour. If collision data is temporarily unavailable, the renderer fails safely to the actor origin and reports that fallback and active style in Diagnostics.
+This presentation follows the current Avarice player-dot principle (project the actor position and draw a screen-space filled circle) while keeping Sentinel's independent conditional visibility, border and danger-provider systems; no Avarice source or runtime dependency is included. The optional contrasting border is drawn inward in both styles, so it never enlarges the configured outside radius. Danger changes only the colour. Terrain collision availability affects only Ground Projected; Camera Facing always uses the live actor origin.
 
 ### Encounter Awareness
 
@@ -116,7 +116,7 @@ Reward automation activates only for a visible `JournalResult` with positively i
 
 ### Extended camera zoom
 
-The camera service was checked against Cammy commit `c9895b2ca7a4d285aa967be46a2963cbaddd7282` (2026-05-04, API 15). Sentinel HUD uses only the narrow current/max-zoom camera fields needed for ordinary third-person zoom; it does not copy Cammy's free-camera, FoV, collision, or camera hooks. The service restores the captured normal maximum when disabled or unloaded, clamps an over-limit current zoom during restoration, and pauses in first person, GPose, cutscenes and territory transitions.
+The camera service was checked against Cammy commit `c9895b2ca7a4d285aa967be46a2963cbaddd7282` (2026-05-04, API 15). Sentinel HUD uses only the narrow current/max-zoom camera fields needed for ordinary third-person zoom; it does not copy Cammy's free-camera, FoV, collision, or camera hooks. While active, it remembers the user's current live zoom while alive, restores that value during the bounded death transition when FFXIV resets it, and applies it once more on respawn. The service restores the captured normal maximum when disabled or unloaded, clamps an over-limit current zoom during restoration, and pauses in first person, GPose, cutscenes and territory transitions.
 
 If Cammy, EasyZoom, EasyZoomReborn, ZoomTilt or PyonCam is loaded, Sentinel HUD does not write camera state. It also detects an unexpected camera-limit writer and pauses instead of continually fighting it.
 
@@ -166,7 +166,7 @@ Screenshots will be added after the first in-game layout and colour pass.
 - Prevent AFK Disconnect touches current internal inactivity timer fields and may need maintenance after game updates. It is default Off, isolated behind one service and never synthesizes user input.
 - Quest reward parsing and UI actions depend on the current `JournalResult` value layout and FFXIVClientStructs addon functions. They are isolated, default Manual, validate the complete window fingerprint before confirmation and may fail closed after a game UI change until updated.
 - Dialogue skipping deliberately ignores response lists and Yes/No prompts. Cutscene skipping acts only when FFXIV exposes its normal skip callback; protected or unskippable cutscenes remain untouched.
-- The position marker's downward terrain ray can be unavailable during loading or on unusual collision surfaces; the actor origin is used temporarily and Diagnostics reports the fallback.
+- Ground Projected's downward terrain ray can be unavailable during loading or on unusual collision surfaces; that optional style falls back to the actor origin and Diagnostics reports it. Camera Facing does not use terrain collision.
 - Both position-marker styles are Dalamud overlays without depth-buffer occlusion, so foreground terrain can occasionally cover incorrectly. Camera Facing intentionally keeps a stable screen-space radius for readability rather than shrinking with camera distance; Ground Projected retains natural perspective scaling and can flatten at shallow angles.
 - Extended zoom changes an internal camera limit and can require maintenance after FFXIV patches. It defaults off, is isolated behind one service, validates camera state, and restores on disable/disposal.
 - Sentinel HUD intentionally yields camera control when a known camera plugin is loaded; use one zoom controller at a time.

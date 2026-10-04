@@ -471,7 +471,7 @@ public sealed class ConfigurationWindow : Window
                 MarkerStyles, MarkerStyles.Length))
             Update(c => c.PlayerPositionMarker.Style = (PlayerPositionMarkerStyle)markerStyle);
         ImGui.TextDisabled(marker.Style == PlayerPositionMarkerStyle.CameraFacing
-            ? "Camera Facing projects the same true-position point, then keeps the dot circular and readable on screen."
+            ? "Camera Facing uses the exact actor world origin with no terrain snap, then keeps the dot circular and readable on screen."
             : "Ground Projected follows the terrain plane and naturally flattens at shallow camera angles.");
         DrawHighlightColour(marker.ColourPreset, marker.CustomColour, "PositionMarker",
             value => Update(c => c.PlayerPositionMarker.ColourPreset = value),
@@ -671,7 +671,7 @@ public sealed class ConfigurationWindow : Window
         if (ImGui.SliderFloat("Maximum zoom distance", ref maximum, CameraZoomPolicy.StockMaximum,
                 CameraZoomPolicy.MaximumSupported, "%.1f yalms"))
             Update(c => c.Camera.MaximumZoomDistance = maximum);
-        ImGui.TextWrapped("Changes only the normal third-person maximum. It pauses for first person, GPose, cutscenes, transitions, and known camera-control plugins.");
+        ImGui.TextWrapped("Changes only the normal third-person maximum. Your live zoom distance is restored through death/respawn. It pauses for first person, GPose, cutscenes, transitions, and known camera-control plugins.");
         if (ImGui.Button("Disable and restore normal camera limits"))
         {
             Update(c => c.Camera.Enabled = false);

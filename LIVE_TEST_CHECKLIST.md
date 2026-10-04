@@ -1,4 +1,4 @@
-# Sentinel HUD 0.8.3.2 — Live Test
+# Sentinel HUD 0.8.3.3 — Live Test
 
 ## Startup and configuration migration
 
@@ -62,7 +62,9 @@
 - [ ] Custom opens the colour picker and persists its colour.
 - [ ] In Camera Facing, set size to 0.01, 0.02, 0.03, 0.04, 0.05 and 0.06; confirm each remains compact and selectable.
 - [ ] In Ground Projected, confirm those values retain their yalm-radius meaning.
-- [ ] Camera Facing is selected after update and remains tied to the exact actor/terrain-resolved position while walking, running and animating.
+- [ ] Camera Facing is selected after update and remains tied to the exact actor world origin while walking, running and animating.
+- [ ] Stand on an upper platform above another walkable floor; Camera Facing remains on the upper level and does not snap to the floor below.
+- [ ] Fly upward on a mount; Camera Facing follows the actor vertically instead of remaining on the terrain below.
 - [ ] Tilt the camera to a shallow angle; Camera Facing remains circular and does not collapse into a line.
 - [ ] Zoom out normally and with Extended Zoom; Camera Facing remains readable and centred without drift.
 - [ ] Switch to Ground Projected; the original terrain-plane disc remains available and follows perspective.
@@ -278,6 +280,9 @@
 - [ ] Hard, mouseover, controller, tab, interaction and action targeting remain normal.
 - [ ] Self Highlight survives zone changes and disappears when disabled.
 - [ ] Extended Zoom still exceeds the normal limit when enabled.
+- [ ] Set a clearly extended current zoom, die, and confirm the same distance is restored instead of remaining at FFXIV's stock death zoom.
+- [ ] Respawn and confirm the pre-death current zoom remains restored while the configured maximum is unchanged.
+- [ ] Manually adjust zoom after the death transition and confirm Sentinel does not continuously fight the new input.
 - [ ] Disabling/reloading Sentinel HUD restores normal camera limits.
 - [ ] First person, duty transitions, cutscenes and GPose remain safe.
 - [ ] A known camera plugin conflict causes Sentinel HUD to yield.

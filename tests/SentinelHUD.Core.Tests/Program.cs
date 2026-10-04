@@ -42,6 +42,7 @@ var tests = new (string Name, Action Run)[]
     ("danger geometry containment", TestDangerGeometryContainment),
     ("HP colour modes", TestHpColourModes),
     ("camera zoom policy", TestCameraZoomPolicy),
+    ("camera zoom death persistence", TestCameraZoomDeathPersistence),
     ("quest reward selection policy", TestQuestRewardSelectionPolicy),
     ("cutscene skip confirmation policy", TestCutsceneSkipConfirmationPolicy),
     ("PvP threat classification and warning policy", TestPvPThreatPolicy),
@@ -914,6 +915,8 @@ static void TestPositionMarkerConfiguration()
     Near(1.3084745f, PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(0.02f));
     Near(6.244068f, PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(0.18f));
     Near(19.2f, PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(0.60f));
+    False(PlayerPositionMarkerPolicy.UsesTerrainProjection(PlayerPositionMarkerStyle.CameraFacing));
+    True(PlayerPositionMarkerPolicy.UsesTerrainProjection(PlayerPositionMarkerStyle.GroundProjected));
 }
 
 static void TestVersionSevenMarkerStyleMigration()
@@ -1104,6 +1107,31 @@ static void TestCameraZoomPolicy()
     Near(42f, CameraZoomPolicy.NormalizeMaximum(42f));
     Near(CameraZoomPolicy.MaximumSupported, CameraZoomPolicy.NormalizeMaximum(500f));
     Near(CameraZoomPolicy.DefaultExtendedMaximum, CameraZoomPolicy.NormalizeMaximum(float.NaN));
+}
+
+static void TestCameraZoomDeathPersistence()
+{
+    var policy = new CameraZoomPersistencePolicy();
+
+    False(policy.Update(false, 44f, 60f, 0).ShouldRestore);
+    var deathReset = policy.Update(true, 6f, 60f, 100);
+    True(deathReset.ShouldRestore);
+    Near(44f, deathReset.Zoom);
+
+    False(policy.Update(true, 44f, 60f, 200).ShouldRestore);
+    False(policy.Update(true, 6f, 60f,
+        100 + CameraZoomPersistencePolicy.DeathRestoreWindowMilliseconds + 1).ShouldRestore);
+
+    var respawnReset = policy.Update(false, 6f, 60f, 4_000);
+    True(respawnReset.ShouldRestore);
+    Near(44f, respawnReset.Zoom);
+    False(policy.Update(false, 44f, 60f, 4_001).ShouldRestore);
+
+    policy.Reset();
+    False(policy.Update(false, 70f, 100f, 5_000).ShouldRestore);
+    var clamped = policy.Update(true, 6f, 50f, 5_100);
+    True(clamped.ShouldRestore);
+    Near(50f, clamped.Zoom);
 }
 
 static void TestQuestRewardSelectionPolicy()

@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Refines the Sentinel Modern configuration layout: removes the fixed-header scrollbar, removes General's redundant page introduction and duplicate Unlock HUD button, and removes the redundant Configuration Window section from Appearance. Classic remains recoverable through a compact header action. This release also includes the 0.8.3.1 fail-closed FC submarine cutscene-skip crash fix. No configuration migration or reset is required."
+            --notes "Corrects the Player Position Marker's vertical anchor and extended zoom persistence. Camera Facing now projects the exact live actor world origin without a downward terrain ray, so elevated platforms and flying mounts stay at their real level; only Ground Projected performs terrain snapping. Extended Zoom now remembers the current live distance while alive, restores it through the bounded death transition, and reapplies it on respawn without continuously fighting later manual input. No configuration migration or reset is required."
 
       - name: Verify public release asset
         shell: pwsh
