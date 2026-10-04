@@ -1,14 +1,31 @@
-# Sentinel HUD 0.8.2.0 — Live Test
+# Sentinel HUD 0.8.3.0 — Live Test
 
 ## Startup and configuration migration
 
 - [ ] Update Sentinel HUD from the Sentinel custom repository without deleting the existing configuration.
 - [ ] Existing module positions, widths, scale, bar heights, colours, field toggles, visibility modes, HP/MP/shield/cast settings, Awareness settings, marker radius/opacity, camera settings and native-target offsets remain intact.
-- [ ] Diagnostics reports configuration schema 10 and, when upgrading schema 9, shows a one-time `SentinelHUD.schema-v9.backup.json` path.
+- [ ] Diagnostics reports configuration schema 11 and, when upgrading schema 10, shows a one-time `SentinelHUD.schema-v10.backup.json` path.
 - [ ] Reload again and confirm the schema backup is not replaced or multiplied.
 - [ ] `/shud` opens and closes configuration.
 - [ ] The normal title-bar collapse arrow is available.
 - [ ] Collapse and reopen the configuration window successfully.
+
+## Sentinel Modern theme preview
+
+- [ ] `/shud` opens in Sentinel Modern after updating from 0.8.2.0.
+- [ ] Confirm the midnight-navy canvas, electric-blue accents and violet/teal ambient rings are visible and restrained rather than distracting.
+- [ ] Confirm the grouped sidebar remains readable and every page opens: General, Player, Target, Focus Target, Target-of-Target, Awareness, Encounter Awareness, Camera, Questing / Convenience, Appearance, Layout and Diagnostics.
+- [ ] Confirm the right-hand page title, description and bordered content area update with navigation.
+- [ ] Toggle several modern switches and confirm each changes only its labelled setting.
+- [ ] Confirm combos, sliders, colour pickers, collapsible sections and buttons remain readable and functional.
+- [ ] Unlock and lock the HUD; confirm the header status changes between `EDIT MODE` and `HUD LOCKED` without moving any HUD module.
+- [ ] Resize the configuration window down to its minimum and confirm navigation/content remain usable without overlap.
+- [ ] Collapse and restore the title bar; confirm normal Dalamud window behaviour remains intact.
+- [ ] In Appearance, switch to Classic and confirm the original tab layout returns immediately on the next frame.
+- [ ] From Classic Appearance, select Sentinel Modern and confirm the modern shell returns.
+- [ ] Use the modern sidebar's one-click Classic fallback and confirm no gameplay or layout setting changes.
+- [ ] Reload the plugin and restart FFXIV; confirm the selected configuration theme persists.
+- [ ] Confirm all pre-update module positions, sizes, colours and gameplay settings remain unchanged.
 
 ## Targeting Me Counter
 

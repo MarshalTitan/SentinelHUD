@@ -2,10 +2,11 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.2.0** · Dalamud API **15** · .NET **10**
+Current release: **0.8.3.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
+- Sentinel Modern configuration theme preview: midnight-navy surfaces, electric-blue controls, restrained violet/teal ambient rings, rounded cards, grouped sidebar navigation, modern switches and clear lock/edit status. Classic remains available from Appearance or the sidebar without changing HUD gameplay presentation.
 - Player: compact name/job/level header, independently selectable HP values, MP text/bar modes, integrated shield display, own-cast name/bar/percentage/remaining time and a compact status summary.
 - Target: compact player/NPC-aware header, independently selectable HP values, optional MP text/bar modes, distance, integrated shield display, cast information and statuses.
 - Focus target: name, HP, optional MP text/bar modes, distance, shield and cast information, plus a compact Focus Target's Target row with safe click-to-target.
@@ -49,7 +50,7 @@ Install **Sentinel HUD** from the plugin installer. No other Sentinel plugin is 
 
 ## Configuration
 
-Settings are separated into General, Player, Target, Focus Target, Target-of-Target, Awareness, Encounter Awareness, Camera, Questing / Convenience, Appearance, Layout and Diagnostics tabs. Module tabs use collapsible Visibility, Information, Size/Layout and Appearance groups. The configuration window uses the standard ImGui collapse control.
+Sentinel Modern organizes General, actor modules, Awareness, Encounter Awareness, Camera, Questing / Convenience, Appearance, Layout and Diagnostics through a persistent grouped sidebar and a bordered content card. Module pages retain collapsible Visibility, Information, Size/Layout and Appearance groups. The Appearance page can switch back to the original Classic tab layout at any time; the modern sidebar also has a one-click Classic fallback. The configuration window retains the standard ImGui collapse and close controls.
 
 HP presentation is controlled by independent current, maximum and percentage switches, allowing number-only, percentage-only, current/maximum or combined formats. Full numbers remain the default; Compact displays values such as `295.9k` and `12.48m`. Shield Display supports Off, Text Only, Bar Only and Bar + Text.
 
@@ -63,7 +64,7 @@ Focus Target's Target is a compact child row in the Focus Target module. It is r
 
 ### Configuration persistence
 
-Schema 10 performs stepwise migrations and changes only fields introduced by the applicable schema. Schema 8 added marker Style; schema 9 added Skip Dialogue, Skip Cutscenes and Quest Reward Selection with Off/Off/Manual migration defaults; schema 10 adds the Targeting Me Counter with its own default layout and presentation settings. Existing position, visibility, colour, camera, awareness and convenience values remain untouched. The earlier reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
+Schema 11 performs stepwise migrations and changes only fields introduced by the applicable schema. Schema 8 added marker Style; schema 9 added Skip Dialogue, Skip Cutscenes and Quest Reward Selection with Off/Off/Manual migration defaults; schema 10 added the Targeting Me Counter; schema 11 adds only the configuration-window theme selector and chooses Sentinel Modern for the preview. Existing position, visibility, colour, camera, awareness and convenience values remain untouched. The earlier reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
 
 ### Integrated health bars
 

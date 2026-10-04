@@ -12,6 +12,22 @@ namespace SentinelHUD.UI;
 
 public sealed class ConfigurationWindow : Window
 {
+    private enum ConfigurationPage
+    {
+        General,
+        Player,
+        Target,
+        FocusTarget,
+        TargetOfTarget,
+        Awareness,
+        EncounterAwareness,
+        Camera,
+        Convenience,
+        Appearance,
+        Layout,
+        Diagnostics,
+    }
+
     private static readonly string[] HighlightModes = ["Off", "Always", "Combat Only", "Duty Only"];
     private static readonly string[] HighlightColours = ["Yellow", "Green", "Blue", "White", "Custom"];
     private static readonly string[] DangerColours = ["Red", "Orange", "Yellow", "Custom"];
@@ -28,6 +44,7 @@ public sealed class ConfigurationWindow : Window
     private static readonly string[] NativeOverlayFormats = ["Current / Maximum", "Percentage", "Current / Maximum + Percentage"];
     private static readonly string[] QuestRewardModes = ["Manual", "First Reward", "Current Job Reward", "Allagan Piece"];
     private static readonly string[] PvPThreatVisibilityModes = ["All PvP Duties", "Frontline Only"];
+    private static readonly string[] ConfigurationThemes = ["Classic", "Sentinel Modern"];
 
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer renderer;
@@ -35,6 +52,9 @@ public sealed class ConfigurationWindow : Window
     private readonly DiagnosticBuffer diagnostics;
     private readonly ResilientConfigurationStore configurationStore;
     private int selectedLayoutModule;
+    private ConfigurationPage selectedPage;
+    private bool modernThemeActive;
+    private IDisposable? activeStyleScope;
 
     public ConfigurationWindow(
         ConfigurationCoordinator<Configuration> configuration,
@@ -49,15 +69,42 @@ public sealed class ConfigurationWindow : Window
         this.questConvenience = questConvenience;
         this.diagnostics = diagnostics;
         this.configurationStore = configurationStore;
-        Size = new Vector2(760f, 720f);
+        Size = new Vector2(920f, 720f);
         SizeCondition = ImGuiCond.FirstUseEver;
-        SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(640f, 540f) };
+        SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(720f, 560f) };
+    }
+
+    public override void PreDraw()
+    {
+        activeStyleScope?.Dispose();
+        modernThemeActive = configuration.Current.Appearance.ConfigurationTheme
+                            == ConfigurationWindowTheme.SentinelModern;
+        activeStyleScope = modernThemeActive
+            ? ModernConfigurationTheme.Push()
+            : SentinelStyleScope.PushWindow();
+    }
+
+    public override void PostDraw()
+    {
+        activeStyleScope?.Dispose();
+        activeStyleScope = null;
     }
 
     public override void Draw()
     {
-        using var style = SentinelStyleScope.PushWindow();
-        SentinelUi.SectionHeader("Sentinel HUD");
+        if (modernThemeActive)
+        {
+            ModernConfigurationTheme.DrawBackdrop();
+            DrawModernShell();
+            return;
+        }
+
+        DrawClassicShell();
+    }
+
+    private void DrawClassicShell()
+    {
+        DrawSectionHeader("Sentinel HUD");
         ImGui.TextDisabled("Modular enhancements for the native FFXIV HUD");
         ImGui.Spacing();
         if (!ImGui.BeginTabBar("SentinelHUD-SettingsTabs"))
@@ -80,6 +127,157 @@ public sealed class ConfigurationWindow : Window
         finally
         {
             ImGui.EndTabBar();
+        }
+    }
+
+    private void DrawModernShell()
+    {
+        DrawModernHeader();
+        ImGui.Spacing();
+
+        var available = ImGui.GetContentRegionAvail();
+        var sidebarWidth = Math.Clamp(available.X * 0.225f, 182f, 218f);
+        if (ImGui.BeginChild("SentinelHUD-ModernNavigation", new Vector2(sidebarWidth, available.Y), true))
+            DrawModernNavigation();
+        ImGui.EndChild();
+
+        ImGui.SameLine();
+        if (ImGui.BeginChild("SentinelHUD-ModernContent", Vector2.Zero, false))
+        {
+            DrawModernPageHeading();
+            ImGui.Spacing();
+            if (ImGui.BeginChild("SentinelHUD-ModernPageCard", Vector2.Zero, true))
+                DrawSelectedPage();
+            ImGui.EndChild();
+        }
+        ImGui.EndChild();
+    }
+
+    private void DrawModernHeader()
+    {
+        if (!ImGui.BeginChild("SentinelHUD-ModernHeader", new Vector2(0f, 76f), true))
+        {
+            ImGui.EndChild();
+            return;
+        }
+
+        ImGui.TextColored(ModernConfigurationTheme.AccentStrong, "MARSHALTITAN  /  SENTINEL");
+        ImGui.TextColored(ModernConfigurationTheme.Text, "SENTINEL HUD");
+        ImGui.SameLine();
+        ImGui.TextColored(ModernConfigurationTheme.Muted, "Modern preview");
+        ImGui.TextColored(ModernConfigurationTheme.Muted,
+            "Modular awareness and native-HUD enhancements");
+
+        var status = configuration.Current.Locked ? "HUD LOCKED" : "EDIT MODE";
+        var statusColour = configuration.Current.Locked
+            ? ModernConfigurationTheme.Accent
+            : ModernConfigurationTheme.Rose;
+        var statusSize = ImGui.CalcTextSize(status);
+        ImGui.SetCursorPos(new Vector2(
+            MathF.Max(12f, ImGui.GetWindowWidth() - statusSize.X - 36f),
+            24f));
+        ImGui.TextColored(statusColour, $"●  {status}");
+        ImGui.EndChild();
+    }
+
+    private void DrawModernNavigation()
+    {
+        ImGui.TextColored(ModernConfigurationTheme.Muted, "SETTINGS");
+        ImGui.Spacing();
+        DrawNavigationItem(ConfigurationPage.General, "General");
+
+        ImGui.Spacing();
+        ImGui.TextColored(ModernConfigurationTheme.Subtle, "HUD MODULES");
+        DrawNavigationItem(ConfigurationPage.Player, "Player");
+        DrawNavigationItem(ConfigurationPage.Target, "Target");
+        DrawNavigationItem(ConfigurationPage.FocusTarget, "Focus Target");
+        DrawNavigationItem(ConfigurationPage.TargetOfTarget, "Target-of-Target");
+
+        ImGui.Spacing();
+        ImGui.TextColored(ModernConfigurationTheme.Subtle, "SYSTEMS");
+        DrawNavigationItem(ConfigurationPage.Awareness, "Awareness");
+        DrawNavigationItem(ConfigurationPage.EncounterAwareness, "Encounter Awareness");
+        DrawNavigationItem(ConfigurationPage.Camera, "Camera");
+        DrawNavigationItem(ConfigurationPage.Convenience, "Questing / Convenience");
+
+        ImGui.Spacing();
+        ImGui.TextColored(ModernConfigurationTheme.Subtle, "TOOLS");
+        DrawNavigationItem(ConfigurationPage.Appearance, "Appearance");
+        DrawNavigationItem(ConfigurationPage.Layout, "Layout");
+        DrawNavigationItem(ConfigurationPage.Diagnostics, "Diagnostics");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.TextColored(ModernConfigurationTheme.Muted, "SENTINEL MODERN PREVIEW");
+        if (ImGui.Button("Use Classic theme", new Vector2(-1f, 0f)))
+            Update(c => c.Appearance.ConfigurationTheme = ConfigurationWindowTheme.Classic);
+    }
+
+    private void DrawNavigationItem(ConfigurationPage page, string label)
+    {
+        var selected = selectedPage == page;
+        if (selected)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(0.115f, 0.245f, 0.465f, 0.95f));
+            ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Vector4(0.135f, 0.285f, 0.530f, 1f));
+            ImGui.PushStyleColor(ImGuiCol.Text, ModernConfigurationTheme.Text);
+        }
+
+        if (ImGui.Selectable($"{label}##ModernNav-{page}", selected, ImGuiSelectableFlags.None,
+                new Vector2(0f, 31f)))
+            selectedPage = page;
+
+        if (selected)
+        {
+            var minimum = ImGui.GetItemRectMin();
+            var maximum = ImGui.GetItemRectMax();
+            ImGui.GetWindowDrawList().AddRectFilled(
+                minimum,
+                new Vector2(minimum.X + 4f, maximum.Y),
+                ImGui.ColorConvertFloat4ToU32(ModernConfigurationTheme.Accent),
+                3f);
+            ImGui.PopStyleColor(3);
+        }
+    }
+
+    private void DrawModernPageHeading()
+    {
+        var (title, description) = selectedPage switch
+        {
+            ConfigurationPage.General => ("General", "Global state, editing mode and shared HUD behaviour."),
+            ConfigurationPage.Player => ("Player", "Choose exactly what your own compact actor panel displays."),
+            ConfigurationPage.Target => ("Target", "Target data, casting information and native target-bar overlay."),
+            ConfigurationPage.FocusTarget => ("Focus Target", "Focus information and the focus target's current target."),
+            ConfigurationPage.TargetOfTarget => ("Target-of-Target", "A compact, independently positioned represented-actor panel."),
+            ConfigurationPage.Awareness => ("Awareness", "Self visibility, true-position marker and incoming PvP attention."),
+            ConfigurationPage.EncounterAwareness => ("Encounter Awareness", "Trusted hazard providers and exact-position danger feedback."),
+            ConfigurationPage.Camera => ("Camera", "Optional extended third-person zoom with conflict-safe restoration."),
+            ConfigurationPage.Convenience => ("Questing / Convenience", "Independent opt-in dialogue, cutscene, reward and AFK helpers."),
+            ConfigurationPage.Appearance => ("Appearance", "Sentinel presentation and shared bar-colour choices."),
+            ConfigurationPage.Layout => ("Layout", "Visual editor, reset tools and appearance-copy actions."),
+            _ => ("Diagnostics", "Live state and compact evidence for troubleshooting."),
+        };
+
+        ImGui.TextColored(ModernConfigurationTheme.Text, title);
+        ImGui.TextColored(ModernConfigurationTheme.Muted, description);
+    }
+
+    private void DrawSelectedPage()
+    {
+        switch (selectedPage)
+        {
+            case ConfigurationPage.General: DrawGeneral(); break;
+            case ConfigurationPage.Player: DrawPlayer(); break;
+            case ConfigurationPage.Target: DrawTarget(); break;
+            case ConfigurationPage.FocusTarget: DrawFocusTarget(); break;
+            case ConfigurationPage.TargetOfTarget: DrawTargetOfTarget(); break;
+            case ConfigurationPage.Awareness: DrawAwareness(); break;
+            case ConfigurationPage.EncounterAwareness: DrawEncounterAwareness(); break;
+            case ConfigurationPage.Camera: DrawCamera(); break;
+            case ConfigurationPage.Convenience: DrawConvenience(); break;
+            case ConfigurationPage.Appearance: DrawAppearance(); break;
+            case ConfigurationPage.Layout: DrawLayout(); break;
+            case ConfigurationPage.Diagnostics: DrawDiagnostics(); break;
         }
     }
 
@@ -242,7 +440,7 @@ public sealed class ConfigurationWindow : Window
 
     private void DrawAwareness()
     {
-        SentinelUi.SectionHeader("Self Highlight");
+        DrawSectionHeader("Self Highlight");
         var highlight = configuration.Current.SelfHighlight;
         ImGui.TextWrapped("Uses FFXIV's native model-conforming silhouette renderer without changing any targeting state.");
         var mode = (int)highlight.Mode;
@@ -263,7 +461,7 @@ public sealed class ConfigurationWindow : Window
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        SentinelUi.SectionHeader("Player Position Marker");
+        DrawSectionHeader("Player Position Marker");
         var marker = configuration.Current.PlayerPositionMarker;
         var markerMode = (int)marker.Mode;
         if (ImGui.Combo("Mode##PositionMarker", ref markerMode, HighlightModes, HighlightModes.Length))
@@ -311,7 +509,7 @@ public sealed class ConfigurationWindow : Window
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        SentinelUi.SectionHeader("Threat Awareness");
+        DrawSectionHeader("Threat Awareness");
         var threat = configuration.Current.TargetingMeCounter;
         DrawToggle("Enable Targeting Me Counter", threat.Enabled,
             value => Update(c => c.TargetingMeCounter.Enabled = value));
@@ -377,13 +575,13 @@ public sealed class ConfigurationWindow : Window
     {
         var encounter = configuration.Current.EncounterAwareness;
         var marker = configuration.Current.PlayerPositionMarker;
-        SentinelUi.SectionHeader("General");
+        DrawSectionHeader("General");
         DrawToggle("Enable Encounter Awareness", encounter.Enabled,
             value => Update(c => c.EncounterAwareness.Enabled = value));
         ImGui.TextWrapped("Hazards are isolated behind providers. The marker tests the local player's actual world-position point against cached world-space geometry.");
 
         ImGui.Spacing();
-        SentinelUi.SectionHeader("Player Danger");
+        DrawSectionHeader("Player Danger");
         DrawToggle("Change Position Marker colour when unsafe", marker.DangerDetectionEnabled,
             value => Update(c => c.PlayerPositionMarker.DangerDetectionEnabled = value));
         var dangerPreset = (int)marker.DangerColourPreset;
@@ -405,7 +603,7 @@ public sealed class ConfigurationWindow : Window
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        SentinelUi.SectionHeader("Native Detection");
+        DrawSectionHeader("Native Detection");
         DrawToggle("Enable conservative visible-cast detection", encounter.NativeDetectionEnabled,
             value => Update(c => c.EncounterAwareness.NativeDetectionEnabled = value));
         ImGui.TextWrapped("Uses hostile casts only when current action data exposes a supported standard circle, donut, rectangle, cone, line or cross and a native omen/telegraph. Unknown and boss-specific mechanics are skipped rather than guessed.");
@@ -414,7 +612,7 @@ public sealed class ConfigurationWindow : Window
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        SentinelUi.SectionHeader("Splatoon Integration");
+        DrawSectionHeader("Splatoon Integration");
         DrawToggle("Enable optional Splatoon IPC", encounter.SplatoonIntegrationEnabled,
             value => Update(c => c.EncounterAwareness.SplatoonIntegrationEnabled = value));
         DrawToggle("Treat unclassified visible Splatoon geometry as danger",
@@ -430,7 +628,7 @@ public sealed class ConfigurationWindow : Window
     private void DrawConvenience()
     {
         var convenience = configuration.Current.Convenience;
-        SentinelUi.SectionHeader("Questing / Convenience");
+        DrawSectionHeader("Questing / Convenience");
         DrawToggle("Skip Dialogue", convenience.SkipDialogue,
             value => Update(c => c.Convenience.SkipDialogue = value));
         ImGui.TextWrapped("Advances only the ordinary Talk text box. Sentinel pauses whenever a response list or Yes/No prompt is visible and never chooses a dialogue response.");
@@ -446,7 +644,7 @@ public sealed class ConfigurationWindow : Window
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        SentinelUi.SectionHeader("Quest Reward Selection");
+        DrawSectionHeader("Quest Reward Selection");
         var rewardMode = (int)convenience.QuestRewardSelection;
         if (ImGui.Combo("Reward selection", ref rewardMode, QuestRewardModes, QuestRewardModes.Length))
             Update(c => c.Convenience.QuestRewardSelection = (QuestRewardSelectionMode)rewardMode);
@@ -457,7 +655,7 @@ public sealed class ConfigurationWindow : Window
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
-        SentinelUi.SectionHeader("Prevent AFK Disconnect");
+        DrawSectionHeader("Prevent AFK Disconnect");
         DrawToggle("Prevent AFK Disconnect", convenience.PreventAfkDisconnect,
             value => Update(c => c.Convenience.PreventAfkDisconnect = value));
         ImGui.TextWrapped("Default Off. When enabled, Sentinel periodically resets the client's inactivity timers directly. It does not move your character, send chat, synthesize keys, or alter controller input. Disabling resumes ordinary timer accumulation.");
@@ -466,7 +664,7 @@ public sealed class ConfigurationWindow : Window
 
     private void DrawCamera()
     {
-        SentinelUi.SectionHeader("Extended Zoom");
+        DrawSectionHeader("Extended Zoom");
         var camera = configuration.Current.Camera;
         DrawToggle("Extended zoom enabled", camera.Enabled, value => Update(c => c.Camera.Enabled = value));
         var maximum = camera.MaximumZoomDistance;
@@ -490,8 +688,16 @@ public sealed class ConfigurationWindow : Window
 
     private void DrawAppearance()
     {
-        SentinelUi.SectionHeader("Bar Colours");
         var appearance = configuration.Current.Appearance;
+        DrawSectionHeader("Configuration Window");
+        var configurationTheme = (int)appearance.ConfigurationTheme;
+        ImGui.SetNextItemWidth(260f);
+        if (ImGui.Combo("Theme", ref configurationTheme, ConfigurationThemes, ConfigurationThemes.Length))
+            Update(c => c.Appearance.ConfigurationTheme = (ConfigurationWindowTheme)configurationTheme);
+        ImGui.TextWrapped("Sentinel Modern uses the new midnight-blue, violet and electric-blue visual language. Classic remains available as a permanent fallback while the theme is being tested.");
+
+        ImGui.Spacing();
+        DrawSectionHeader("Bar Colours");
         var playerMode = (int)appearance.PlayerHpColourMode;
         if (ImGui.Combo("Player HP colour mode", ref playerMode, HpColourModes, HpColourModes.Length))
             Update(c => c.Appearance.PlayerHpColourMode = (HpColourMode)playerMode);
@@ -772,8 +978,21 @@ public sealed class ConfigurationWindow : Window
         DrawToggle("Show HP percentage", percentage, setPercentage);
     }
 
-    private static bool OpenSection(string title)
-        => ImGui.CollapsingHeader(title, ImGuiTreeNodeFlags.DefaultOpen);
+    private bool OpenSection(string title)
+    {
+        if (!modernThemeActive)
+            return ImGui.CollapsingHeader(title, ImGuiTreeNodeFlags.DefaultOpen);
+
+        ImGui.Spacing();
+        ImGui.PushStyleColor(ImGuiCol.Header, ModernConfigurationTheme.SurfaceRaised);
+        ImGui.PushStyleColor(ImGuiCol.HeaderHovered, ModernConfigurationTheme.SurfaceHover);
+        ImGui.PushStyleColor(ImGuiCol.HeaderActive, new Vector4(0.125f, 0.225f, 0.420f, 1f));
+        var open = ImGui.CollapsingHeader(title, ImGuiTreeNodeFlags.DefaultOpen);
+        ImGui.PopStyleColor(3);
+        if (open)
+            ImGui.Spacing();
+        return open;
+    }
 
     private static void DrawTab(string title, Action draw)
     {
@@ -792,11 +1011,79 @@ public sealed class ConfigurationWindow : Window
 
     private bool DrawToggle(string label, bool current, Action<bool> setter)
     {
+        if (modernThemeActive)
+            return DrawModernToggle(label, current, setter);
+
         var value = current;
         if (!ImGui.Checkbox(label, ref value))
             return false;
         setter(value);
         return true;
+    }
+
+    private static bool DrawModernToggle(string label, bool current, Action<bool> setter)
+    {
+        var visibleLabel = label.Split("##", 2, StringSplitOptions.None)[0];
+        var width = MathF.Max(180f, ImGui.GetContentRegionAvail().X);
+        const float rowHeight = 30f;
+        const float trackWidth = 40f;
+        const float trackHeight = 20f;
+        var origin = ImGui.GetCursorScreenPos();
+        ImGui.InvisibleButton($"##SentinelModernToggle-{label}", new Vector2(width, rowHeight));
+        var hovered = ImGui.IsItemHovered();
+        var changed = ImGui.IsItemClicked(ImGuiMouseButton.Left);
+        var value = changed ? !current : current;
+
+        var drawList = ImGui.GetWindowDrawList();
+        if (hovered)
+        {
+            drawList.AddRectFilled(
+                origin,
+                origin + new Vector2(width, rowHeight),
+                ImGui.ColorConvertFloat4ToU32(new Vector4(0.10f, 0.14f, 0.25f, 0.58f)),
+                7f);
+        }
+
+        var textSize = ImGui.CalcTextSize(visibleLabel);
+        drawList.AddText(
+            origin + new Vector2(4f, (rowHeight - textSize.Y) * 0.5f),
+            ImGui.ColorConvertFloat4ToU32(ModernConfigurationTheme.Text),
+            visibleLabel);
+
+        var trackMin = origin + new Vector2(width - trackWidth - 4f, (rowHeight - trackHeight) * 0.5f);
+        var trackMax = trackMin + new Vector2(trackWidth, trackHeight);
+        var trackColour = value
+            ? ModernConfigurationTheme.Accent
+            : new Vector4(0.215f, 0.250f, 0.335f, 1f);
+        drawList.AddRectFilled(trackMin, trackMax,
+            ImGui.ColorConvertFloat4ToU32(trackColour), trackHeight * 0.5f);
+        var knobRadius = 7f;
+        var knobCenter = new Vector2(
+            value ? trackMax.X - 10f : trackMin.X + 10f,
+            trackMin.Y + trackHeight * 0.5f);
+        drawList.AddCircleFilled(knobCenter, knobRadius,
+            ImGui.ColorConvertFloat4ToU32(value
+                ? new Vector4(0.96f, 0.98f, 1f, 1f)
+                : new Vector4(0.72f, 0.75f, 0.82f, 1f)), 24);
+
+        if (changed)
+            setter(value);
+        return changed;
+    }
+
+    private void DrawSectionHeader(string title)
+    {
+        if (!modernThemeActive)
+        {
+            SentinelUi.SectionHeader(title);
+            return;
+        }
+
+        ImGui.TextColored(ModernConfigurationTheme.AccentStrong, title.ToUpperInvariant());
+        ImGui.PushStyleColor(ImGuiCol.Separator, new Vector4(0.20f, 0.34f, 0.58f, 0.82f));
+        ImGui.Separator();
+        ImGui.PopStyleColor();
+        ImGui.Spacing();
     }
 
     private void Update(Action<Configuration> mutation) => configuration.Update(mutation);

@@ -119,6 +119,12 @@ public enum PvPThreatVisibility
     FrontlineOnly,
 }
 
+public enum ConfigurationWindowTheme
+{
+    Classic,
+    SentinelModern,
+}
+
 public sealed class ModuleLayoutConfiguration
 {
     public float AnchorX { get; set; }
@@ -347,6 +353,7 @@ public sealed class NativeTargetOverlayConfiguration
 
 public sealed class HudAppearanceConfiguration
 {
+    public ConfigurationWindowTheme ConfigurationTheme { get; set; } = ConfigurationWindowTheme.SentinelModern;
     public HpColourMode PlayerHpColourMode { get; set; } = HpColourMode.StaticRoleBased;
     public HpColourMode TargetHpColourMode { get; set; } = HpColourMode.StaticRoleBased;
     public SerializableColour PlayerHealth { get; set; } = new() { Red = 0.28f, Green = 0.76f, Blue = 0.43f, Alpha = 1f };
@@ -365,7 +372,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 10;
+    public const int CurrentVersion = 11;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -586,6 +593,8 @@ public static class HudConfigurationMigrator
             configuration.Convenience.QuestRewardSelection = QuestRewardSelectionMode.Manual;
         if (!Enum.IsDefined(configuration.TargetingMeCounter.PvPVisibility))
             configuration.TargetingMeCounter.PvPVisibility = PvPThreatVisibility.FrontlineOnly;
+        if (!Enum.IsDefined(configuration.Appearance.ConfigurationTheme))
+            configuration.Appearance.ConfigurationTheme = ConfigurationWindowTheme.SentinelModern;
 
         configuration.TargetingMeCounter.NumberSize = ClampFinite(
             configuration.TargetingMeCounter.NumberSize, 24f, 120f, 64f);
@@ -720,6 +729,12 @@ public static class HudConfigurationMigrator
                     // awareness, camera and quest-convenience values remain untouched.
                     configuration.TargetingMeCounter = HudConfigurationDefaults.CreateTargetingMeCounter();
                     version = 10;
+                    break;
+                case 10:
+                    // Schema 11 adds only the configuration-window presentation selector.
+                    // HUD layout, module styling and every gameplay setting remain untouched.
+                    configuration.Appearance.ConfigurationTheme = ConfigurationWindowTheme.SentinelModern;
+                    version = 11;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;

@@ -16,6 +16,7 @@ var tests = new (string Name, Action Run)[]
     ("version-seven marker style migration", TestVersionSevenMarkerStyleMigration),
     ("version-eight quest convenience migration", TestVersionEightQuestConvenienceMigration),
     ("version-nine targeting-me migration", TestVersionNineTargetingMeMigration),
+    ("version-ten modern-theme migration", TestVersionTenModernThemeMigration),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
@@ -114,6 +115,7 @@ static void TestDefaults()
     Equal(MpDisplayMode.Off, config.FocusTarget.MpDisplay);
     Equal(HpColourMode.StaticRoleBased, config.Appearance.PlayerHpColourMode);
     Equal(HpColourMode.StaticRoleBased, config.Appearance.TargetHpColourMode);
+    Equal(ConfigurationWindowTheme.SentinelModern, config.Appearance.ConfigurationTheme);
     Equal(320f, config.Target.Width);
     Equal(20f, config.Target.BarHeight);
     Equal(new Vector4(0.88f, 0.20f, 0.18f, 1f), config.Appearance.HostileHealth.ToVector4());
@@ -1014,6 +1016,34 @@ static void TestVersionNineTargetingMeMigration()
     False(source.TargetingMeCounter.BorderEnabled);
     Near(0.45f, source.TargetingMeCounter.Layout.AnchorX);
     Near(0.24f, source.TargetingMeCounter.Layout.AnchorY);
+}
+
+static void TestVersionTenModernThemeMigration()
+{
+    var versionA = new HudConfigurationData
+    {
+        Version = 10,
+        Locked = false,
+    };
+    versionA.Player.Layout.AnchorX = 0.271f;
+    versionA.Target.Width = 492f;
+    versionA.Convenience.SkipCutscenes = true;
+    versionA.SelfHighlight.Mode = SelfHighlightMode.Always;
+
+    var document = JsonNode.Parse(JsonSerializer.Serialize(versionA))!.AsObject();
+    document["Appearance"]!.AsObject().Remove("ConfigurationTheme");
+    var source = JsonSerializer.Deserialize<HudConfigurationData>(document.ToJsonString());
+    NotNull(source);
+
+    HudConfigurationMigrator.Normalize(source!);
+
+    Equal(HudConfigurationData.CurrentVersion, source!.Version);
+    Equal(ConfigurationWindowTheme.SentinelModern, source.Appearance.ConfigurationTheme);
+    False(source.Locked);
+    Near(0.271f, source.Player.Layout.AnchorX);
+    Near(492f, source.Target.Width);
+    True(source.Convenience.SkipCutscenes);
+    Equal(SelfHighlightMode.Always, source.SelfHighlight.Mode);
 }
 
 static void TestDangerGeometryContainment()

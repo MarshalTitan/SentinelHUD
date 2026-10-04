@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Fixes automatic confirmation of FFXIV's normal cutscene-skip prompt, including the list-style prompt used by FC submarine interactions. Sentinel now opens the game-provided skip dialog, tracks a five-second contextual confirmation token, resolves the exact addon published by AgentCutscene, and executes the Yes option through the addon's selection callback. It never enables a generic auto-Yes path, leaves protected cutscenes alone, clears pending state on every lifecycle boundary, and adds focused state-machine tests and diagnostics."
+            --notes "Introduces the first Sentinel Modern theme preview in Sentinel HUD. The configuration window now has a midnight-navy, electric-blue and violet visual system with ambient layered rings, rounded bordered surfaces, grouped sidebar navigation, clearer page summaries, custom switch controls and live lock/edit status. Classic remains available as a one-click fallback. Schema 11 stores only the selected configuration-window theme and preserves all existing HUD positions, sizes, colours, modules, awareness, camera and convenience settings."
 
       - name: Verify public release asset
         shell: pwsh
