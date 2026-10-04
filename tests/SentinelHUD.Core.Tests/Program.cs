@@ -1161,6 +1161,25 @@ static void TestQuestRewardSelectionPolicy()
 
 static void TestCutsceneSkipConfirmationPolicy()
 {
+    True(CutsceneSkipPromptPolicy.TryMatch(
+        CutsceneSkipPromptPolicy.SelectStringAddonName,
+        42,
+        42,
+        out var selectStringKind));
+    Equal(CutsceneSkipPromptKind.SelectString, selectStringKind);
+
+    True(CutsceneSkipPromptPolicy.TryMatch(
+        CutsceneSkipPromptPolicy.CutSceneSelectStringAddonName,
+        43,
+        43,
+        out var cutSceneSelectStringKind));
+    Equal(CutsceneSkipPromptKind.CutSceneSelectString, cutSceneSelectStringKind);
+
+    False(CutsceneSkipPromptPolicy.TryMatch("SelectYesno", 42, 42, out _));
+    False(CutsceneSkipPromptPolicy.TryMatch("SelectString", 41, 42, out _));
+    False(CutsceneSkipPromptPolicy.TryMatch("SelectString", 0, 0, out _));
+    False(CutsceneSkipPromptPolicy.TryMatch("SelectString", 42, ushort.MaxValue + 1u, out _));
+
     var pending = CutsceneSkipConfirmationState.Begin(1_000, 5_000);
     True(pending.Pending);
     False(pending.PromptObserved);

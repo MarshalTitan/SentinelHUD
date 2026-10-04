@@ -39,6 +39,11 @@ public sealed unsafe class QuestConvenienceService : IDisposable
         "SelectIconString",
         "SelectYesno",
     ];
+    private static readonly string[] CutsceneSkipPromptAddonNames =
+    [
+        CutsceneSkipPromptPolicy.SelectStringAddonName,
+        CutsceneSkipPromptPolicy.CutSceneSelectStringAddonName,
+    ];
 
     private readonly IGameGui gameGui;
     private readonly ICondition condition;
@@ -186,7 +191,11 @@ public sealed unsafe class QuestConvenienceService : IDisposable
         // eligible simply because it happens to be visible.
         if (cutsceneConfirmation.Pending)
         {
-            var promptVisible = TryResolveCutsceneSkipPrompt(agent, out var prompt, out var addonIdentity,
+            var promptVisible = TryResolveCutsceneSkipPrompt(
+                agent,
+                out var promptAddonName,
+                out var promptAddonId,
+                out var addonIdentity,
                 out var confirmationAvailable);
             if (promptVisible)
             {
@@ -204,7 +213,7 @@ public sealed unsafe class QuestConvenienceService : IDisposable
                     if (now < nextCutsceneConfirmationTick)
                         return;
                     nextCutsceneConfirmationTick = now + CutsceneConfirmationRetryIntervalMilliseconds;
-                    if (prompt is not null && prompt->FireCallbackInt(0))
+                    if (TryConfirmCutsceneSkipPrompt(agent, promptAddonName, promptAddonId))
                     {
                         cutsceneConfirmation = default;
                         cutsceneAttemptFinished = true;
@@ -288,6 +297,15 @@ public sealed unsafe class QuestConvenienceService : IDisposable
             return;
         }
 
+        // Never open a skip prompt over an existing selection dialog. Besides being confusing to
+        // the player, an already-visible selection cannot be proven to have resulted from our
+        // request token.
+        if (CutsceneSkipPromptAddonNames.Any(IsAddonVisible))
+        {
+            CutsceneState = "Cutscene active; waiting for an existing selection dialog to close";
+            return;
+        }
+
         if (agent->OpenSkipDialog(input->CutsceneSkipCallback))
         {
             cutsceneConfirmation = CutsceneSkipConfirmationState.Begin(
@@ -308,50 +326,61 @@ public sealed unsafe class QuestConvenienceService : IDisposable
 
     private bool TryResolveCutsceneSkipPrompt(
         AgentCutscene* agent,
-        out AtkUnitBase* prompt,
+        out string promptAddonName,
+        out ushort promptAddonId,
         out string addonIdentity,
         out bool confirmationAvailable)
     {
-        prompt = null;
+        promptAddonName = string.Empty;
+        promptAddonId = 0;
         addonIdentity = "None";
         confirmationAvailable = false;
 
-        if (agent is not null && agent->SkipDialogAddonId is > 0 and <= ushort.MaxValue)
+        if (agent is null || agent->SkipDialogAddonId is 0 or > ushort.MaxValue)
+            return false;
+
+        foreach (var addonName in CutsceneSkipPromptAddonNames)
         {
-            var manager = RaptureAtkUnitManager.Instance();
-            var byId = manager is null
-                ? null
-                : ((AtkUnitManager*)manager)->GetAddonById((ushort)agent->SkipDialogAddonId);
-            if (IsAddonVisible(byId))
+            var candidate = GetVisibleAddon<AtkUnitBase>(addonName);
+            if (!IsAddonVisible(candidate)
+                || !CutsceneSkipPromptPolicy.TryMatch(
+                    addonName,
+                    candidate->Id,
+                    agent->SkipDialogAddonId,
+                    out var promptKind))
             {
-                prompt = byId;
-                addonIdentity = $"AgentCutscene skip addon #{agent->SkipDialogAddonId}";
-                confirmationAvailable = IsCutsceneSkipConfirmationAvailable((AddonCutSceneSelectString*)byId);
-                return true;
+                continue;
             }
+
+            promptAddonName = addonName;
+            promptAddonId = candidate->Id;
+            addonIdentity = $"{promptKind} #{promptAddonId}";
+            confirmationAvailable = true;
+            return true;
         }
 
-        // Current API 15 identifies the normal list-style prompt by this dedicated addon name.
-        // This fallback covers the first setup frames before AgentCutscene publishes its addon ID.
-        var named = GetVisibleAddon<AddonCutSceneSelectString>("CutSceneSelectString");
-        if (named is null)
-            return false;
-
-        prompt = (AtkUnitBase*)named;
-        addonIdentity = "CutSceneSelectString";
-        confirmationAvailable = IsCutsceneSkipConfirmationAvailable(named);
-        return true;
+        return false;
     }
 
-    private static bool IsCutsceneSkipConfirmationAvailable(AddonCutSceneSelectString* prompt)
+    private bool TryConfirmCutsceneSkipPrompt(
+        AgentCutscene* agent,
+        string addonName,
+        ushort expectedAddonId)
     {
-        if (prompt is null || !IsAddonVisible((AtkUnitBase*)prompt))
+        if (agent is null || agent->SkipDialogAddonId != expectedAddonId)
             return false;
 
-        var list = prompt->OptionList;
-        return list is not null
-               && list->GetItemCount() >= 2
-               && !list->GetItemDisabledState(0);
+        // Re-resolve on the action frame. No pointer is retained between updates, and no derived
+        // addon layout is dereferenced: the two live crash dumps showed that treating the ID-only
+        // result as AddonCutSceneSelectString could read OptionList from the wrong layout.
+        var prompt = GetVisibleAddon<AtkUnitBase>(addonName);
+        return IsAddonVisible(prompt)
+               && CutsceneSkipPromptPolicy.TryMatch(
+                   addonName,
+                   prompt->Id,
+                   expectedAddonId,
+                   out _)
+               && prompt->FireCallbackInt(0);
     }
 
     private void UpdateRewards(QuestRewardSelectionMode mode, bool isLoggedIn, long now)

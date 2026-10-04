@@ -8,6 +8,43 @@ public enum CutsceneSkipConfirmationDecision
     TimedOut,
 }
 
+public enum CutsceneSkipPromptKind
+{
+    None,
+    SelectString,
+    CutSceneSelectString,
+}
+
+/// <summary>
+/// Matches only the two game addon identities currently used for cutscene-skip selection and
+/// requires the visible addon's live ID to equal the ID published by <c>AgentCutscene</c>.
+/// Keeping this policy platform-neutral makes the fail-closed identity gate regression-testable.
+/// </summary>
+public static class CutsceneSkipPromptPolicy
+{
+    public const string SelectStringAddonName = "SelectString";
+    public const string CutSceneSelectStringAddonName = "CutSceneSelectString";
+
+    public static bool TryMatch(
+        string? addonName,
+        uint observedAddonId,
+        uint expectedAddonId,
+        out CutsceneSkipPromptKind kind)
+    {
+        kind = CutsceneSkipPromptKind.None;
+        if (expectedAddonId is 0 or > ushort.MaxValue || observedAddonId != expectedAddonId)
+            return false;
+
+        kind = addonName switch
+        {
+            SelectStringAddonName => CutsceneSkipPromptKind.SelectString,
+            CutSceneSelectStringAddonName => CutsceneSkipPromptKind.CutSceneSelectString,
+            _ => CutsceneSkipPromptKind.None,
+        };
+        return kind != CutsceneSkipPromptKind.None;
+    }
+}
+
 public readonly record struct CutsceneSkipConfirmationState(
     bool Pending,
     bool PromptObserved,

@@ -1,4 +1,4 @@
-# Sentinel HUD 0.8.3.0 — Live Test
+# Sentinel HUD 0.8.3.1 — Live Test
 
 ## Startup and configuration migration
 
@@ -307,6 +307,9 @@
 - [ ] After a skipped cutscene, open an unrelated Yes/No prompt and confirm Sentinel does not answer it.
 - [ ] Manually dismiss/cancel a skip prompt before Sentinel confirms it where practical; confirm no later unrelated prompt is accepted.
 - [ ] Turn Skip Cutscenes Off while a request is pending; confirm pending state clears and subsequent cutscenes behave normally.
+- [ ] With AutoRetainer disabled, deploy an FC submarine and confirm `Skip cutscene?` is accepted without a crash.
+- [ ] With AutoRetainer enabled and its skipper active, repeat once; confirm whichever plugin acts first closes the prompt and Sentinel fails closed without a crash or unrelated confirmation.
+- [ ] After a submarine cutscene, open an unrelated SelectString or Yes/No prompt and confirm Sentinel does not select it.
 - [ ] Change territory or log out while pending where practical; confirm pending state clears.
 - [ ] In Diagnostics, confirm the progression reports skip request, waiting, detected addon, Yes selected and completion without frame-by-frame log spam.
 - [ ] Finish or leave the cutscene and confirm the service resets cleanly for the next one.

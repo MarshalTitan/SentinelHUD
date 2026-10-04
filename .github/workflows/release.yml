@@ -77,7 +77,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Introduces the first Sentinel Modern theme preview in Sentinel HUD. The configuration window now has a midnight-navy, electric-blue and violet visual system with ambient layered rings, rounded bordered surfaces, grouped sidebar navigation, clearer page summaries, custom switch controls and live lock/edit status. Classic remains available as a one-click fallback. Schema 11 stores only the selected configuration-window theme and preserves all existing HUD positions, sizes, colours, modules, awareness, camera and convenience settings."
+            --notes "Hotfixes Skip Cutscenes after two FC submarine transition crash dumps identified an unsafe derived-addon layout assumption. Sentinel now accepts only the exact SelectString/CutSceneSelectString name whose live ID matches AgentCutscene, re-resolves it before confirmation, and never dereferences the former OptionList pointer. Competing skippers fail closed safely. No configuration migration or reset is required."
 
       - name: Verify public release asset
         shell: pwsh
