@@ -2,11 +2,11 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.3.1** · Dalamud API **15** · .NET **10**
+Current release: **0.8.3.2** · Dalamud API **15** · .NET **10**
 
 ## Features
 
-- Sentinel Modern configuration theme preview: midnight-navy surfaces, electric-blue controls, restrained violet/teal ambient rings, rounded cards, grouped sidebar navigation, modern switches and clear lock/edit status. Classic remains available from Appearance or the sidebar without changing HUD gameplay presentation.
+- Sentinel Modern configuration theme preview: midnight-navy surfaces, electric-blue controls, restrained violet/teal ambient rings, rounded cards, grouped sidebar navigation, modern switches and clear lock/edit status. Classic remains available from the sidebar without changing HUD gameplay presentation; Classic keeps a compact return action.
 - Player: compact name/job/level header, independently selectable HP values, MP text/bar modes, integrated shield display, own-cast name/bar/percentage/remaining time and a compact status summary.
 - Target: compact player/NPC-aware header, independently selectable HP values, optional MP text/bar modes, distance, integrated shield display, cast information and statuses.
 - Focus target: name, HP, optional MP text/bar modes, distance, shield and cast information, plus a compact Focus Target's Target row with safe click-to-target.
@@ -50,7 +50,7 @@ Install **Sentinel HUD** from the plugin installer. No other Sentinel plugin is 
 
 ## Configuration
 
-Sentinel Modern organizes General, actor modules, Awareness, Encounter Awareness, Camera, Questing / Convenience, Appearance, Layout and Diagnostics through a persistent grouped sidebar and a bordered content card. Module pages retain collapsible Visibility, Information, Size/Layout and Appearance groups. The Appearance page can switch back to the original Classic tab layout at any time; the modern sidebar also has a one-click Classic fallback. The configuration window retains the standard ImGui collapse and close controls.
+Sentinel Modern organizes General, actor modules, Awareness, Encounter Awareness, Camera, Questing / Convenience, Appearance, Layout and Diagnostics through a persistent grouped sidebar and a bordered content card. Module pages retain collapsible Visibility, Information, Size/Layout and Appearance groups. The modern sidebar provides the one-click Classic fallback, while Classic keeps a compact return action in its header. The fixed modern header is non-scrolling, General opens directly into its settings card, and Appearance opens directly into bar colours. The configuration window retains the standard ImGui collapse and close controls.
 
 HP presentation is controlled by independent current, maximum and percentage switches, allowing number-only, percentage-only, current/maximum or combined formats. Full numbers remain the default; Compact displays values such as `295.9k` and `12.48m`. Shield Display supports Off, Text Only, Bar Only and Bar + Text.
 

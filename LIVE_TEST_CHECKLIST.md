@@ -1,4 +1,4 @@
-# Sentinel HUD 0.8.3.1 — Live Test
+# Sentinel HUD 0.8.3.2 — Live Test
 
 ## Startup and configuration migration
 
@@ -15,15 +15,18 @@
 - [ ] `/shud` opens in Sentinel Modern after updating from 0.8.2.0.
 - [ ] Confirm the midnight-navy canvas, electric-blue accents and violet/teal ambient rings are visible and restrained rather than distracting.
 - [ ] Confirm the grouped sidebar remains readable and every page opens: General, Player, Target, Focus Target, Target-of-Target, Awareness, Encounter Awareness, Camera, Questing / Convenience, Appearance, Layout and Diagnostics.
-- [ ] Confirm the right-hand page title, description and bordered content area update with navigation.
+- [ ] Confirm the modern header has no internal scrollbar and all header information remains visible.
+- [ ] Confirm General opens directly into its settings card without the redundant page-title/description strip.
+- [ ] Confirm General has one Lock HUD switch and no duplicate lower Unlock HUD button.
+- [ ] Confirm Appearance opens directly at Bar Colours without a redundant Configuration Window section.
+- [ ] Confirm the other right-hand page titles, descriptions and bordered content areas update with navigation.
 - [ ] Toggle several modern switches and confirm each changes only its labelled setting.
 - [ ] Confirm combos, sliders, colour pickers, collapsible sections and buttons remain readable and functional.
 - [ ] Unlock and lock the HUD; confirm the header status changes between `EDIT MODE` and `HUD LOCKED` without moving any HUD module.
 - [ ] Resize the configuration window down to its minimum and confirm navigation/content remain usable without overlap.
 - [ ] Collapse and restore the title bar; confirm normal Dalamud window behaviour remains intact.
-- [ ] In Appearance, switch to Classic and confirm the original tab layout returns immediately on the next frame.
-- [ ] From Classic Appearance, select Sentinel Modern and confirm the modern shell returns.
-- [ ] Use the modern sidebar's one-click Classic fallback and confirm no gameplay or layout setting changes.
+- [ ] Use the modern sidebar's one-click Classic fallback and confirm the original tab layout returns without changing gameplay or layout settings.
+- [ ] Use the compact Classic-header action and confirm Sentinel Modern returns immediately.
 - [ ] Reload the plugin and restart FFXIV; confirm the selected configuration theme persists.
 - [ ] Confirm all pre-update module positions, sizes, colours and gameplay settings remain unchanged.
 

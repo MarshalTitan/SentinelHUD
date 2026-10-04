@@ -44,8 +44,6 @@ public sealed class ConfigurationWindow : Window
     private static readonly string[] NativeOverlayFormats = ["Current / Maximum", "Percentage", "Current / Maximum + Percentage"];
     private static readonly string[] QuestRewardModes = ["Manual", "First Reward", "Current Job Reward", "Allagan Piece"];
     private static readonly string[] PvPThreatVisibilityModes = ["All PvP Duties", "Frontline Only"];
-    private static readonly string[] ConfigurationThemes = ["Classic", "Sentinel Modern"];
-
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer renderer;
     private readonly QuestConvenienceService questConvenience;
@@ -106,6 +104,9 @@ public sealed class ConfigurationWindow : Window
     {
         DrawSectionHeader("Sentinel HUD");
         ImGui.TextDisabled("Modular enhancements for the native FFXIV HUD");
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Use Sentinel Modern theme"))
+            Update(c => c.Appearance.ConfigurationTheme = ConfigurationWindowTheme.SentinelModern);
         ImGui.Spacing();
         if (!ImGui.BeginTabBar("SentinelHUD-SettingsTabs"))
             return;
@@ -144,8 +145,11 @@ public sealed class ConfigurationWindow : Window
         ImGui.SameLine();
         if (ImGui.BeginChild("SentinelHUD-ModernContent", Vector2.Zero, false))
         {
-            DrawModernPageHeading();
-            ImGui.Spacing();
+            if (selectedPage != ConfigurationPage.General)
+            {
+                DrawModernPageHeading();
+                ImGui.Spacing();
+            }
             if (ImGui.BeginChild("SentinelHUD-ModernPageCard", Vector2.Zero, true))
                 DrawSelectedPage();
             ImGui.EndChild();
@@ -155,7 +159,8 @@ public sealed class ConfigurationWindow : Window
 
     private void DrawModernHeader()
     {
-        if (!ImGui.BeginChild("SentinelHUD-ModernHeader", new Vector2(0f, 76f), true))
+        const ImGuiWindowFlags headerFlags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
+        if (!ImGui.BeginChild("SentinelHUD-ModernHeader", new Vector2(0f, 76f), true, headerFlags))
         {
             ImGui.EndChild();
             return;
@@ -302,11 +307,6 @@ public sealed class ConfigurationWindow : Window
         ImGui.TextWrapped(config.Locked
             ? "Gameplay mode is active. Enabled interaction regions use left-click to target and right-click for FFXIV's native actor menu; other HUD space remains click-through."
             : "Visual editing is active. Drag the panel body to move it, any edge to resize one axis, or a corner to resize width and bar height together. Actor actions are disabled.");
-        if (ImGui.Button(config.Locked ? "Unlock HUD" : "Lock HUD"))
-        {
-            Update(c => c.Locked = !c.Locked);
-            renderer.RequestRepositionAll();
-        }
     }
 
     private void DrawPlayer()
@@ -689,14 +689,6 @@ public sealed class ConfigurationWindow : Window
     private void DrawAppearance()
     {
         var appearance = configuration.Current.Appearance;
-        DrawSectionHeader("Configuration Window");
-        var configurationTheme = (int)appearance.ConfigurationTheme;
-        ImGui.SetNextItemWidth(260f);
-        if (ImGui.Combo("Theme", ref configurationTheme, ConfigurationThemes, ConfigurationThemes.Length))
-            Update(c => c.Appearance.ConfigurationTheme = (ConfigurationWindowTheme)configurationTheme);
-        ImGui.TextWrapped("Sentinel Modern uses the new midnight-blue, violet and electric-blue visual language. Classic remains available as a permanent fallback while the theme is being tested.");
-
-        ImGui.Spacing();
         DrawSectionHeader("Bar Colours");
         var playerMode = (int)appearance.PlayerHpColourMode;
         if (ImGui.Combo("Player HP colour mode", ref playerMode, HpColourModes, HpColourModes.Length))
