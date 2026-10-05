@@ -2,11 +2,11 @@
   {
     "Author": "MTitan",
     "Name": "Sentinel HUD",
-    "Punchline": "Modular, configurable awareness enhancements for the FFXIV HUD.",
-    "Description": "Adds configurable actor panels, HP/MP/shield/cast bars, native actor interactions, exact-position awareness, optional encounter danger providers, and extended camera zoom.",
+    "Punchline": "Modular HUD panels, PvP threat awareness, and camera controls.",
+    "Description": "Adds independently configurable actor panels and bars, a Sentinel Modern configuration theme preview, an independent PvP Targeting Me Counter, native target/context interactions, a full drag/resize editor, resilient configuration migration, exact-position encounter danger awareness, optional Splatoon IPC, extended camera zoom, Anti-AFK, and opt-in quest convenience automation.",
     "InternalName": "SentinelHUD",
-    "AssemblyVersion": "0.7.3.0",
-    "TestingAssemblyVersion": "0.7.3.0",
+    "AssemblyVersion": "0.8.3.3",
+    "TestingAssemblyVersion": "0.8.3.3",
     "RepoUrl": "https://github.com/MarshalTitan/SentinelHUD",
     "IconUrl": "https://raw.githubusercontent.com/MarshalTitan/SentinelHUD/main/assets/icon.png",
     "ApplicableVersion": "any",
@@ -15,11 +15,17 @@
     "IsHide": false,
     "IsTestingExclusive": false,
     "DownloadCount": 0,
-    "LastUpdate": 1790544134,
+    "LastUpdate": 1791154217,
     "LoadPriority": 0,
-    "DownloadLinkInstall": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.7.3.0/SentinelHUD.zip",
-    "DownloadLinkUpdate": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.7.3.0/SentinelHUD.zip",
-    "DownloadLinkTesting": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.7.3.0/SentinelHUD.zip",
-    "Tags": ["hud", "overlay", "target", "accessibility", "sentinel"]
+    "DownloadLinkInstall": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.8.3.3/SentinelHUD.zip",
+    "DownloadLinkUpdate": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.8.3.3/SentinelHUD.zip",
+    "DownloadLinkTesting": "https://github.com/MarshalTitan/SentinelHUD/releases/download/v0.8.3.3/SentinelHUD.zip",
+    "Tags": [
+      "hud",
+      "overlay",
+      "target",
+      "accessibility",
+      "sentinel"
+    ]
   }
 ]
