@@ -35,6 +35,10 @@ jobs:
           Invoke-WebRequest -Uri 'https://goatcorp.github.io/dalamud-distrib/latest.zip' -OutFile $archive
           Expand-Archive -LiteralPath $archive -DestinationPath $dalamudDir -Force
 
+      - name: Verify Sentinel Core pin and UI package hash
+        shell: pwsh
+        run: ./.github/scripts/Verify-SentinelCore.ps1
+
       - name: Validate release state
         id: version
         shell: pwsh
@@ -52,10 +56,17 @@ jobs:
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Restore
-        run: dotnet restore SentinelHUD.slnx -m:1
+        run: dotnet restore SentinelHUD.slnx --locked-mode -m:1
 
       - name: Run tests
         run: dotnet run --project tests/SentinelHUD.Core.Tests/SentinelHUD.Core.Tests.csproj -c Release --no-restore
+
+      - name: Run pinned Sentinel Core UI tests
+        shell: pwsh
+        run: |
+          dotnet restore external/SentinelCore/SentinelCore.slnx -m:1
+          dotnet build external/SentinelCore/SentinelCore.slnx -c Release --no-restore -m:1
+          dotnet run --project external/SentinelCore/tests/SentinelCore.UI.Tests/SentinelCore.UI.Tests.csproj -c Release --no-build
 
       - name: Build release package
         run: dotnet build src/SentinelHUD/SentinelHUD.csproj -c Release --no-restore -m:1
@@ -77,7 +88,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Corrects the Player Position Marker's vertical anchor and extended zoom persistence. Camera Facing now projects the exact live actor world origin without a downward terrain ray, so elevated platforms and flying mounts stay at their real level; only Ground Projected performs terrain snapping. Extended Zoom now remembers the current live distance while alive, restores it through the bounded death transition, and reapplies it on respawn without continuously fighting later manual input. No configuration migration or reset is required."
+            --notes "Adopts the canonical Sentinel Modern 2 application shell from MarshalTitan.SentinelCore.UI 0.3.0 (Core v0.3.0.0). Sentinel HUD now demonstrates the compact shared header, fixed far-left icon rail, conditional secondary category navigation, independent scrolling content, Core glass cards/settings rows/switches/status/action dock, animated ambient treatment and reduced-motion-safe page transitions. Classic remains unchanged, the existing Modern selection migrates in place, and HUD behavior, layouts and configuration schema remain intact."
 
       - name: Verify public release asset
         shell: pwsh

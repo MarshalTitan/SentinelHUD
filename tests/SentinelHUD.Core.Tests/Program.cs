@@ -17,6 +17,8 @@ var tests = new (string Name, Action Run)[]
     ("version-eight quest convenience migration", TestVersionEightQuestConvenienceMigration),
     ("version-nine targeting-me migration", TestVersionNineTargetingMeMigration),
     ("version-ten modern-theme migration", TestVersionTenModernThemeMigration),
+    ("modern navigation state", TestModernNavigationState),
+    ("modern minimum window geometry", TestModernMinimumWindowGeometry),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
@@ -122,6 +124,56 @@ static void TestDefaults()
     Equal(new Vector4(0.88f, 0.20f, 0.18f, 1f), config.Appearance.HostileHealth.ToVector4());
     False(config.Camera.Enabled);
     Equal(CameraZoomPolicy.DefaultExtendedMaximum, config.Camera.MaximumZoomDistance);
+}
+
+static void TestModernNavigationState()
+{
+    var state = new SentinelHudModernNavigationState();
+    Equal(SentinelHudModernPrimaryPage.General, state.PrimaryPage);
+    Equal(SentinelHudModernNavigationState.GeneralId, state.PrimaryPageId);
+    Equal(SentinelHudModernContentPage.General, state.ContentPage);
+    False(state.HasSecondaryNavigation);
+
+    True(state.SelectPrimary(SentinelHudModernNavigationState.HudId));
+    Equal(SentinelHudModernContentPage.Player, state.ContentPage);
+    True(state.HasSecondaryNavigation);
+    True(state.SelectContent(SentinelHudModernContentPage.Target));
+    Equal(SentinelHudModernContentPage.Target, state.ContentPage);
+
+    True(state.SelectPrimary(SentinelHudModernNavigationState.AwarenessId));
+    True(state.SelectContent(SentinelHudModernContentPage.EncounterAwareness));
+    Equal(SentinelHudModernContentPage.EncounterAwareness, state.ContentPage);
+
+    True(state.SelectPrimary(SentinelHudModernNavigationState.SystemsId));
+    True(state.SelectContent(SentinelHudModernContentPage.Convenience));
+    Equal(SentinelHudModernContentPage.Convenience, state.ContentPage);
+
+    True(state.SelectPrimary(SentinelHudModernNavigationState.HudId));
+    Equal(SentinelHudModernContentPage.Target, state.ContentPage);
+    False(state.SelectPrimary(SentinelHudModernNavigationState.HudId));
+    False(state.SelectContent(SentinelHudModernContentPage.Target));
+    Throws<ArgumentOutOfRangeException>(() => state.SelectPrimary("unknown"));
+    Throws<ArgumentOutOfRangeException>(() => state.SelectContent(SentinelHudModernContentPage.General));
+}
+
+static void TestModernMinimumWindowGeometry()
+{
+    Equal(
+        new Vector2(720f, 560f),
+        SentinelHudModernWindowPolicy.MinimumSize(1f, new Vector2(580f, 408f)));
+    Equal(
+        new Vector2(900f, 700f),
+        SentinelHudModernWindowPolicy.MinimumSize(1.25f, new Vector2(725f, 510f)));
+    Equal(
+        new Vector2(1080f, 840f),
+        SentinelHudModernWindowPolicy.MinimumSize(1.5f, new Vector2(870f, 612f)));
+    Equal(
+        new Vector2(1224f, 820f),
+        SentinelHudModernWindowPolicy.MinimumSize(1f, new Vector2(1200f, 800f)));
+    Throws<ArgumentOutOfRangeException>(() =>
+        SentinelHudModernWindowPolicy.MinimumSize(0f, new Vector2(580f, 408f)));
+    Throws<ArgumentOutOfRangeException>(() =>
+        SentinelHudModernWindowPolicy.MinimumSize(1f, new Vector2(float.NaN, 408f)));
 }
 
 static void TestMigration()
@@ -1300,4 +1352,19 @@ static void Equal<T>(T expected, T actual)
 {
     if (!EqualityComparer<T>.Default.Equals(expected, actual))
         throw new InvalidOperationException($"Expected '{expected}', got '{actual}'.");
+}
+
+static void Throws<TException>(Action action)
+    where TException : Exception
+{
+    try
+    {
+        action();
+    }
+    catch (TException)
+    {
+        return;
+    }
+
+    throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
 }

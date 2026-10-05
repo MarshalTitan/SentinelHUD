@@ -1,6 +1,8 @@
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
+using Dalamud.Plugin;
 using SentinelCore.Configuration;
 using SentinelCore.Diagnostics;
 using SentinelCore.UI;
@@ -10,24 +12,8 @@ using SentinelHUD.Services;
 
 namespace SentinelHUD.UI;
 
-public sealed class ConfigurationWindow : Window
+public sealed class ConfigurationWindow : Window, IDisposable
 {
-    private enum ConfigurationPage
-    {
-        General,
-        Player,
-        Target,
-        FocusTarget,
-        TargetOfTarget,
-        Awareness,
-        EncounterAwareness,
-        Camera,
-        Convenience,
-        Appearance,
-        Layout,
-        Diagnostics,
-    }
-
     private static readonly string[] HighlightModes = ["Off", "Always", "Combat Only", "Duty Only"];
     private static readonly string[] HighlightColours = ["Yellow", "Green", "Blue", "White", "Custom"];
     private static readonly string[] DangerColours = ["Red", "Orange", "Yellow", "Custom"];
@@ -44,22 +30,46 @@ public sealed class ConfigurationWindow : Window
     private static readonly string[] NativeOverlayFormats = ["Current / Maximum", "Percentage", "Current / Maximum + Percentage"];
     private static readonly string[] QuestRewardModes = ["Manual", "First Reward", "Current Job Reward", "Allagan Piece"];
     private static readonly string[] PvPThreatVisibilityModes = ["All PvP Duties", "Frontline Only"];
+    private static readonly SentinelModernNavItem[] ModernPrimaryNavigation =
+    [
+        new(SentinelHudModernNavigationState.GeneralId, "G", "General"),
+        new(SentinelHudModernNavigationState.HudId, "H", "HUD Elements"),
+        new(SentinelHudModernNavigationState.AwarenessId, "A", "Awareness"),
+        new(SentinelHudModernNavigationState.SystemsId, "S", "Systems"),
+        new(SentinelHudModernNavigationState.AppearanceId, "P", "Appearance"),
+        new(SentinelHudModernNavigationState.DiagnosticsId, "D", "Diagnostics"),
+    ];
+
+    private static readonly Vector2 ClassicMinimumWindowSize = new(720f, 560f);
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer renderer;
     private readonly QuestConvenienceService questConvenience;
     private readonly DiagnosticBuffer diagnostics;
     private readonly ResilientConfigurationStore configurationStore;
+    private readonly IDalamudPluginInterface pluginInterface;
+    private readonly SentinelModernStyleScope modernStyle = new();
+    private readonly SentinelModernAppShellState modernShellState = new();
+    private readonly SentinelHudModernNavigationState modernNavigation = new();
+    private readonly Action<string> selectModernPrimaryPage;
+    private readonly Action drawModernPage;
+    private readonly Action drawModernSecondaryNavigation;
+    private readonly Action drawModernActionDock;
+    private readonly Action requestModernCollapse;
+    private readonly Action requestModernClose;
+    private readonly Action drawGlobalScaleControl;
+    private readonly Action drawGlobalOpacityControl;
     private int selectedLayoutModule;
-    private ConfigurationPage selectedPage;
     private bool modernThemeActive;
-    private IDisposable? activeStyleScope;
+    private IDisposable? activeClassicStyleScope;
+    private bool disposed;
 
     public ConfigurationWindow(
         ConfigurationCoordinator<Configuration> configuration,
         HudRenderer renderer,
         QuestConvenienceService questConvenience,
         DiagnosticBuffer diagnostics,
-        ResilientConfigurationStore configurationStore)
+        ResilientConfigurationStore configurationStore,
+        IDalamudPluginInterface pluginInterface)
         : base("Sentinel HUD Configuration##SentinelHUD-Configuration")
     {
         this.configuration = configuration;
@@ -67,32 +77,58 @@ public sealed class ConfigurationWindow : Window
         this.questConvenience = questConvenience;
         this.diagnostics = diagnostics;
         this.configurationStore = configurationStore;
+        this.pluginInterface = pluginInterface;
+        selectModernPrimaryPage = SelectModernPrimaryPage;
+        drawModernPage = DrawModernPage;
+        drawModernSecondaryNavigation = DrawModernSecondaryNavigation;
+        drawModernActionDock = DrawModernActionDock;
+        requestModernCollapse = RequestModernCollapse;
+        requestModernClose = RequestModernClose;
+        drawGlobalScaleControl = DrawGlobalScaleControl;
+        drawGlobalOpacityControl = DrawGlobalOpacityControl;
         Size = new Vector2(920f, 720f);
         SizeCondition = ImGuiCond.FirstUseEver;
-        SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(720f, 560f) };
+        SizeConstraints = new WindowSizeConstraints { MinimumSize = ClassicMinimumWindowSize };
     }
 
     public override void PreDraw()
     {
-        activeStyleScope?.Dispose();
+        activeClassicStyleScope?.Dispose();
+        activeClassicStyleScope = null;
+        modernStyle.Pop();
         modernThemeActive = configuration.Current.Appearance.ConfigurationTheme
                             == ConfigurationWindowTheme.SentinelModern;
-        activeStyleScope = modernThemeActive
-            ? ModernConfigurationTheme.Push()
-            : SentinelStyleScope.PushWindow();
+        if (modernThemeActive)
+        {
+            var scale = ImGuiHelpers.GlobalScale;
+            modernStyle.Push(scale);
+            var shellMinimum = SentinelModernAppLayout.MinimumWindowSize(
+                scale,
+                hasSecondarySidebar: true,
+                hasActionDock: true);
+            SizeConstraints = new WindowSizeConstraints
+            {
+                MinimumSize = SentinelHudModernWindowPolicy.MinimumSize(scale, shellMinimum),
+            };
+        }
+        else
+        {
+            activeClassicStyleScope = SentinelStyleScope.PushWindow();
+            SizeConstraints = new WindowSizeConstraints { MinimumSize = ClassicMinimumWindowSize };
+        }
     }
 
     public override void PostDraw()
     {
-        activeStyleScope?.Dispose();
-        activeStyleScope = null;
+        modernStyle.Pop();
+        activeClassicStyleScope?.Dispose();
+        activeClassicStyleScope = null;
     }
 
     public override void Draw()
     {
         if (modernThemeActive)
         {
-            ModernConfigurationTheme.DrawBackdrop();
             DrawModernShell();
             return;
         }
@@ -133,157 +169,234 @@ public sealed class ConfigurationWindow : Window
 
     private void DrawModernShell()
     {
-        DrawModernHeader();
-        ImGui.Spacing();
-
-        var available = ImGui.GetContentRegionAvail();
-        var sidebarWidth = Math.Clamp(available.X * 0.225f, 182f, 218f);
-        if (ImGui.BeginChild("SentinelHUD-ModernNavigation", new Vector2(sidebarWidth, available.Y), true))
-            DrawModernNavigation();
-        ImGui.EndChild();
-
-        ImGui.SameLine();
-        if (ImGui.BeginChild("SentinelHUD-ModernContent", Vector2.Zero, false))
+        var page = modernNavigation.ContentPage;
+        var (title, _) = GetModernPageMetadata(page);
+        var locked = configuration.Current.Locked;
+        var options = new SentinelModernAppShellOptions(
+            "SentinelHUD.Modern2",
+            "Sentinel HUD",
+            modernNavigation.PrimaryPageId)
         {
-            if (selectedPage != ConfigurationPage.General)
+            PluginGlyph = "H",
+            ContextLabel = title,
+            Status = new SentinelModernStatusPillOptions(
+                locked ? "HUD LOCKED" : "EDIT MODE",
+                locked ? SentinelModernPillTone.Ready : SentinelModernPillTone.Warning)
             {
-                DrawModernPageHeading();
-                ImGui.Spacing();
-            }
-            if (ImGui.BeginChild("SentinelHUD-ModernPageCard", Vector2.Zero, true))
-                DrawSelectedPage();
-            ImGui.EndChild();
-        }
-        ImGui.EndChild();
+                Tooltip = locked
+                    ? "Gameplay mode; configured actor interactions are active."
+                    : "Visual editor active; targeting interactions are suspended.",
+            },
+            Scale = ImGuiHelpers.GlobalScale,
+            DeltaTime = ImGui.GetIO().DeltaTime,
+            ReducedMotion = pluginInterface.UiBuilder.ShouldUseReducedMotion,
+            AmbientIntensity = 0.68f,
+            RequestCollapse = requestModernCollapse,
+            RequestClose = requestModernClose,
+        };
+
+        SentinelModernAppShell.Draw(
+            options,
+            modernShellState,
+            ModernPrimaryNavigation,
+            selectModernPrimaryPage,
+            drawModernPage,
+            modernNavigation.HasSecondaryNavigation ? drawModernSecondaryNavigation : null,
+            page == SentinelHudModernContentPage.Appearance ? drawModernActionDock : null);
     }
 
-    private void DrawModernHeader()
+    private void DrawModernPage()
     {
-        const ImGuiWindowFlags headerFlags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
-        if (!ImGui.BeginChild("SentinelHUD-ModernHeader", new Vector2(0f, 76f), true, headerFlags))
+        var page = modernNavigation.ContentPage;
+        var (title, description) = GetModernPageMetadata(page);
+        SentinelModernUi.PageHeading(title, description);
+        ImGui.Spacing();
+
+        switch (page)
         {
-            ImGui.EndChild();
-            return;
+            case SentinelHudModernContentPage.General: DrawModernGeneral(); break;
+            case SentinelHudModernContentPage.Player: DrawPlayer(); break;
+            case SentinelHudModernContentPage.Target: DrawTarget(); break;
+            case SentinelHudModernContentPage.FocusTarget: DrawFocusTarget(); break;
+            case SentinelHudModernContentPage.TargetOfTarget: DrawTargetOfTarget(); break;
+            case SentinelHudModernContentPage.Layout: DrawLayout(); break;
+            case SentinelHudModernContentPage.Awareness: DrawAwareness(); break;
+            case SentinelHudModernContentPage.EncounterAwareness: DrawEncounterAwareness(); break;
+            case SentinelHudModernContentPage.Camera: DrawCamera(); break;
+            case SentinelHudModernContentPage.Convenience: DrawConvenience(); break;
+            case SentinelHudModernContentPage.Appearance: DrawAppearance(); break;
+            case SentinelHudModernContentPage.Diagnostics: DrawDiagnostics(); break;
         }
-
-        ImGui.TextColored(ModernConfigurationTheme.AccentStrong, "MARSHALTITAN  /  SENTINEL");
-        ImGui.TextColored(ModernConfigurationTheme.Text, "SENTINEL HUD");
-        ImGui.SameLine();
-        ImGui.TextColored(ModernConfigurationTheme.Muted, "Modern preview");
-        ImGui.TextColored(ModernConfigurationTheme.Muted,
-            "Modular awareness and native-HUD enhancements");
-
-        var status = configuration.Current.Locked ? "HUD LOCKED" : "EDIT MODE";
-        var statusColour = configuration.Current.Locked
-            ? ModernConfigurationTheme.Accent
-            : ModernConfigurationTheme.Rose;
-        var statusSize = ImGui.CalcTextSize(status);
-        ImGui.SetCursorPos(new Vector2(
-            MathF.Max(12f, ImGui.GetWindowWidth() - statusSize.X - 36f),
-            24f));
-        ImGui.TextColored(statusColour, $"●  {status}");
-        ImGui.EndChild();
     }
 
-    private void DrawModernNavigation()
+    private void DrawModernSecondaryNavigation()
     {
-        ImGui.TextColored(ModernConfigurationTheme.Muted, "SETTINGS");
-        ImGui.Spacing();
-        DrawNavigationItem(ConfigurationPage.General, "General");
+        switch (modernNavigation.PrimaryPage)
+        {
+            case SentinelHudModernPrimaryPage.Hud:
+                SentinelModernSecondaryNavigation.GroupLabel("HUD Elements");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Player, "P", "Player");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Target, "T", "Target");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.FocusTarget, "F", "Focus Target");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.TargetOfTarget, "2", "Target-of-Target");
+                ImGui.Spacing();
+                SentinelModernSecondaryNavigation.GroupLabel("Tools");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Layout, "L", "Layout");
+                break;
 
-        ImGui.Spacing();
-        ImGui.TextColored(ModernConfigurationTheme.Subtle, "HUD MODULES");
-        DrawNavigationItem(ConfigurationPage.Player, "Player");
-        DrawNavigationItem(ConfigurationPage.Target, "Target");
-        DrawNavigationItem(ConfigurationPage.FocusTarget, "Focus Target");
-        DrawNavigationItem(ConfigurationPage.TargetOfTarget, "Target-of-Target");
+            case SentinelHudModernPrimaryPage.Awareness:
+                SentinelModernSecondaryNavigation.GroupLabel("Personal");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Awareness, "A", "Awareness");
+                ImGui.Spacing();
+                SentinelModernSecondaryNavigation.GroupLabel("Encounter");
+                DrawModernSecondaryItem(
+                    SentinelHudModernContentPage.EncounterAwareness,
+                    "E",
+                    "Encounter Awareness");
+                break;
 
-        ImGui.Spacing();
-        ImGui.TextColored(ModernConfigurationTheme.Subtle, "SYSTEMS");
-        DrawNavigationItem(ConfigurationPage.Awareness, "Awareness");
-        DrawNavigationItem(ConfigurationPage.EncounterAwareness, "Encounter Awareness");
-        DrawNavigationItem(ConfigurationPage.Camera, "Camera");
-        DrawNavigationItem(ConfigurationPage.Convenience, "Questing / Convenience");
+            case SentinelHudModernPrimaryPage.Systems:
+                SentinelModernSecondaryNavigation.GroupLabel("Systems");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Camera, "C", "Camera");
+                ImGui.Spacing();
+                SentinelModernSecondaryNavigation.GroupLabel("Convenience");
+                DrawModernSecondaryItem(
+                    SentinelHudModernContentPage.Convenience,
+                    "Q",
+                    "Questing / Convenience");
+                break;
+        }
+    }
 
-        ImGui.Spacing();
-        ImGui.TextColored(ModernConfigurationTheme.Subtle, "TOOLS");
-        DrawNavigationItem(ConfigurationPage.Appearance, "Appearance");
-        DrawNavigationItem(ConfigurationPage.Layout, "Layout");
-        DrawNavigationItem(ConfigurationPage.Diagnostics, "Diagnostics");
+    private void DrawModernSecondaryItem(SentinelHudModernContentPage page, string icon, string label)
+    {
+        if (SentinelModernSecondaryNavigation.Item(
+                $"SentinelHUD.Secondary.{page}",
+                icon,
+                label,
+                modernNavigation.ContentPage == page,
+                modernShellState.Motion,
+                ImGuiHelpers.GlobalScale))
+            modernNavigation.SelectContent(page);
+    }
 
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.TextColored(ModernConfigurationTheme.Muted, "SENTINEL MODERN PREVIEW");
-        if (ImGui.Button("Use Classic theme", new Vector2(-1f, 0f)))
+    private void DrawModernActionDock()
+    {
+        SentinelModernActionDock.Status("Sentinel Modern 2 is active");
+        ImGui.SameLine();
+        if (SentinelModernActionDock.PrimaryButton(
+                "SentinelHUD.UseClassic",
+                "Use Classic Theme",
+                new Vector2(190f * ImGuiHelpers.GlobalScale, 0f),
+                ImGuiHelpers.GlobalScale))
             Update(c => c.Appearance.ConfigurationTheme = ConfigurationWindowTheme.Classic);
     }
 
-    private void DrawNavigationItem(ConfigurationPage page, string label)
+    private void DrawModernGeneral()
     {
-        var selected = selectedPage == page;
-        if (selected)
+        var scale = ImGuiHelpers.GlobalScale;
+        using var card = SentinelModernGlassCard.Begin(
+            "SentinelHUD.Modern2.General",
+            new SentinelModernGlassCardOptions
+            {
+                Size = new Vector2(0f, 300f),
+                Accent = SentinelModernPalette.Accent,
+                AccentStrength = 0.12f,
+                Elevated = true,
+            },
+            scale);
+        if (!card.IsVisible)
+            return;
+
+        SentinelModernUi.SectionHeader("Global HUD");
+        var enabled = configuration.Current.Enabled;
+        if (SentinelModernSwitch.Draw(
+                "SentinelHUD.Enabled",
+                "Enable Sentinel HUD",
+                ref enabled,
+                modernShellState.Motion,
+                scale))
+            Update(c => c.Enabled = enabled);
+
+        var locked = configuration.Current.Locked;
+        if (SentinelModernSwitch.Draw(
+                "SentinelHUD.Locked",
+                "Lock HUD",
+                ref locked,
+                modernShellState.Motion,
+                scale))
         {
-            ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(0.115f, 0.245f, 0.465f, 0.95f));
-            ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Vector4(0.135f, 0.285f, 0.530f, 1f));
-            ImGui.PushStyleColor(ImGuiCol.Text, ModernConfigurationTheme.Text);
+            Update(c => c.Locked = locked);
+            renderer.RequestRepositionAll();
         }
 
-        if (ImGui.Selectable($"{label}##ModernNav-{page}", selected, ImGuiSelectableFlags.None,
-                new Vector2(0f, 31f)))
-            selectedPage = page;
-
-        if (selected)
-        {
-            var minimum = ImGui.GetItemRectMin();
-            var maximum = ImGui.GetItemRectMax();
-            ImGui.GetWindowDrawList().AddRectFilled(
-                minimum,
-                new Vector2(minimum.X + 4f, maximum.Y),
-                ImGui.ColorConvertFloat4ToU32(ModernConfigurationTheme.Accent),
-                3f);
-            ImGui.PopStyleColor(3);
-        }
+        SentinelModernSettingsRow.Draw(
+            "SentinelHUD.GlobalScale",
+            "Global scale",
+            "Scales all Sentinel HUD modules without changing their saved anchors.",
+            drawGlobalScaleControl,
+            scale: scale);
+        SentinelModernSettingsRow.Draw(
+            "SentinelHUD.GlobalOpacity",
+            "Global opacity",
+            "Applies a shared opacity multiplier while retaining module appearance values.",
+            drawGlobalOpacityControl,
+            scale: scale);
+        ImGui.TextWrapped(configuration.Current.Locked
+            ? "Gameplay mode is active. Enabled actor regions use the configured targeting interactions; unrelated HUD space remains click-through."
+            : "Visual editing is active. Drag modules to move them and use their edges or corners to resize them. Actor actions are suspended while editing.");
     }
 
-    private void DrawModernPageHeading()
+    private void DrawGlobalScaleControl()
     {
-        var (title, description) = selectedPage switch
+        var value = configuration.Current.GlobalScale;
+        if (!ImGui.SliderFloat("##GlobalScale", ref value, 0.65f, 1.75f, "%.2fx"))
+            return;
+        Update(c => c.GlobalScale = value);
+        renderer.RequestRepositionAll();
+    }
+
+    private void DrawGlobalOpacityControl()
+    {
+        var value = configuration.Current.GlobalOpacity;
+        if (ImGui.SliderFloat("##GlobalOpacity", ref value, 0.2f, 1f, "%.0f%%"))
+            Update(c => c.GlobalOpacity = value);
+    }
+
+    private void SelectModernPrimaryPage(string id) => modernNavigation.SelectPrimary(id);
+
+    private void RequestModernCollapse()
+        => ImGui.SetWindowCollapsed("Sentinel HUD Configuration##SentinelHUD-Configuration", true);
+
+    private void RequestModernClose() => IsOpen = false;
+
+    private static (string Title, string Description) GetModernPageMetadata(
+        SentinelHudModernContentPage page)
+        => page switch
         {
-            ConfigurationPage.General => ("General", "Global state, editing mode and shared HUD behaviour."),
-            ConfigurationPage.Player => ("Player", "Choose exactly what your own compact actor panel displays."),
-            ConfigurationPage.Target => ("Target", "Target data, casting information and native target-bar overlay."),
-            ConfigurationPage.FocusTarget => ("Focus Target", "Focus information and the focus target's current target."),
-            ConfigurationPage.TargetOfTarget => ("Target-of-Target", "A compact, independently positioned represented-actor panel."),
-            ConfigurationPage.Awareness => ("Awareness", "Self visibility, true-position marker and incoming PvP attention."),
-            ConfigurationPage.EncounterAwareness => ("Encounter Awareness", "Trusted hazard providers and exact-position danger feedback."),
-            ConfigurationPage.Camera => ("Camera", "Optional extended third-person zoom with conflict-safe restoration."),
-            ConfigurationPage.Convenience => ("Questing / Convenience", "Independent opt-in dialogue, cutscene, reward and AFK helpers."),
-            ConfigurationPage.Appearance => ("Appearance", "Sentinel presentation and shared bar-colour choices."),
-            ConfigurationPage.Layout => ("Layout", "Visual editor, reset tools and appearance-copy actions."),
+            SentinelHudModernContentPage.General => ("General", "Global state, editing mode and shared HUD behaviour."),
+            SentinelHudModernContentPage.Player => ("Player", "Choose exactly what your own compact actor panel displays."),
+            SentinelHudModernContentPage.Target => ("Target", "Target data, casting information and native target-bar overlay."),
+            SentinelHudModernContentPage.FocusTarget => ("Focus Target", "Focus information and the focus target's current target."),
+            SentinelHudModernContentPage.TargetOfTarget => ("Target-of-Target", "A compact, independently positioned represented-actor panel."),
+            SentinelHudModernContentPage.Layout => ("Layout", "Visual editor, reset tools and appearance-copy actions."),
+            SentinelHudModernContentPage.Awareness => ("Awareness", "Self visibility, true-position marker and incoming PvP attention."),
+            SentinelHudModernContentPage.EncounterAwareness => ("Encounter Awareness", "Trusted hazard providers and exact-position danger feedback."),
+            SentinelHudModernContentPage.Camera => ("Camera", "Optional extended third-person zoom with conflict-safe restoration."),
+            SentinelHudModernContentPage.Convenience => ("Questing / Convenience", "Independent opt-in dialogue, cutscene, reward and AFK helpers."),
+            SentinelHudModernContentPage.Appearance => ("Appearance", "Sentinel presentation and shared bar-colour choices."),
             _ => ("Diagnostics", "Live state and compact evidence for troubleshooting."),
         };
 
-        ImGui.TextColored(ModernConfigurationTheme.Text, title);
-        ImGui.TextColored(ModernConfigurationTheme.Muted, description);
-    }
-
-    private void DrawSelectedPage()
+    public void Dispose()
     {
-        switch (selectedPage)
-        {
-            case ConfigurationPage.General: DrawGeneral(); break;
-            case ConfigurationPage.Player: DrawPlayer(); break;
-            case ConfigurationPage.Target: DrawTarget(); break;
-            case ConfigurationPage.FocusTarget: DrawFocusTarget(); break;
-            case ConfigurationPage.TargetOfTarget: DrawTargetOfTarget(); break;
-            case ConfigurationPage.Awareness: DrawAwareness(); break;
-            case ConfigurationPage.EncounterAwareness: DrawEncounterAwareness(); break;
-            case ConfigurationPage.Camera: DrawCamera(); break;
-            case ConfigurationPage.Convenience: DrawConvenience(); break;
-            case ConfigurationPage.Appearance: DrawAppearance(); break;
-            case ConfigurationPage.Layout: DrawLayout(); break;
-            case ConfigurationPage.Diagnostics: DrawDiagnostics(); break;
-        }
+        if (disposed)
+            return;
+        disposed = true;
+        activeClassicStyleScope?.Dispose();
+        activeClassicStyleScope = null;
+        modernStyle.Dispose();
+        modernShellState.Dispose();
     }
 
     private void DrawGeneral()
@@ -974,16 +1087,7 @@ public sealed class ConfigurationWindow : Window
     {
         if (!modernThemeActive)
             return ImGui.CollapsingHeader(title, ImGuiTreeNodeFlags.DefaultOpen);
-
-        ImGui.Spacing();
-        ImGui.PushStyleColor(ImGuiCol.Header, ModernConfigurationTheme.SurfaceRaised);
-        ImGui.PushStyleColor(ImGuiCol.HeaderHovered, ModernConfigurationTheme.SurfaceHover);
-        ImGui.PushStyleColor(ImGuiCol.HeaderActive, new Vector4(0.125f, 0.225f, 0.420f, 1f));
-        var open = ImGui.CollapsingHeader(title, ImGuiTreeNodeFlags.DefaultOpen);
-        ImGui.PopStyleColor(3);
-        if (open)
-            ImGui.Spacing();
-        return open;
+        return SentinelModernControls.CollapsingSection(title);
     }
 
     private static void DrawTab(string title, Action draw)
@@ -1004,63 +1108,26 @@ public sealed class ConfigurationWindow : Window
     private bool DrawToggle(string label, bool current, Action<bool> setter)
     {
         if (modernThemeActive)
-            return DrawModernToggle(label, current, setter);
-
-        var value = current;
-        if (!ImGui.Checkbox(label, ref value))
-            return false;
-        setter(value);
-        return true;
-    }
-
-    private static bool DrawModernToggle(string label, bool current, Action<bool> setter)
-    {
-        var visibleLabel = label.Split("##", 2, StringSplitOptions.None)[0];
-        var width = MathF.Max(180f, ImGui.GetContentRegionAvail().X);
-        const float rowHeight = 30f;
-        const float trackWidth = 40f;
-        const float trackHeight = 20f;
-        var origin = ImGui.GetCursorScreenPos();
-        ImGui.InvisibleButton($"##SentinelModernToggle-{label}", new Vector2(width, rowHeight));
-        var hovered = ImGui.IsItemHovered();
-        var changed = ImGui.IsItemClicked(ImGuiMouseButton.Left);
-        var value = changed ? !current : current;
-
-        var drawList = ImGui.GetWindowDrawList();
-        if (hovered)
         {
-            drawList.AddRectFilled(
-                origin,
-                origin + new Vector2(width, rowHeight),
-                ImGui.ColorConvertFloat4ToU32(new Vector4(0.10f, 0.14f, 0.25f, 0.58f)),
-                7f);
+            var value = current;
+            var separator = label.IndexOf("##", StringComparison.Ordinal);
+            var visibleLabel = separator >= 0 ? label[..separator] : label;
+            if (!SentinelModernSwitch.Draw(
+                    $"SentinelHUD.Toggle.{label}",
+                    visibleLabel,
+                    ref value,
+                    modernShellState.Motion,
+                    ImGuiHelpers.GlobalScale))
+                return false;
+            setter(value);
+            return true;
         }
 
-        var textSize = ImGui.CalcTextSize(visibleLabel);
-        drawList.AddText(
-            origin + new Vector2(4f, (rowHeight - textSize.Y) * 0.5f),
-            ImGui.ColorConvertFloat4ToU32(ModernConfigurationTheme.Text),
-            visibleLabel);
-
-        var trackMin = origin + new Vector2(width - trackWidth - 4f, (rowHeight - trackHeight) * 0.5f);
-        var trackMax = trackMin + new Vector2(trackWidth, trackHeight);
-        var trackColour = value
-            ? ModernConfigurationTheme.Accent
-            : new Vector4(0.215f, 0.250f, 0.335f, 1f);
-        drawList.AddRectFilled(trackMin, trackMax,
-            ImGui.ColorConvertFloat4ToU32(trackColour), trackHeight * 0.5f);
-        var knobRadius = 7f;
-        var knobCenter = new Vector2(
-            value ? trackMax.X - 10f : trackMin.X + 10f,
-            trackMin.Y + trackHeight * 0.5f);
-        drawList.AddCircleFilled(knobCenter, knobRadius,
-            ImGui.ColorConvertFloat4ToU32(value
-                ? new Vector4(0.96f, 0.98f, 1f, 1f)
-                : new Vector4(0.72f, 0.75f, 0.82f, 1f)), 24);
-
-        if (changed)
-            setter(value);
-        return changed;
+        var classicValue = current;
+        if (!ImGui.Checkbox(label, ref classicValue))
+            return false;
+        setter(classicValue);
+        return true;
     }
 
     private void DrawSectionHeader(string title)
@@ -1071,11 +1138,7 @@ public sealed class ConfigurationWindow : Window
             return;
         }
 
-        ImGui.TextColored(ModernConfigurationTheme.AccentStrong, title.ToUpperInvariant());
-        ImGui.PushStyleColor(ImGuiCol.Separator, new Vector4(0.20f, 0.34f, 0.58f, 0.82f));
-        ImGui.Separator();
-        ImGui.PopStyleColor();
-        ImGui.Spacing();
+        SentinelModernUi.SectionHeader(title);
     }
 
     private void Update(Action<Configuration> mutation) => configuration.Update(mutation);

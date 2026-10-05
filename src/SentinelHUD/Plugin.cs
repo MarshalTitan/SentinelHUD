@@ -107,8 +107,8 @@ public sealed class Plugin : IDalamudPlugin
             ClientState,
             Condition,
             diagnostics);
-        configurationWindow = new ConfigurationWindow(
-            configuration, hudRenderer, questConvenience, diagnostics, store);
+        configurationWindow = lifetime.Add(new ConfigurationWindow(
+            configuration, hudRenderer, questConvenience, diagnostics, store, PluginInterface));
         windows.AddWindow(configurationWindow);
         lifetime.Add(() => windows.RemoveAllWindows());
 
@@ -132,7 +132,7 @@ public sealed class Plugin : IDalamudPlugin
         });
 
         diagnostics.Information($"{identity.DiagnosticPrefix} loaded with configuration schema {configuration.Current.Version}.");
-        logger.Information($"{identity.DiagnosticPrefix} loaded. Sentinel Core pinned at bef05184e357474216b26dd2865549d9c8b401a7.");
+        logger.Information($"{identity.DiagnosticPrefix} loaded. Sentinel Core v0.3.0.0 pinned at 520f9b9837dc3286c24d6f812b8348a27f378a3e.");
     }
 
     public void Dispose()

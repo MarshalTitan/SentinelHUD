@@ -2,11 +2,11 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.3.3** · Dalamud API **15** · .NET **10**
+Current release: **0.8.4.0** · Dalamud API **15** · .NET **10**
 
 ## Features
 
-- Sentinel Modern configuration theme preview: midnight-navy surfaces, electric-blue controls, restrained violet/teal ambient rings, rounded cards, grouped sidebar navigation, modern switches and clear lock/edit status. Classic remains available from the sidebar without changing HUD gameplay presentation; Classic keeps a compact return action.
+- Sentinel Modern 2 configuration shell from Sentinel Core: compact status header, fixed far-left icon rail, category sidebars only where needed, independently scrolling page content, restrained animated ambience, shared glass surfaces and reduced-motion-safe transitions. Classic remains fully available and unchanged.
 - Player: compact name/job/level header, independently selectable HP values, MP text/bar modes, integrated shield display, own-cast name/bar/percentage/remaining time and a compact status summary.
 - Target: compact player/NPC-aware header, independently selectable HP values, optional MP text/bar modes, distance, integrated shield display, cast information and statuses.
 - Focus target: name, HP, optional MP text/bar modes, distance, shield and cast information, plus a compact Focus Target's Target row with safe click-to-target.
@@ -50,7 +50,9 @@ Install **Sentinel HUD** from the plugin installer. No other Sentinel plugin is 
 
 ## Configuration
 
-Sentinel Modern organizes General, actor modules, Awareness, Encounter Awareness, Camera, Questing / Convenience, Appearance, Layout and Diagnostics through a persistent grouped sidebar and a bordered content card. Module pages retain collapsible Visibility, Information, Size/Layout and Appearance groups. The modern sidebar provides the one-click Classic fallback, while Classic keeps a compact return action in its header. The fixed modern header is non-scrolling, General opens directly into its settings card, and Appearance opens directly into bar colours. The configuration window retains the standard ImGui collapse and close controls.
+Sentinel Modern 2 uses six primary destinations in the far-left icon rail: General, HUD, Awareness, Systems, Appearance and Diagnostics. HUD exposes Player, Target, Focus Target, Target-of-Target and Layout in the secondary sidebar; Awareness exposes Personal Awareness and Encounter Awareness; Systems exposes Camera and Questing / Convenience. Simple destinations omit the secondary sidebar. The compact Core header remains fixed, page content scrolls independently, and Appearance provides one clear **Use Classic Theme** action in its fixed action dock. Classic keeps its existing tab layout and compact return action.
+
+The shell passes the live Dalamud UI scale, frame delta and reduced-motion preference into Core. Header, rail, secondary navigation and the Appearance action dock remain fixed while only content scrolls. Core owns all Modern palette, paint, motion, card, switch, status-pill and geometry primitives; Sentinel HUD retains only its page definitions and plugin-specific setting controls.
 
 HP presentation is controlled by independent current, maximum and percentage switches, allowing number-only, percentage-only, current/maximum or combined formats. Full numbers remain the default; Compact displays values such as `295.9k` and `12.48m`. Shield Display supports Off, Text Only, Bar Only and Bar + Text.
 
@@ -64,7 +66,7 @@ Focus Target's Target is a compact child row in the Focus Target module. It is r
 
 ### Configuration persistence
 
-Schema 11 performs stepwise migrations and changes only fields introduced by the applicable schema. Schema 8 added marker Style; schema 9 added Skip Dialogue, Skip Cutscenes and Quest Reward Selection with Off/Off/Manual migration defaults; schema 10 added the Targeting Me Counter; schema 11 adds only the configuration-window theme selector and chooses Sentinel Modern for the preview. Existing position, visibility, colour, camera, awareness and convenience values remain untouched. The earlier reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
+Schema 11 performs stepwise migrations and changes only fields introduced by the applicable schema. Schema 8 added marker Style; schema 9 added Skip Dialogue, Skip Cutscenes and Quest Reward Selection with Off/Off/Manual migration defaults; schema 10 added the Targeting Me Counter; schema 11 adds only the configuration-window theme selector and chooses Sentinel Modern. Version 0.8.4.0 maps that existing persisted Modern value to Modern 2 without advancing the schema or rewriting any configuration. Existing position, visibility, colour, camera, awareness and convenience values remain untouched. The earlier reset was traced to the former generic configuration adapter living in `SentinelCore.Dalamud.dll`: current Dalamud discovers the live-update-safe config type from the calling assembly, so it could not see `SentinelHUD.Configuration` and could fall through to the legacy assembly-type-metadata path. A null result then reached the coordinator, which immediately saved fresh defaults. The replacement loader lives in `SentinelHUD.dll`, where typed discovery finds the stable configuration type. Before an older file is migrated, it creates a one-time `SentinelHUD.schema-vN.backup.json` beside Dalamud's normal configuration file, and it safely retries the same JSON without obsolete assembly type metadata if a live update still returns null or throws. An unreadable file is backed up and logged before defaults may be saved; if the backup itself cannot be created, writes are refused rather than overwriting the only recoverable copy. Diagnostics shows the load path and backup location.
 
 ### Integrated health bars
 
@@ -122,14 +124,17 @@ If Cammy, EasyZoom, EasyZoomReborn, ZoomTilt or PyonCam is loaded, Sentinel HUD 
 
 ## Sentinel Core adoption
 
-Sentinel HUD is the first substantial Sentinel Core consumer. The repository pins Sentinel Core at commit `bef05184e357474216b26dd2865549d9c8b401a7` as a Git submodule and consumes:
+Sentinel HUD is the first Sentinel Modern 2 reference consumer. The repository pins Sentinel Core tag `v0.3.0.0` at commit `520f9b9837dc3286c24d6f812b8348a27f378a3e` as a Git submodule. The consumed UI package identity is `MarshalTitan.SentinelCore.UI` version `0.3.0`; the published package SHA-256 is `121e279f45206d4bc65192c1207b4044d48cf1625fe422fefb2f997f1eca819e`. CI verifies the immutable source pin, tag, package identity/version, public package hash and packaged `SentinelCore.UI.dll` assembly version before publishing.
+
+Sentinel HUD consumes:
 
 - configuration coordination and delayed/final saves;
 - bounded diagnostics and changed/throttled state gates;
 - safe lifecycle/disposal utilities;
 - dynamic job/role metadata;
 - Dalamud configuration/logging adapters;
-- the shared Sentinel palette and balanced ImGui style scopes;
+- the canonical Sentinel Modern 2 application shell, navigation, motion, ambient, glass-card, settings-row, switch, status-pill, action-dock and paint primitives;
+- the shared Classic palette and balanced ImGui style scopes;
 - common identity/versioning.
 
 The selected Core assemblies are packaged inside Sentinel HUD. Users do not install Sentinel Core separately, and Sentinel HUD has no runtime dependency on any other Sentinel plugin.
@@ -141,7 +146,7 @@ Requirements: .NET 10 and current Dalamud API 15 development files.
 ```powershell
 git clone --recurse-submodules https://github.com/MarshalTitan/SentinelHUD.git
 cd SentinelHUD
-dotnet restore SentinelHUD.slnx -m:1
+dotnet restore SentinelHUD.slnx --locked-mode -m:1
 dotnet run --project tests/SentinelHUD.Core.Tests/SentinelHUD.Core.Tests.csproj -c Release
 dotnet build src/SentinelHUD/SentinelHUD.csproj -c Release --no-restore
 ```

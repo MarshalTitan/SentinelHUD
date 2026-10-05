@@ -3,7 +3,9 @@ param(
     [string]$PackagePath,
 
     [Parameter(Mandatory = $true)]
-    [string]$ExpectedVersion
+    [string]$ExpectedVersion,
+
+    [string]$ExpectedSentinelCoreUiVersion = '0.3.0.0'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,6 +34,19 @@ try {
         if ($names -notcontains $name) {
             throw "Package is missing required entry '$name'."
         }
+    }
+
+    $coreUiEntry = $entries | Where-Object FullName -eq 'SentinelCore.UI.dll' | Select-Object -First 1
+    $temporaryCoreUi = Join-Path ([System.IO.Path]::GetTempPath()) ("SentinelCore.UI-{0}.dll" -f [Guid]::NewGuid())
+    try {
+        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($coreUiEntry, $temporaryCoreUi, $true)
+        $coreUiVersion = [System.Reflection.AssemblyName]::GetAssemblyName($temporaryCoreUi).Version.ToString()
+        if ($coreUiVersion -ne $ExpectedSentinelCoreUiVersion) {
+            throw "SentinelCore.UI assembly version '$coreUiVersion' does not match '$ExpectedSentinelCoreUiVersion'."
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $temporaryCoreUi -Force -ErrorAction SilentlyContinue
     }
 
     if ($names | Where-Object { $_ -match '(^|/)(obj|bin|tests|external)/' }) {

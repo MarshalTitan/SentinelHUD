@@ -49,22 +49,33 @@ jobs:
           Invoke-WebRequest -Uri 'https://goatcorp.github.io/dalamud-distrib/latest.zip' -OutFile $archive
           Expand-Archive -LiteralPath $archive -DestinationPath $dalamudDir -Force
 
+      - name: Verify Sentinel Core pin and UI package hash
+        shell: pwsh
+        run: ./.github/scripts/Verify-SentinelCore.ps1
+
       - name: Restore
-        run: dotnet restore SentinelHUD.slnx -m:1
+        run: dotnet restore SentinelHUD.slnx --locked-mode -m:1
 
       - name: Run platform-neutral tests
         run: dotnet run --project tests/SentinelHUD.Core.Tests/SentinelHUD.Core.Tests.csproj -c Release --no-restore
+
+      - name: Run pinned Sentinel Core UI tests
+        shell: pwsh
+        run: |
+          dotnet restore external/SentinelCore/SentinelCore.slnx -m:1
+          dotnet build external/SentinelCore/SentinelCore.slnx -c Release --no-restore -m:1
+          dotnet run --project external/SentinelCore/tests/SentinelCore.UI.Tests/SentinelCore.UI.Tests.csproj -c Release --no-build
 
       - name: Build installable plugin
         run: dotnet build src/SentinelHUD/SentinelHUD.csproj -c Release --no-restore -m:1
 
       - name: Validate installable package
         shell: pwsh
-        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '0.8.3.3'
+        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '0.8.4.0'
 
       - name: Upload installable package
         uses: actions/upload-artifact@v7
         with:
-          name: SentinelHUD-0.8.3.3
+          name: SentinelHUD-0.8.4.0
           path: src/SentinelHUD/bin/Release/SentinelHUD/latest.zip
           if-no-files-found: error
