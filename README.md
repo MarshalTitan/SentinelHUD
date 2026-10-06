@@ -35,6 +35,10 @@ https://raw.githubusercontent.com/MarshalTitan/Sentinel/main/repo.json
 
 Install **Sentinel HUD** from the plugin installer. No other Sentinel plugin is required.
 
+### Release-to-catalog publication
+
+The live release workflow does not consider a release complete after uploading its ZIP alone. After the public package passes validation, it sends the central `MarshalTitan/Sentinel` repository a `plugin-released` dispatch using the `DALAMUD_CATALOG_TOKEN` repository secret. The central generator then rebuilds the catalog from authoritative child manifests. Sentinel HUD waits up to five minutes and verifies that the public central `repo.json` contains the exact released version and all three expected asset URLs. A missing dispatch credential, failed reconciliation or stale public catalog fails the release workflow visibly instead of silently relying on the hourly schedule. The central hourly reconciliation remains the self-healing fallback.
+
 ## Commands
 
 | Command | Result |

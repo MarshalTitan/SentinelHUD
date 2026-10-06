@@ -2,6 +2,7 @@
 
 ## 0.8.4.1 — Sentinel Modern 2 shell polish
 
+- Hardened release publication so a verified release immediately dispatches the central Sentinel catalog generator and waits for the exact public catalog version and asset URLs; the hourly reconciliation remains a fallback.
 - Updated the exact Sentinel Core pin to `v0.3.1.0` / `MarshalTitan.SentinelCore.UI` `0.3.1` and verified the required package hash.
 - Replaced the duplicate native title strip in Modern mode with Core's single draggable custom header while keeping the native title bar unchanged in Classic.
 - Adopted Core's unified full-bleed application surface, `0.9` procedural ambient intensity and reduced-motion-safe background treatment.
