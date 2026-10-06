@@ -49,6 +49,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
         {
             DrawIcon = static context => DrawModernNavigationIcon(FontAwesomeIcon.Tools, context),
         },
+        new(SentinelHudModernNavigationState.PluginsId, null, "Plugins")
+        {
+            DrawIcon = static context => DrawModernNavigationIcon(FontAwesomeIcon.Plug, context),
+        },
         new(SentinelHudModernNavigationState.AppearanceId, null, "Appearance")
         {
             DrawIcon = static context => DrawModernNavigationIcon(FontAwesomeIcon.Palette, context),
@@ -63,6 +67,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer renderer;
     private readonly QuestConvenienceService questConvenience;
+    private readonly SentinelEcosystemStatusService ecosystemStatus;
     private readonly DiagnosticBuffer diagnostics;
     private readonly ResilientConfigurationStore configurationStore;
     private readonly IDalamudPluginInterface pluginInterface;
@@ -78,6 +83,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private readonly Action<SentinelModernIconDrawContext> drawModernPluginIcon;
     private readonly Action drawGlobalScaleControl;
     private readonly Action drawGlobalOpacityControl;
+    private readonly Action drawHudModeStatusControl;
+    private readonly Action drawPluginEnabledStatus;
+    private readonly Action drawPluginDisabledStatus;
+    private readonly Action drawPluginNotInstalledStatus;
     private readonly ImGuiWindowFlags classicWindowFlags;
     private int selectedLayoutModule;
     private bool modernThemeActive;
@@ -90,6 +99,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         ConfigurationCoordinator<Configuration> configuration,
         HudRenderer renderer,
         QuestConvenienceService questConvenience,
+        SentinelEcosystemStatusService ecosystemStatus,
         DiagnosticBuffer diagnostics,
         ResilientConfigurationStore configurationStore,
         IDalamudPluginInterface pluginInterface)
@@ -98,6 +108,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         this.configuration = configuration;
         this.renderer = renderer;
         this.questConvenience = questConvenience;
+        this.ecosystemStatus = ecosystemStatus;
         this.diagnostics = diagnostics;
         this.configurationStore = configurationStore;
         this.pluginInterface = pluginInterface;
@@ -110,6 +121,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
         drawModernPluginIcon = DrawModernPluginIcon;
         drawGlobalScaleControl = DrawGlobalScaleControl;
         drawGlobalOpacityControl = DrawGlobalOpacityControl;
+        drawHudModeStatusControl = DrawHudModeStatusControl;
+        drawPluginEnabledStatus = DrawPluginEnabledStatus;
+        drawPluginDisabledStatus = DrawPluginDisabledStatus;
+        drawPluginNotInstalledStatus = DrawPluginNotInstalledStatus;
         classicWindowFlags = Flags;
         Size = new Vector2(920f, 720f);
         SizeCondition = ImGuiCond.FirstUseEver;
@@ -261,6 +276,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             case SentinelHudModernContentPage.Convenience: DrawConvenience(); break;
             case SentinelHudModernContentPage.Appearance: DrawAppearance(); break;
             case SentinelHudModernContentPage.Diagnostics: DrawDiagnostics(); break;
+            case SentinelHudModernContentPage.Plugins: DrawPlugins(); break;
         }
     }
 
@@ -327,19 +343,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private void DrawModernGeneral()
     {
         var scale = ImGuiHelpers.GlobalScale;
-        using var card = SentinelModernGlassCard.Begin(
-            "SentinelHUD.Modern2.General",
-            new SentinelModernGlassCardOptions
-            {
-                Size = new Vector2(0f, 300f),
-                Accent = SentinelModernPalette.Accent,
-                AccentStrength = 0.12f,
-                Elevated = true,
-            },
-            scale);
-        if (!card.IsVisible)
-            return;
-
         SentinelModernUi.SectionHeader("Global HUD");
         var enabled = configuration.Current.Enabled;
         if (SentinelModernSwitch.Draw(
@@ -374,10 +377,26 @@ public sealed class ConfigurationWindow : Window, IDisposable
             "Applies a shared opacity multiplier while retaining module appearance values.",
             drawGlobalOpacityControl,
             scale: scale);
-        ImGui.TextWrapped(configuration.Current.Locked
-            ? "Gameplay mode is active. Enabled actor regions use the configured targeting interactions; unrelated HUD space remains click-through."
-            : "Visual editing is active. Drag modules to move them and use their edges or corners to resize them. Actor actions are suspended while editing.");
+        SentinelModernSettingsRow.Draw(
+            "SentinelHUD.InteractionMode",
+            "Interaction mode",
+            configuration.Current.Locked
+                ? "Gameplay mode is active. Enabled actor regions use the configured targeting interactions; unrelated HUD space remains click-through."
+                : "Visual editing is active. Drag modules to move them and use their edges or corners to resize them. Actor actions are suspended while editing.",
+            drawHudModeStatusControl,
+            controlWidth: 130f,
+            scale: scale);
     }
+
+    private void DrawHudModeStatusControl()
+        => SentinelModernStatusPill.Draw(
+            new SentinelModernStatusPillOptions(
+                configuration.Current.Locked ? "Locked" : "Editing",
+                configuration.Current.Locked
+                    ? SentinelModernPillTone.Ready
+                    : SentinelModernPillTone.Warning),
+            modernShellState.Motion,
+            ImGuiHelpers.GlobalScale);
 
     private void DrawGlobalScaleControl()
     {
@@ -395,12 +414,18 @@ public sealed class ConfigurationWindow : Window, IDisposable
             Update(c => c.GlobalOpacity = value);
     }
 
-    private void SelectModernPrimaryPage(string id) => modernNavigation.SelectPrimary(id);
+    private void SelectModernPrimaryPage(string id)
+    {
+        if (modernNavigation.SelectPrimary(id)
+            && string.Equals(id, SentinelHudModernNavigationState.PluginsId, StringComparison.Ordinal))
+            ecosystemStatus.Refresh(force: true);
+    }
 
     public void OpenAndExpand()
     {
         IsOpen = true;
         expandOnNextDraw = true;
+        ecosystemStatus.Refresh(force: true);
     }
 
     public void ToggleFromCommand()
@@ -478,8 +503,63 @@ public sealed class ConfigurationWindow : Window, IDisposable
             SentinelHudModernContentPage.Camera => ("Camera", "Optional extended third-person zoom with conflict-safe restoration."),
             SentinelHudModernContentPage.Convenience => ("Questing / Convenience", "Independent opt-in dialogue, cutscene, reward and AFK helpers."),
             SentinelHudModernContentPage.Appearance => ("Appearance", "Sentinel presentation and shared bar-colour choices."),
-            _ => ("Diagnostics", "Live state and compact evidence for troubleshooting."),
+            SentinelHudModernContentPage.Diagnostics => ("Diagnostics", "Live state and compact evidence for troubleshooting."),
+            _ => ("Plugins", "Optional Sentinel companions detected through Dalamud's supported plugin interface."),
         };
+
+    private void DrawPlugins()
+    {
+        ecosystemStatus.Refresh();
+        var statuses = ecosystemStatus.Snapshot;
+        var summary = SentinelEcosystemRegistry.Summarize(statuses);
+        SentinelModernUi.SectionHeader("SENTINEL ECOSYSTEM");
+        DrawMutedText(summary.Description);
+        ImGui.Spacing();
+
+        foreach (var status in statuses)
+        {
+            var description = status.Version is null
+                ? status.Definition.Description
+                : $"{status.Definition.Description}\nInstalled version: v{status.Version}";
+            SentinelModernSettingsRow.Draw(
+                $"SentinelHUD.Plugin.{status.Definition.InternalName}",
+                status.Definition.DisplayName,
+                description,
+                StatusAction(status.State),
+                SentinelModernSettingsRowLayoutOptions.Default with
+                {
+                    PreferredControlWidth = 190f,
+                    MinimumControlWidth = 150f,
+                },
+                ImGuiHelpers.GlobalScale);
+        }
+
+        ImGui.Spacing();
+        DrawMutedText("These plugins are optional companions. Sentinel HUD remains fully usable when any or all of them are absent.");
+        DrawMutedText($"Status source: {ecosystemStatus.StateDescription}");
+    }
+
+    private Action StatusAction(SentinelCompanionState state) => state switch
+    {
+        SentinelCompanionState.Enabled => drawPluginEnabledStatus,
+        SentinelCompanionState.InstalledDisabled => drawPluginDisabledStatus,
+        _ => drawPluginNotInstalledStatus,
+    };
+
+    private void DrawPluginEnabledStatus()
+        => DrawPluginStatus("Enabled", SentinelModernPillTone.Enabled);
+
+    private void DrawPluginDisabledStatus()
+        => DrawPluginStatus("Installed · Disabled", SentinelModernPillTone.Warning);
+
+    private void DrawPluginNotInstalledStatus()
+        => DrawPluginStatus("Not Installed", SentinelModernPillTone.Neutral);
+
+    private void DrawPluginStatus(string text, SentinelModernPillTone tone)
+        => SentinelModernStatusPill.Draw(
+            new SentinelModernStatusPillOptions(text, tone),
+            modernShellState.Motion,
+            ImGuiHelpers.GlobalScale);
 
     public void Dispose()
     {
@@ -620,7 +700,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             DrawToggle("Right-click native context menu##FocusToT",
                 targetOfFocus.RightClickContextMenu,
                 value => Update(c => c.FocusTarget.TargetOfFocus.RightClickContextMenu = value));
-            ImGui.TextDisabled("Only the visible target row receives mouse input; the rest of a locked module stays click-through.");
+            DrawMutedText("Only the visible target row receives mouse input; the rest of a locked module stays click-through.");
         }
         DrawModuleSizeLayout(HudModuleKind.FocusTarget, config);
         DrawModuleAppearance(HudModuleKind.FocusTarget, config);
@@ -666,8 +746,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 ? $"Applied native silhouette palette colour: {nativeSelection.DisplayName}. The requested custom RGB remains saved and visible in the picker."
                 : $"Applied native colour: {nativeSelection.DisplayName}."
             : "White is not substituted: the native silhouette is disabled because the current FFXIV outline palette has no White entry.");
-        ImGui.TextDisabled("The model-conforming renderer exposes Red, Green, Blue, Yellow, Orange, Magenta and Black. Custom uses the closest real native palette colour (shown above); it never silently reports the requested RGB as exact.");
-        ImGui.TextDisabled($"Runtime state: {renderer.SelfHighlightState}");
+        DrawMutedText("The model-conforming renderer exposes Red, Green, Blue, Yellow, Orange, Magenta and Black. Custom uses the closest real native palette colour (shown above); it never silently reports the requested RGB as exact.");
+        DrawMutedText($"Runtime state: {renderer.SelfHighlightState}");
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -690,7 +770,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 ref markerStyle,
                 MarkerStyles))
             Update(c => c.PlayerPositionMarker.Style = (PlayerPositionMarkerStyle)markerStyle);
-        ImGui.TextDisabled(marker.Style == PlayerPositionMarkerStyle.CameraFacing
+        DrawMutedText(marker.Style == PlayerPositionMarkerStyle.CameraFacing
             ? "Camera Facing uses the exact actor world origin with no terrain snap, then keeps the dot circular and readable on screen."
             : "Ground Projected follows the terrain plane and naturally flattens at shallow camera angles.");
         DrawHighlightColour(marker.ColourPreset, marker.CustomColour, "PositionMarker",
@@ -707,7 +787,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 PlayerPositionMarkerPolicy.MaximumRadius,
                 marker.Style == PlayerPositionMarkerStyle.CameraFacing ? "%.2f size" : "%.2f yalms"))
             Update(c => c.PlayerPositionMarker.Radius = radius);
-        ImGui.TextDisabled(marker.Style == PlayerPositionMarkerStyle.CameraFacing
+        DrawMutedText(marker.Style == PlayerPositionMarkerStyle.CameraFacing
             ? $"Total outside radius: {PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(marker.Radius):0.0} px, including any border."
             : "Radius is the total outside world radius, including any border.");
         var opacity = marker.Opacity;
@@ -733,13 +813,13 @@ public sealed class ConfigurationWindow : Window, IDisposable
                     PlayerPositionMarkerPolicy.MinimumBorderThickness,
                     PlayerPositionMarkerPolicy.MaximumBorderThickness, "%.2f px"))
                 Update(c => c.PlayerPositionMarker.BorderThickness = thickness);
-            ImGui.TextDisabled("The border is drawn inward and does not increase the configured radius.");
+            DrawMutedText("The border is drawn inward and does not increase the configured radius.");
         }
         var markerPreview = PlayerPositionMarkerPolicy.ResolveColour(marker);
         ImGui.TextUnformatted("Marker preview:");
         ImGui.SameLine();
         ImGui.ColorButton("Position marker preview##SentinelHUD", markerPreview);
-        ImGui.TextDisabled($"Runtime state: {renderer.PositionMarkerState}");
+        DrawMutedText($"Runtime state: {renderer.PositionMarkerState}");
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -815,11 +895,11 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 value => Update(c => c.TargetingMeCounter.HighColour.Set(value)));
             DrawColour("Extreme", threat.ExtremeColour,
                 value => Update(c => c.TargetingMeCounter.ExtremeColour.Set(value)));
-            ImGui.TextDisabled("Preserves PvP Sentinel threat semantics: nearby enemy density can raise the warning level even before every enemy hard-targets you.");
+            DrawMutedText("Preserves PvP Sentinel threat semantics: nearby enemy density can raise the warning level even before every enemy hard-targets you.");
         }
         if (ImGui.Button("Reset Targeting Me Counter position"))
             renderer.ResetModuleLayout(HudModuleKind.TargetingMeCounter);
-        ImGui.TextDisabled($"Runtime: {renderer.PvPThreat.Explanation}");
+        DrawMutedText($"Runtime: {renderer.PvPThreat.Explanation}");
     }
 
     private void DrawEncounterAwareness()
@@ -864,7 +944,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawToggle("Enable conservative visible-cast detection", encounter.NativeDetectionEnabled,
             value => Update(c => c.EncounterAwareness.NativeDetectionEnabled = value));
         ImGui.TextWrapped("Uses hostile casts only when current action data exposes a supported standard circle, donut, rectangle, cone, line or cross and a native omen/telegraph. Unknown and boss-specific mechanics are skipped rather than guessed.");
-        ImGui.TextDisabled($"Status: {renderer.EncounterNativeState}");
+        DrawMutedText($"Status: {renderer.EncounterNativeState}");
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -876,10 +956,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
             encounter.TreatUnclassifiedSplatoonGeometryAsDanger,
             value => Update(c => c.EncounterAwareness.TreatUnclassifiedSplatoonGeometryAsDanger = value));
         ImGui.TextWrapped("Splatoon's current geometry IPC v1 exposes active shapes but not whether each is Danger, Safe or Information. Sentinel fails closed by default. The opt-in above treats every supported visible area as dangerous and may therefore flag safe-zone drawings.");
-        ImGui.TextUnformatted($"Installed / connected: {renderer.SplatoonInstalled} / {renderer.SplatoonConnected}");
-        ImGui.TextDisabled($"Status: {renderer.EncounterSplatoonState}");
-        ImGui.TextUnformatted($"Active encounter: {renderer.ActiveEncounter}");
-        ImGui.TextUnformatted($"Current trusted hazards: {renderer.EncounterHazardCount}");
+        ImGui.TextWrapped($"Installed / connected: {renderer.SplatoonInstalled} / {renderer.SplatoonConnected}");
+        DrawMutedText($"Status: {renderer.EncounterSplatoonState}");
+        ImGui.TextWrapped($"Active encounter: {renderer.ActiveEncounter}");
+        ImGui.TextWrapped($"Current trusted hazards: {renderer.EncounterHazardCount}");
     }
 
     private void DrawConvenience()
@@ -889,14 +969,14 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawToggle("Skip Dialogue", convenience.SkipDialogue,
             value => Update(c => c.Convenience.SkipDialogue = value));
         ImGui.TextWrapped("Advances only the ordinary Talk text box. Sentinel pauses whenever a response list or Yes/No prompt is visible and never chooses a dialogue response.");
-        ImGui.TextDisabled($"Dialogue runtime: {questConvenience.DialogueState}");
+        DrawMutedText($"Dialogue runtime: {questConvenience.DialogueState}");
 
         DrawToggle("Skip Cutscenes", convenience.SkipCutscenes,
             value => Update(c => c.Convenience.SkipCutscenes = value));
         ImGui.TextWrapped("Requests FFXIV's normal skip dialog only when the client exposes a skippable cutscene, then confirms that dedicated dialog. Protected and unskippable cutscenes are left alone.");
-        ImGui.TextDisabled($"Cutscene runtime: {questConvenience.CutsceneState}");
+        DrawMutedText($"Cutscene runtime: {questConvenience.CutsceneState}");
         if (questConvenience.AwaitingCutsceneSkipConfirmation)
-            ImGui.TextDisabled("Confirmation state: Awaiting the game-provided cutscene skip prompt");
+            DrawMutedText("Confirmation state: Awaiting the game-provided cutscene skip prompt");
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -911,8 +991,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 QuestRewardModes))
             Update(c => c.Convenience.QuestRewardSelection = (QuestRewardSelectionMode)rewardMode);
         ImGui.TextWrapped("Manual never touches rewards. Automatic modes act only on positively identified choose-one entries in JournalResult; guaranteed gil, EXP, items and unlocks are not selected or altered.");
-        ImGui.TextDisabled($"Reward runtime: {questConvenience.RewardState}");
-        ImGui.TextDisabled($"Current job: {questConvenience.CurrentJob}");
+        DrawMutedText($"Reward runtime: {questConvenience.RewardState}");
+        DrawMutedText($"Current job: {questConvenience.CurrentJob}");
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -921,7 +1001,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawToggle("Prevent AFK Disconnect", convenience.PreventAfkDisconnect,
             value => Update(c => c.Convenience.PreventAfkDisconnect = value));
         ImGui.TextWrapped("Default Off. When enabled, Sentinel periodically resets the client's inactivity timers directly. It does not move your character, send chat, synthesize keys, or alter controller input. Disabling resumes ordinary timer accumulation.");
-        ImGui.TextDisabled($"Runtime state: {renderer.AntiAfkState}");
+        DrawMutedText($"Runtime state: {renderer.AntiAfkState}");
     }
 
     private void DrawCamera()
@@ -947,8 +1027,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
         ImGui.SameLine();
         if (ImGui.Button("Retry after conflict"))
             renderer.RetryCameraZoom();
-        ImGui.TextUnformatted($"Runtime state: {renderer.CameraZoomState}");
-        ImGui.TextUnformatted($"Current maximum: {renderer.CameraCurrentMaximum:0.0} yalms");
+        ImGui.TextWrapped($"Runtime state: {renderer.CameraZoomState}");
+        ImGui.TextWrapped($"Current maximum: {renderer.CameraCurrentMaximum:0.0} yalms");
         if (renderer.CameraConflict is not null)
             ImGui.TextWrapped($"Camera controller detected: {renderer.CameraConflict}. Sentinel HUD will not compete with it.");
     }
@@ -973,7 +1053,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 ref targetMode,
                 HpColourModes))
             Update(c => c.Appearance.TargetHpColourMode = (HpColourMode)targetMode);
-        ImGui.TextDisabled("Gradient: green at high HP, yellow through mid HP, red at 35% and below.");
+        DrawMutedText("Gradient: green at high HP, yellow through mid HP, red at 35% and below.");
         ImGui.Spacing();
         DrawColour("Player HP", appearance.PlayerHealth, value => Update(c => c.Appearance.PlayerHealth.Set(value)));
         DrawColour("Friendly HP", appearance.FriendlyHealth, value => Update(c => c.Appearance.FriendlyHealth.Set(value)));
@@ -983,7 +1063,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawColour("MP", appearance.Mp, value => Update(c => c.Appearance.Mp.Set(value)));
         ImGui.Spacing();
         ImGui.TextWrapped("In Static / Role-Based mode, hostile characters use red; players, party/alliance members and friends use the friendly colour; other objects use neutral. Health-State Gradient intentionally overrides disposition colours.");
-        ImGui.TextDisabled("Background, border, number style and alignment remain independently configurable per module.");
+        DrawMutedText("Background, border, number style and alignment remain independently configurable per module.");
     }
 
     private void DrawLayout()
@@ -1011,10 +1091,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
             renderer.ResetAllLayouts();
         if (ImGui.Button("Copy selected appearance to other modules"))
             renderer.CopyAppearanceToOtherModules(kind);
-        ImGui.TextDisabled("Copies scale, width, bar height, opacity, border, HP alignment and number format only.");
+        DrawMutedText("Copies scale, width, bar height, opacity, border, HP alignment and number format only.");
 
         ImGui.Separator();
-        ImGui.TextDisabled("Saved normalized anchors");
+        DrawMutedText("Saved normalized anchors");
         foreach (var moduleKind in Enum.GetValues<HudModuleKind>())
         {
             var module = GetModule(configuration.Current, moduleKind);
@@ -1025,74 +1105,75 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private void DrawDiagnostics()
     {
         var config = configuration.Current;
-        ImGui.TextUnformatted($"Configuration schema: {config.Version}");
+        ImGui.TextWrapped($"Configuration schema: {config.Version}");
         ImGui.TextWrapped($"Configuration load: {configurationStore.StateDescription}");
         if (configurationStore.BackupPath is not null)
             ImGui.TextWrapped($"Migration/recovery backup: {configurationStore.BackupPath}");
-        ImGui.TextUnformatted($"HUD enabled / locked: {config.Enabled} / {config.Locked}");
-        ImGui.TextUnformatted($"Player module visible: {renderer.PlayerVisible}");
-        ImGui.TextUnformatted($"Target visible / resolved: {renderer.TargetVisible} / {renderer.TargetResolved}");
-        ImGui.TextUnformatted($"Focus visible / resolved: {renderer.FocusTargetVisible} / {renderer.FocusTargetResolved}");
-        ImGui.TextUnformatted($"Focus Target's Target resolved: {renderer.FocusTargetTargetResolved}");
+        ImGui.TextWrapped($"HUD enabled / locked: {config.Enabled} / {config.Locked}");
+        ImGui.TextWrapped($"Sentinel ecosystem status: {ecosystemStatus.StateDescription}");
+        ImGui.TextWrapped($"Player module visible: {renderer.PlayerVisible}");
+        ImGui.TextWrapped($"Target visible / resolved: {renderer.TargetVisible} / {renderer.TargetResolved}");
+        ImGui.TextWrapped($"Focus visible / resolved: {renderer.FocusTargetVisible} / {renderer.FocusTargetResolved}");
+        ImGui.TextWrapped($"Focus Target's Target resolved: {renderer.FocusTargetTargetResolved}");
         ImGui.TextWrapped($"Focus Target click state: {renderer.FocusTargetClickState}");
         ImGui.TextWrapped($"Actor context-menu state: {renderer.ActorContextMenuState}");
-        ImGui.TextUnformatted($"Native context menu visible: {renderer.NativeActorContextMenuVisible}");
-        ImGui.TextUnformatted($"Actor input suspended for menu: {renderer.ActorInputSuspendedForContextMenu}");
+        ImGui.TextWrapped($"Native context menu visible: {renderer.NativeActorContextMenuVisible}");
+        ImGui.TextWrapped($"Actor input suspended for menu: {renderer.ActorInputSuspendedForContextMenu}");
         ImGui.TextWrapped($"Context-menu placement: {renderer.ActorContextMenuPlacementState}");
         if (renderer.NativeActorContextMenuVisible)
         {
-            ImGui.TextUnformatted($"Native menu position: {renderer.ActorContextMenuPosition.X:0}, {renderer.ActorContextMenuPosition.Y:0}");
-            ImGui.TextUnformatted($"Native menu size: {renderer.ActorContextMenuSize.X:0} × {renderer.ActorContextMenuSize.Y:0}");
+            ImGui.TextWrapped($"Native menu position: {renderer.ActorContextMenuPosition.X:0}, {renderer.ActorContextMenuPosition.Y:0}");
+            ImGui.TextWrapped($"Native menu size: {renderer.ActorContextMenuSize.X:0} × {renderer.ActorContextMenuSize.Y:0}");
         }
-        ImGui.TextUnformatted($"Target-of-target visible / resolved: {renderer.TargetOfTargetVisible} / {renderer.TargetOfTargetResolved}");
-        ImGui.TextUnformatted($"Self highlight mode / active: {config.SelfHighlight.Mode} / {renderer.SelfHighlightActive}");
-        ImGui.TextUnformatted($"Self highlight applied colour: {renderer.SelfHighlightAppliedColour}");
+        ImGui.TextWrapped($"Target-of-target visible / resolved: {renderer.TargetOfTargetVisible} / {renderer.TargetOfTargetResolved}");
+        ImGui.TextWrapped($"Self highlight mode / active: {config.SelfHighlight.Mode} / {renderer.SelfHighlightActive}");
+        ImGui.TextWrapped($"Self highlight applied colour: {renderer.SelfHighlightAppliedColour}");
         ImGui.TextWrapped($"Self highlight state: {renderer.SelfHighlightState}");
-        ImGui.TextUnformatted($"Position marker mode / style / active: {config.PlayerPositionMarker.Mode} / {config.PlayerPositionMarker.Style} / {renderer.PositionMarkerActive}");
-        ImGui.TextUnformatted($"Position marker terrain projection: {renderer.PositionMarkerUsedTerrainProjection}");
+        ImGui.TextWrapped($"Position marker mode / style / active: {config.PlayerPositionMarker.Mode} / {config.PlayerPositionMarker.Style} / {renderer.PositionMarkerActive}");
+        ImGui.TextWrapped($"Position marker terrain projection: {renderer.PositionMarkerUsedTerrainProjection}");
         ImGui.TextWrapped($"Position marker state: {renderer.PositionMarkerState}");
-        ImGui.TextUnformatted($"Encounter awareness enabled / player unsafe: {renderer.EncounterAwarenessEnabled} / {renderer.PlayerInDanger}");
-        ImGui.TextUnformatted($"Encounter hazards: {renderer.EncounterHazardCount}");
+        ImGui.TextWrapped($"Encounter awareness enabled / player unsafe: {renderer.EncounterAwarenessEnabled} / {renderer.PlayerInDanger}");
+        ImGui.TextWrapped($"Encounter hazards: {renderer.EncounterHazardCount}");
         ImGui.TextWrapped($"Native danger provider: {renderer.EncounterNativeState}");
         ImGui.TextWrapped($"Splatoon provider: {renderer.EncounterSplatoonState}");
-        ImGui.TextUnformatted($"Native target overlay mode / active: {config.Target.NativeHpOverlay.Mode} / {renderer.NativeTargetOverlayActive}");
-        ImGui.TextUnformatted($"Native overlay target exists: {renderer.NativeTargetOverlayTargetExists}");
-        ImGui.TextUnformatted($"Split addon available / visible: {renderer.NativeTargetSplitAddonAvailable} / {renderer.NativeTargetSplitAddonVisible}");
-        ImGui.TextUnformatted($"Combined addon available / visible: {renderer.NativeTargetCombinedAddonAvailable} / {renderer.NativeTargetCombinedAddonVisible}");
-        ImGui.TextUnformatted($"Detected layout / addon: {renderer.NativeTargetDetectedLayout} / {renderer.NativeTargetDetectedAddon}");
-        ImGui.TextUnformatted($"Anchor source: {renderer.NativeTargetAnchorSource}");
+        ImGui.TextWrapped($"Native target overlay mode / active: {config.Target.NativeHpOverlay.Mode} / {renderer.NativeTargetOverlayActive}");
+        ImGui.TextWrapped($"Native overlay target exists: {renderer.NativeTargetOverlayTargetExists}");
+        ImGui.TextWrapped($"Split addon available / visible: {renderer.NativeTargetSplitAddonAvailable} / {renderer.NativeTargetSplitAddonVisible}");
+        ImGui.TextWrapped($"Combined addon available / visible: {renderer.NativeTargetCombinedAddonAvailable} / {renderer.NativeTargetCombinedAddonVisible}");
+        ImGui.TextWrapped($"Detected layout / addon: {renderer.NativeTargetDetectedLayout} / {renderer.NativeTargetDetectedAddon}");
+        ImGui.TextWrapped($"Anchor source: {renderer.NativeTargetAnchorSource}");
         ImGui.TextWrapped($"Native target overlay state: {renderer.NativeTargetOverlayState}");
         if (renderer.NativeTargetOverlayActive)
         {
-            ImGui.TextUnformatted($"Native target anchor: {renderer.NativeTargetOverlayAnchor.X:0.0}, {renderer.NativeTargetOverlayAnchor.Y:0.0}");
-            ImGui.TextUnformatted($"Native target bounds: {renderer.NativeTargetOverlaySize.X:0.0} × {renderer.NativeTargetOverlaySize.Y:0.0}");
+            ImGui.TextWrapped($"Native target anchor: {renderer.NativeTargetOverlayAnchor.X:0.0}, {renderer.NativeTargetOverlayAnchor.Y:0.0}");
+            ImGui.TextWrapped($"Native target bounds: {renderer.NativeTargetOverlaySize.X:0.0} × {renderer.NativeTargetOverlaySize.Y:0.0}");
         }
-        ImGui.TextUnformatted($"Extended zoom enabled / active: {config.Camera.Enabled} / {renderer.CameraZoomActive}");
+        ImGui.TextWrapped($"Extended zoom enabled / active: {config.Camera.Enabled} / {renderer.CameraZoomActive}");
         ImGui.TextWrapped($"Extended zoom state: {renderer.CameraZoomState}");
-        ImGui.TextUnformatted($"Prevent AFK Disconnect enabled / active: {config.Convenience.PreventAfkDisconnect} / {renderer.AntiAfkActive}");
+        ImGui.TextWrapped($"Prevent AFK Disconnect enabled / active: {config.Convenience.PreventAfkDisconnect} / {renderer.AntiAfkActive}");
         ImGui.TextWrapped($"Anti-AFK state: {renderer.AntiAfkState}");
-        ImGui.TextUnformatted($"Dialogue skipping enabled: {config.Convenience.SkipDialogue}");
+        ImGui.TextWrapped($"Dialogue skipping enabled: {config.Convenience.SkipDialogue}");
         ImGui.TextWrapped($"Dialogue skipping state: {questConvenience.DialogueState}");
-        ImGui.TextUnformatted($"Cutscene skipping enabled: {config.Convenience.SkipCutscenes}");
+        ImGui.TextWrapped($"Cutscene skipping enabled: {config.Convenience.SkipCutscenes}");
         ImGui.TextWrapped($"Cutscene skipping state: {questConvenience.CutsceneState}");
-        ImGui.TextUnformatted($"Awaiting cutscene confirmation: {questConvenience.AwaitingCutsceneSkipConfirmation}");
+        ImGui.TextWrapped($"Awaiting cutscene confirmation: {questConvenience.AwaitingCutsceneSkipConfirmation}");
         ImGui.TextWrapped($"Detected cutscene addon: {questConvenience.CutsceneDetectedAddon}");
         ImGui.TextWrapped($"Last cutscene result: {questConvenience.CutsceneLastResult}");
-        ImGui.TextUnformatted($"Quest reward mode: {config.Convenience.QuestRewardSelection}");
-        ImGui.TextUnformatted($"Current job: {questConvenience.CurrentJob}");
-        ImGui.TextUnformatted($"Reward window detected: {questConvenience.RewardWindowDetected}");
+        ImGui.TextWrapped($"Quest reward mode: {config.Convenience.QuestRewardSelection}");
+        ImGui.TextWrapped($"Current job: {questConvenience.CurrentJob}");
+        ImGui.TextWrapped($"Reward window detected: {questConvenience.RewardWindowDetected}");
         ImGui.TextWrapped($"Reward runtime: {questConvenience.RewardState}");
         ImGui.TextWrapped($"Last selected reward: {questConvenience.LastSelectedRewardName} ({questConvenience.LastSelectedRewardId})");
         ImGui.TextWrapped($"Last selection reason: {questConvenience.LastSelectionReason}");
         ImGui.Separator();
-        ImGui.TextUnformatted($"Targeting Me Counter visible / active: {renderer.TargetingMeCounterVisible} / {renderer.PvPThreat.Active}");
-        ImGui.TextUnformatted($"PvP mode: {renderer.PvPThreat.PvPMode}");
-        ImGui.TextUnformatted($"Local Battalion/team: {(renderer.PvPThreat.LocalBattalion <= 2 ? renderer.PvPThreat.LocalBattalion.ToString() : "UNRESOLVED")}");
-        ImGui.TextUnformatted($"Classification source / authoritative: {renderer.PvPThreat.Source} / {renderer.PvPThreat.ClassificationAuthoritative}");
-        ImGui.TextUnformatted($"Observed players / enemies: {renderer.PvPThreat.ObservedPlayerCount} / {renderer.PvPThreat.ObservedEnemyCount}");
-        ImGui.TextUnformatted($"Nearby enemies / allies: {renderer.PvPThreat.NearbyEnemyCount} / {renderer.PvPThreat.NearbyFriendlyCount}");
-        ImGui.TextUnformatted($"Currently targeting me: {renderer.PvPThreat.TargeterCount}");
-        ImGui.TextUnformatted($"Threat warning level: {renderer.PvPThreat.Level}");
+        ImGui.TextWrapped($"Targeting Me Counter visible / active: {renderer.TargetingMeCounterVisible} / {renderer.PvPThreat.Active}");
+        ImGui.TextWrapped($"PvP mode: {renderer.PvPThreat.PvPMode}");
+        ImGui.TextWrapped($"Local Battalion/team: {(renderer.PvPThreat.LocalBattalion <= 2 ? renderer.PvPThreat.LocalBattalion.ToString() : "UNRESOLVED")}");
+        ImGui.TextWrapped($"Classification source / authoritative: {renderer.PvPThreat.Source} / {renderer.PvPThreat.ClassificationAuthoritative}");
+        ImGui.TextWrapped($"Observed players / enemies: {renderer.PvPThreat.ObservedPlayerCount} / {renderer.PvPThreat.ObservedEnemyCount}");
+        ImGui.TextWrapped($"Nearby enemies / allies: {renderer.PvPThreat.NearbyEnemyCount} / {renderer.PvPThreat.NearbyFriendlyCount}");
+        ImGui.TextWrapped($"Currently targeting me: {renderer.PvPThreat.TargeterCount}");
+        ImGui.TextWrapped($"Threat warning level: {renderer.PvPThreat.Level}");
         ImGui.TextWrapped($"Classification state: {renderer.PvPThreat.Explanation}");
         if (renderer.PvPThreat.Targeters.Count > 0
             && ImGui.TreeNode($"Observed hard targeters ({renderer.PvPThreat.TargeterCount})"))
@@ -1144,8 +1225,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
                     ClickableAreas))
                 Update(c => GetModule(c, kind).ClickableArea = (ModuleClickableArea)clickableArea);
         }
-        ImGui.TextDisabled("Unlocking the HUD temporarily shows enabled modules for editing.");
-        ImGui.TextDisabled("Edit mode overrides actor actions. If both actor interactions are disabled, the locked region is fully mouse-pass-through.");
+        DrawMutedText("Unlocking the HUD temporarily shows enabled modules for editing.");
+        DrawMutedText("Edit mode overrides actor actions. If both actor interactions are disabled, the locked region is fully mouse-pass-through.");
     }
 
     private void DrawModuleSizeLayout(HudModuleKind kind, HudModuleConfiguration module)
@@ -1288,7 +1369,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 120f,
                 "%.0f px"))
             Update(c => c.Target.NativeHpOverlay.OffsetY = offsetY);
-        ImGui.TextDisabled($"Runtime state: {renderer.NativeTargetOverlayState}");
+        DrawMutedText($"Runtime state: {renderer.NativeTargetOverlayState}");
     }
 
     private void DrawShieldMode(ShieldDisplayMode current, Action<ShieldDisplayMode> setter)
@@ -1479,6 +1560,26 @@ public sealed class ConfigurationWindow : Window, IDisposable
         }
 
         SentinelModernUi.SectionHeader(title);
+    }
+
+    private void DrawMutedText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (!modernThemeActive)
+        {
+            ImGui.TextDisabled(text);
+            return;
+        }
+
+        ImGui.PushStyleColor(ImGuiCol.Text, SentinelModernPalette.Muted);
+        try
+        {
+            ImGui.TextWrapped(text);
+        }
+        finally
+        {
+            ImGui.PopStyleColor();
+        }
     }
 
     private void Update(Action<Configuration> mutation) => configuration.Update(mutation);

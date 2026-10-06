@@ -8,6 +8,7 @@ public enum SentinelHudModernPrimaryPage
     Systems = 3,
     Appearance = 4,
     Diagnostics = 5,
+    Plugins = 6,
 }
 
 public enum SentinelHudModernContentPage
@@ -24,6 +25,7 @@ public enum SentinelHudModernContentPage
     Convenience = 9,
     Appearance = 10,
     Diagnostics = 11,
+    Plugins = 12,
 }
 
 /// <summary>
@@ -38,6 +40,7 @@ public sealed class SentinelHudModernNavigationState
     public const string SystemsId = "systems";
     public const string AppearanceId = "appearance";
     public const string DiagnosticsId = "diagnostics";
+    public const string PluginsId = "plugins";
 
     public SentinelHudModernPrimaryPage PrimaryPage { get; private set; }
 
@@ -57,7 +60,8 @@ public sealed class SentinelHudModernNavigationState
         SentinelHudModernPrimaryPage.Awareness => AwarenessId,
         SentinelHudModernPrimaryPage.Systems => SystemsId,
         SentinelHudModernPrimaryPage.Appearance => AppearanceId,
-        _ => DiagnosticsId,
+        SentinelHudModernPrimaryPage.Diagnostics => DiagnosticsId,
+        _ => PluginsId,
     };
 
     public SentinelHudModernContentPage ContentPage => PrimaryPage switch
@@ -67,7 +71,8 @@ public sealed class SentinelHudModernNavigationState
         SentinelHudModernPrimaryPage.Awareness => AwarenessPage,
         SentinelHudModernPrimaryPage.Systems => SystemsPage,
         SentinelHudModernPrimaryPage.Appearance => SentinelHudModernContentPage.Appearance,
-        _ => SentinelHudModernContentPage.Diagnostics,
+        SentinelHudModernPrimaryPage.Diagnostics => SentinelHudModernContentPage.Diagnostics,
+        _ => SentinelHudModernContentPage.Plugins,
     };
 
     public bool HasSecondaryNavigation => PrimaryPage is
@@ -85,6 +90,7 @@ public sealed class SentinelHudModernNavigationState
             SystemsId => SentinelHudModernPrimaryPage.Systems,
             AppearanceId => SentinelHudModernPrimaryPage.Appearance,
             DiagnosticsId => SentinelHudModernPrimaryPage.Diagnostics,
+            PluginsId => SentinelHudModernPrimaryPage.Plugins,
             _ => throw new ArgumentOutOfRangeException(nameof(id), id, "Unknown primary page."),
         };
 

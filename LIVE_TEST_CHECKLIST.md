@@ -1,4 +1,4 @@
-# Sentinel HUD 0.8.4.1 — Live Test
+# Sentinel HUD 0.8.4.2 — Live Test
 
 ## Startup and configuration migration
 
@@ -14,17 +14,17 @@
 
 - [ ] `/shud` opens in Sentinel Modern 2 after updating from 0.8.3.3 without asking you to reselect the theme.
 - [ ] Confirm the midnight-navy canvas, electric-blue accents and violet/teal ambient rings are visible and restrained rather than distracting.
-- [ ] Confirm the primary icon rail uses recognizable crisp icons rather than `G/H/A/S/P/D` letters, remains fixed on the far left and exposes General, HUD, Awareness, Systems, Appearance and Diagnostics through its tooltips.
+- [ ] Confirm the primary icon rail uses recognizable crisp icons rather than letters, remains fixed on the far left and exposes General, HUD, Awareness, Systems, Plugins, Appearance and Diagnostics through its tooltips.
 - [ ] Confirm HUD's secondary sidebar opens Player, Target, Focus Target, Target-of-Target and Layout.
 - [ ] Confirm Awareness's secondary sidebar opens Personal Awareness and Encounter Awareness.
 - [ ] Confirm Systems' secondary sidebar opens Camera and Questing / Convenience.
 - [ ] Confirm secondary categories are text-only with no `P/T/F/2/L/A/E/C/Q` letter placeholders.
-- [ ] Confirm General, Appearance and Diagnostics do not show a redundant secondary sidebar.
+- [ ] Confirm General, Plugins, Appearance and Diagnostics do not show a redundant secondary sidebar.
 - [ ] Confirm the compact header has no internal scrollbar and shows icon, `Sentinel HUD`, status pill, page context, collapse and close controls on one row.
 - [ ] Drag unused space in the custom header; confirm the complete configuration window moves and its new position survives reopen/restart.
 - [ ] Confirm the header, rail, optional sidebar and content read as one continuous surface without heavy boxed pane divisions.
 - [ ] Confirm every page title and its short explanation appear only in the right content area.
-- [ ] Confirm General opens into its Core glass settings card.
+- [ ] Confirm General uses compact Core glass settings rows without a fixed-height outer card.
 - [ ] Confirm General has one Lock HUD switch and no duplicate lower Unlock HUD button.
 - [ ] Confirm Appearance opens directly at Bar Colours without a redundant Configuration Window section.
 - [ ] Confirm page changes use a subtle fade/slide and the rail selection indicator interpolates smoothly.
@@ -40,6 +40,28 @@
 - [ ] Use the compact Classic-header action and confirm Sentinel Modern returns immediately.
 - [ ] Reload the plugin and restart FFXIV; confirm the selected configuration theme persists.
 - [ ] Confirm all pre-update module positions, sizes, colours and gameplay settings remain unchanged.
+
+## Sentinel ecosystem Plugins page
+
+- [ ] Open Plugins from the plug icon in the primary rail; confirm the page matches the Sentinel Modern surface, typography, cards and status pills.
+- [ ] Confirm the summary counts installed, enabled, disabled and absent companions accurately without any `Required` warning.
+- [ ] With S Rank Sentinel enabled, confirm its card reports **Enabled** and shows the installed version.
+- [ ] Disable S Rank Sentinel through Dalamud; confirm the card changes to **Installed · Disabled** rather than **Not Installed**.
+- [ ] Re-enable it and confirm the status returns to **Enabled** without restarting Sentinel HUD.
+- [ ] Confirm an uninstalled listed companion reports **Not Installed**.
+- [ ] Repeat status checks for PvP Sentinel, Classy Sentinel, Sentinel Relay and Sentinel Profiles where installed.
+- [ ] Confirm Sentinel HUD, SentinelCore and MINION Frontline Sentinel do not appear as companion cards.
+- [ ] Confirm Sentinel HUD modules and all other features work normally with every companion missing or disabled.
+
+## Responsive configuration text
+
+- [ ] At a wide configuration width, confirm setting rows remain compact and each control stays in its reserved right column.
+- [ ] Narrow to approximately the attached medium-width example; confirm the General interaction description wraps and the row grows instead of clipping its second line.
+- [ ] Resize to the minimum supported width; confirm controls stack below wording where needed and remain usable.
+- [ ] Audit General, Player, Target, Focus Target, Target-of-Target, Awareness, Encounter Awareness, Camera, Questing / Convenience, Appearance, Layout, Diagnostics and Plugins.
+- [ ] Confirm long descriptions and muted runtime/helper text wrap naturally, move later content downward and never render under a slider, combo, colour control, switch or status pill.
+- [ ] Confirm Plugins cards grow for wrapped descriptions/version text without horizontal overflow.
+- [ ] Repeat at Dalamud UI scales 1.0, 1.25 and 1.5; confirm header and rail remain fixed while page content scrolls independently when necessary.
 
 ## Targeting Me Counter
 

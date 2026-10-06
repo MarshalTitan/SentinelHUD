@@ -88,7 +88,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Polishes Sentinel HUD's canonical Sentinel Modern 2 shell with MarshalTitan.SentinelCore.UI 0.3.1 (Core v0.3.1.0): one custom draggable header, a unified full-bleed application surface, crisp Font Awesome primary navigation, text-only secondary categories, responsive non-overlapping settings rows, and the strengthened reduced-motion-safe ambient background. Classic remains unchanged, and HUD behavior, layouts, configuration, targeting, awareness, camera, and convenience systems remain intact."
+            --notes "Adds a Sentinel ecosystem Plugins page to the Sentinel Modern 2 rail. It uses Dalamud's supported installed-plugin interface to distinguish Enabled, Installed/Disabled, and Not Installed companions, includes installed versions, updates from plugin-state events with a bounded fallback refresh, and introduces no hard dependencies. This release also removes the General page's fixed-height container and applies wrapped muted helper text throughout the configuration UI so content grows cleanly at medium and narrow widths. Configuration schema 11, Classic, HUD behavior, layouts, targeting, awareness, camera, and convenience systems remain unchanged."
 
       - name: Verify public release asset
         shell: pwsh

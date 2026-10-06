@@ -42,6 +42,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer hudRenderer;
     private readonly QuestConvenienceService questConvenience;
+    private readonly SentinelEcosystemStatusService ecosystemStatus;
     private readonly ConfigurationWindow configurationWindow;
 
     public Plugin()
@@ -88,6 +89,8 @@ public sealed class Plugin : IDalamudPlugin
                 toolkit.AddDalamudDefaultFont(128f, threatCounterGlyphs))));
         questConvenience = lifetime.Add(new QuestConvenienceService(
             GameGui, Condition, ObjectTable, DataManager, diagnostics));
+        ecosystemStatus = lifetime.Add(new SentinelEcosystemStatusService(
+            PluginInterface, diagnostics));
         var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
             new ExtendedCameraZoomService(PluginInterface, ClientState, Condition));
         hudRenderer = new HudRenderer(
@@ -108,7 +111,8 @@ public sealed class Plugin : IDalamudPlugin
             Condition,
             diagnostics);
         configurationWindow = lifetime.Add(new ConfigurationWindow(
-            configuration, hudRenderer, questConvenience, diagnostics, store, PluginInterface));
+            configuration, hudRenderer, questConvenience, ecosystemStatus,
+            diagnostics, store, PluginInterface));
         windows.AddWindow(configurationWindow);
         lifetime.Add(() => windows.RemoveAllWindows());
 

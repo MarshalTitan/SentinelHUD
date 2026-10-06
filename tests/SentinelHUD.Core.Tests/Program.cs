@@ -18,6 +18,7 @@ var tests = new (string Name, Action Run)[]
     ("version-nine targeting-me migration", TestVersionNineTargetingMeMigration),
     ("version-ten modern-theme migration", TestVersionTenModernThemeMigration),
     ("modern navigation state", TestModernNavigationState),
+    ("Sentinel ecosystem registry and summary", TestSentinelEcosystemRegistry),
     ("modern minimum window geometry", TestModernMinimumWindowGeometry),
     ("configuration serialization", TestSerialization),
     ("HP formatting", TestHitPointFormatting),
@@ -152,8 +153,46 @@ static void TestModernNavigationState()
     Equal(SentinelHudModernContentPage.Target, state.ContentPage);
     False(state.SelectPrimary(SentinelHudModernNavigationState.HudId));
     False(state.SelectContent(SentinelHudModernContentPage.Target));
+    True(state.SelectPrimary(SentinelHudModernNavigationState.PluginsId));
+    Equal(SentinelHudModernPrimaryPage.Plugins, state.PrimaryPage);
+    Equal(SentinelHudModernContentPage.Plugins, state.ContentPage);
+    False(state.HasSecondaryNavigation);
     Throws<ArgumentOutOfRangeException>(() => state.SelectPrimary("unknown"));
     Throws<ArgumentOutOfRangeException>(() => state.SelectContent(SentinelHudModernContentPage.General));
+}
+
+static void TestSentinelEcosystemRegistry()
+{
+    Equal(5, SentinelEcosystemRegistry.Plugins.Count);
+    True(SentinelEcosystemRegistry.Plugins.Any(plugin => plugin.InternalName == "SRankSentinel"));
+    True(SentinelEcosystemRegistry.Plugins.Any(plugin => plugin.InternalName == "PvPSentinel"));
+    True(SentinelEcosystemRegistry.Plugins.All(plugin => plugin.InternalName != "SentinelHUD"));
+    True(SentinelEcosystemRegistry.Plugins.All(plugin => plugin.InternalName != "SentinelCore"));
+
+    var statuses = SentinelEcosystemRegistry.Resolve(
+    [
+        new SentinelPluginObservation("SRankSentinel", true, "0.7.49.0"),
+        new SentinelPluginObservation("pvpsentinel", false, "0.3.2.0"),
+        new SentinelPluginObservation("UnrelatedPlugin", true, "1.0.0"),
+    ]);
+    Equal(SentinelCompanionState.Enabled, statuses.Single(status => status.Definition.InternalName == "SRankSentinel").State);
+    Equal("0.7.49.0", statuses.Single(status => status.Definition.InternalName == "SRankSentinel").Version);
+    Equal(SentinelCompanionState.InstalledDisabled, statuses.Single(status => status.Definition.InternalName == "PvPSentinel").State);
+    Equal(SentinelCompanionState.NotInstalled, statuses.Single(status => status.Definition.InternalName == "ClassySentinel").State);
+
+    var summary = SentinelEcosystemRegistry.Summarize(statuses);
+    Equal(5, summary.Total);
+    Equal(2, summary.Installed);
+    Equal(1, summary.Enabled);
+    Equal(1, summary.Disabled);
+    Equal("1 Sentinel plugin enabled · 1 installed but disabled · 3 not installed", summary.Description);
+
+    var allEnabled = SentinelEcosystemRegistry.Resolve(
+        SentinelEcosystemRegistry.Plugins.Select(plugin =>
+            new SentinelPluginObservation(plugin.InternalName, true, "1.0.0")));
+    Equal(
+        "Your Sentinel ecosystem is ready. All known companion plugins are enabled.",
+        SentinelEcosystemRegistry.Summarize(allEnabled).Description);
 }
 
 static void TestModernMinimumWindowGeometry()

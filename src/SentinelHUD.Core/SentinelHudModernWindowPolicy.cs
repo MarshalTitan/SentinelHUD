@@ -4,7 +4,7 @@ namespace SentinelHUD.Core;
 
 /// <summary>
 /// Plugin-owned outer-window minimum around Core's already-resolved shell geometry.
-/// The practical logical minimum keeps six rail destinations usable at supported UI scales.
+/// The practical logical minimum keeps the primary rail destinations usable at supported UI scales.
 /// </summary>
 public static class SentinelHudModernWindowPolicy
 {
