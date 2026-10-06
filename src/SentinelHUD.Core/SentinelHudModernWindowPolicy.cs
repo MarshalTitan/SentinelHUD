@@ -21,7 +21,8 @@ public static class SentinelHudModernWindowPolicy
             throw new ArgumentOutOfRangeException(nameof(resolvedShellMinimum));
 
         var practical = LogicalMinimum * scale;
-        var shellWithOuterChrome = resolvedShellMinimum + (new Vector2(24f, 20f) * scale);
-        return Vector2.Max(practical, shellWithOuterChrome);
+        // Modern 2 uses Core's full-bleed app-shell scope and custom header. There is no longer
+        // native-title or outer content padding to add around the resolved shell geometry.
+        return Vector2.Max(practical, resolvedShellMinimum);
     }
 }

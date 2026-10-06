@@ -1,5 +1,6 @@
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
@@ -32,12 +33,30 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static readonly string[] PvPThreatVisibilityModes = ["All PvP Duties", "Frontline Only"];
     private static readonly SentinelModernNavItem[] ModernPrimaryNavigation =
     [
-        new(SentinelHudModernNavigationState.GeneralId, "G", "General"),
-        new(SentinelHudModernNavigationState.HudId, "H", "HUD Elements"),
-        new(SentinelHudModernNavigationState.AwarenessId, "A", "Awareness"),
-        new(SentinelHudModernNavigationState.SystemsId, "S", "Systems"),
-        new(SentinelHudModernNavigationState.AppearanceId, "P", "Appearance"),
-        new(SentinelHudModernNavigationState.DiagnosticsId, "D", "Diagnostics"),
+        new(SentinelHudModernNavigationState.GeneralId, null, "General")
+        {
+            DrawIcon = static context => DrawModernNavigationIcon(FontAwesomeIcon.Cog, context),
+        },
+        new(SentinelHudModernNavigationState.HudId, null, "HUD Elements")
+        {
+            DrawIcon = static context => DrawModernNavigationIcon(FontAwesomeIcon.Desktop, context),
+        },
+        new(SentinelHudModernNavigationState.AwarenessId, null, "Awareness")
+        {
+            DrawIcon = static context => DrawModernNavigationIcon(FontAwesomeIcon.Eye, context),
+        },
+        new(SentinelHudModernNavigationState.SystemsId, null, "Systems")
+        {
+            DrawIcon = static context => DrawModernNavigationIcon(FontAwesomeIcon.Tools, context),
+        },
+        new(SentinelHudModernNavigationState.AppearanceId, null, "Appearance")
+        {
+            DrawIcon = static context => DrawModernNavigationIcon(FontAwesomeIcon.Palette, context),
+        },
+        new(SentinelHudModernNavigationState.DiagnosticsId, null, "Diagnostics")
+        {
+            DrawIcon = static context => DrawModernNavigationIcon(FontAwesomeIcon.Bug, context),
+        },
     ];
 
     private static readonly Vector2 ClassicMinimumWindowSize = new(720f, 560f);
@@ -56,10 +75,14 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private readonly Action drawModernActionDock;
     private readonly Action requestModernCollapse;
     private readonly Action requestModernClose;
+    private readonly Action<SentinelModernIconDrawContext> drawModernPluginIcon;
     private readonly Action drawGlobalScaleControl;
     private readonly Action drawGlobalOpacityControl;
+    private readonly ImGuiWindowFlags classicWindowFlags;
     private int selectedLayoutModule;
     private bool modernThemeActive;
+    private bool modernCollapsed;
+    private bool expandOnNextDraw;
     private IDisposable? activeClassicStyleScope;
     private bool disposed;
 
@@ -84,8 +107,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
         drawModernActionDock = DrawModernActionDock;
         requestModernCollapse = RequestModernCollapse;
         requestModernClose = RequestModernClose;
+        drawModernPluginIcon = DrawModernPluginIcon;
         drawGlobalScaleControl = DrawGlobalScaleControl;
         drawGlobalOpacityControl = DrawGlobalOpacityControl;
+        classicWindowFlags = Flags;
         Size = new Vector2(920f, 720f);
         SizeCondition = ImGuiCond.FirstUseEver;
         SizeConstraints = new WindowSizeConstraints { MinimumSize = ClassicMinimumWindowSize };
@@ -98,10 +123,17 @@ public sealed class ConfigurationWindow : Window, IDisposable
         modernStyle.Pop();
         modernThemeActive = configuration.Current.Appearance.ConfigurationTheme
                             == ConfigurationWindowTheme.SentinelModern;
+        if (expandOnNextDraw)
+        {
+            ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
+            expandOnNextDraw = false;
+            modernCollapsed = false;
+        }
         if (modernThemeActive)
         {
             var scale = ImGuiHelpers.GlobalScale;
-            modernStyle.Push(scale);
+            Flags = SentinelModernWindowChrome.UseCustomHeader(classicWindowFlags);
+            modernStyle.PushAppShell(scale);
             var shellMinimum = SentinelModernAppLayout.MinimumWindowSize(
                 scale,
                 hasSecondarySidebar: true,
@@ -113,6 +145,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         }
         else
         {
+            Flags = classicWindowFlags;
             activeClassicStyleScope = SentinelStyleScope.PushWindow();
             SizeConstraints = new WindowSizeConstraints { MinimumSize = ClassicMinimumWindowSize };
         }
@@ -177,7 +210,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             "Sentinel HUD",
             modernNavigation.PrimaryPageId)
         {
-            PluginGlyph = "H",
+            DrawPluginIcon = drawModernPluginIcon,
             ContextLabel = title,
             Status = new SentinelModernStatusPillOptions(
                 locked ? "HUD LOCKED" : "EDIT MODE",
@@ -190,7 +223,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
             Scale = ImGuiHelpers.GlobalScale,
             DeltaTime = ImGui.GetIO().DeltaTime,
             ReducedMotion = pluginInterface.UiBuilder.ShouldUseReducedMotion,
-            AmbientIntensity = 0.68f,
+            AmbientIntensity = 0.9f,
+            SurfaceStyle = SentinelModernAppSurfaceStyle.Unified,
+            EnableWindowDragging = true,
             RequestCollapse = requestModernCollapse,
             RequestClose = requestModernClose,
         };
@@ -235,44 +270,41 @@ public sealed class ConfigurationWindow : Window, IDisposable
         {
             case SentinelHudModernPrimaryPage.Hud:
                 SentinelModernSecondaryNavigation.GroupLabel("HUD Elements");
-                DrawModernSecondaryItem(SentinelHudModernContentPage.Player, "P", "Player");
-                DrawModernSecondaryItem(SentinelHudModernContentPage.Target, "T", "Target");
-                DrawModernSecondaryItem(SentinelHudModernContentPage.FocusTarget, "F", "Focus Target");
-                DrawModernSecondaryItem(SentinelHudModernContentPage.TargetOfTarget, "2", "Target-of-Target");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Player, "Player");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Target, "Target");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.FocusTarget, "Focus Target");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.TargetOfTarget, "Target-of-Target");
                 ImGui.Spacing();
                 SentinelModernSecondaryNavigation.GroupLabel("Tools");
-                DrawModernSecondaryItem(SentinelHudModernContentPage.Layout, "L", "Layout");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Layout, "Layout");
                 break;
 
             case SentinelHudModernPrimaryPage.Awareness:
                 SentinelModernSecondaryNavigation.GroupLabel("Personal");
-                DrawModernSecondaryItem(SentinelHudModernContentPage.Awareness, "A", "Awareness");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Awareness, "Awareness");
                 ImGui.Spacing();
                 SentinelModernSecondaryNavigation.GroupLabel("Encounter");
                 DrawModernSecondaryItem(
                     SentinelHudModernContentPage.EncounterAwareness,
-                    "E",
                     "Encounter Awareness");
                 break;
 
             case SentinelHudModernPrimaryPage.Systems:
                 SentinelModernSecondaryNavigation.GroupLabel("Systems");
-                DrawModernSecondaryItem(SentinelHudModernContentPage.Camera, "C", "Camera");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.Camera, "Camera");
                 ImGui.Spacing();
                 SentinelModernSecondaryNavigation.GroupLabel("Convenience");
                 DrawModernSecondaryItem(
                     SentinelHudModernContentPage.Convenience,
-                    "Q",
                     "Questing / Convenience");
                 break;
         }
     }
 
-    private void DrawModernSecondaryItem(SentinelHudModernContentPage page, string icon, string label)
+    private void DrawModernSecondaryItem(SentinelHudModernContentPage page, string label)
     {
         if (SentinelModernSecondaryNavigation.Item(
                 $"SentinelHUD.Secondary.{page}",
-                icon,
                 label,
                 modernNavigation.ContentPage == page,
                 modernShellState.Motion,
@@ -365,10 +397,71 @@ public sealed class ConfigurationWindow : Window, IDisposable
 
     private void SelectModernPrimaryPage(string id) => modernNavigation.SelectPrimary(id);
 
+    public void OpenAndExpand()
+    {
+        IsOpen = true;
+        expandOnNextDraw = true;
+    }
+
+    public void ToggleFromCommand()
+    {
+        if (!IsOpen || modernCollapsed)
+        {
+            OpenAndExpand();
+            return;
+        }
+
+        IsOpen = false;
+    }
+
     private void RequestModernCollapse()
-        => ImGui.SetWindowCollapsed("Sentinel HUD Configuration##SentinelHUD-Configuration", true);
+    {
+        modernCollapsed = true;
+        ImGui.SetWindowCollapsed("Sentinel HUD Configuration##SentinelHUD-Configuration", true);
+    }
 
     private void RequestModernClose() => IsOpen = false;
+
+    private static void DrawModernPluginIcon(SentinelModernIconDrawContext context)
+        => DrawFontAwesomeIcon(
+            FontAwesomeIcon.ShieldAlt,
+            context.DrawList,
+            context.Minimum,
+            context.Maximum,
+            SentinelModernPalette.Text);
+
+    private static void DrawModernNavigationIcon(
+        FontAwesomeIcon icon,
+        SentinelModernNavIconDrawContext context)
+        => DrawFontAwesomeIcon(
+            icon,
+            context.DrawList,
+            context.Minimum,
+            context.Maximum,
+            context.Colour);
+
+    private static void DrawFontAwesomeIcon(
+        FontAwesomeIcon icon,
+        ImDrawListPtr drawList,
+        Vector2 minimum,
+        Vector2 maximum,
+        Vector4 colour)
+    {
+        var glyph = icon.ToIconString();
+        ImGui.PushFont(UiBuilder.IconFont);
+        try
+        {
+            var size = ImGui.CalcTextSize(glyph);
+            drawList.AddText(
+                minimum + (((maximum - minimum) - size) * 0.5f),
+                ImGui.ColorConvertFloat4ToU32(colour),
+                glyph);
+        }
+        finally
+        {
+            ImGui.PopFont();
+        }
+    }
 
     private static (string Title, string Description) GetModernPageMetadata(
         SentinelHudModernContentPage page)
@@ -557,7 +650,12 @@ public sealed class ConfigurationWindow : Window, IDisposable
         var highlight = configuration.Current.SelfHighlight;
         ImGui.TextWrapped("Uses FFXIV's native model-conforming silhouette renderer without changing any targeting state.");
         var mode = (int)highlight.Mode;
-        if (ImGui.Combo("Mode##SelfHighlight", ref mode, HighlightModes, HighlightModes.Length))
+        if (DrawComboSetting(
+                "SelfHighlight.Mode",
+                "Mode",
+                "Choose when the model-conforming self highlight is visible.",
+                ref mode,
+                HighlightModes))
             Update(c => c.SelfHighlight.Mode = (SelfHighlightMode)mode);
         DrawHighlightColour(highlight.ColourPreset, highlight.CustomColour, "SelfHighlight",
             value => Update(c => c.SelfHighlight.ColourPreset = value),
@@ -577,11 +675,20 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawSectionHeader("Player Position Marker");
         var marker = configuration.Current.PlayerPositionMarker;
         var markerMode = (int)marker.Mode;
-        if (ImGui.Combo("Mode##PositionMarker", ref markerMode, HighlightModes, HighlightModes.Length))
+        if (DrawComboSetting(
+                "PositionMarker.Mode",
+                "Mode",
+                "Choose when the exact-position marker is visible.",
+                ref markerMode,
+                HighlightModes))
             Update(c => c.PlayerPositionMarker.Mode = (SelfHighlightMode)markerMode);
         var markerStyle = (int)marker.Style;
-        if (ImGui.Combo("Style##PositionMarker", ref markerStyle,
-                MarkerStyles, MarkerStyles.Length))
+        if (DrawComboSetting(
+                "PositionMarker.Style",
+                "Style",
+                "Camera Facing stays round and readable; Ground Projected follows the terrain plane.",
+                ref markerStyle,
+                MarkerStyles))
             Update(c => c.PlayerPositionMarker.Style = (PlayerPositionMarkerStyle)markerStyle);
         ImGui.TextDisabled(marker.Style == PlayerPositionMarkerStyle.CameraFacing
             ? "Camera Facing uses the exact actor world origin with no terrain snap, then keeps the dot circular and readable on screen."
@@ -591,8 +698,12 @@ public sealed class ConfigurationWindow : Window, IDisposable
             value => Update(c => c.PlayerPositionMarker.CustomColour.Set(value)));
 
         var radius = marker.Radius;
-        ImGui.SetNextItemWidth(320f);
-        if (ImGui.SliderFloat("Marker radius", ref radius, PlayerPositionMarkerPolicy.MinimumRadius,
+        if (DrawSliderSetting(
+                "PositionMarker.Radius",
+                "Marker radius",
+                "Total outside marker radius, including its optional border.",
+                ref radius,
+                PlayerPositionMarkerPolicy.MinimumRadius,
                 PlayerPositionMarkerPolicy.MaximumRadius,
                 marker.Style == PlayerPositionMarkerStyle.CameraFacing ? "%.2f size" : "%.2f yalms"))
             Update(c => c.PlayerPositionMarker.Radius = radius);
@@ -600,14 +711,25 @@ public sealed class ConfigurationWindow : Window, IDisposable
             ? $"Total outside radius: {PlayerPositionMarkerPolicy.ResolveCameraFacingRadius(marker.Radius):0.0} px, including any border."
             : "Radius is the total outside world radius, including any border.");
         var opacity = marker.Opacity;
-        if (ImGui.SliderFloat("Marker opacity", ref opacity, 0.1f, 1f, "%.2f"))
+        if (DrawSliderSetting(
+                "PositionMarker.Opacity",
+                "Marker opacity",
+                null,
+                ref opacity,
+                0.1f,
+                1f,
+                "%.2f"))
             Update(c => c.PlayerPositionMarker.Opacity = opacity);
         DrawToggle("Thin contrasting border", marker.ShowBorder,
             value => Update(c => c.PlayerPositionMarker.ShowBorder = value));
         if (marker.ShowBorder)
         {
             var thickness = marker.BorderThickness;
-            if (ImGui.SliderFloat("Border thickness", ref thickness,
+            if (DrawSliderSetting(
+                    "PositionMarker.BorderThickness",
+                    "Border thickness",
+                    "Drawn inward so it never enlarges the configured marker radius.",
+                    ref thickness,
                     PlayerPositionMarkerPolicy.MinimumBorderThickness,
                     PlayerPositionMarkerPolicy.MaximumBorderThickness, "%.2f px"))
                 Update(c => c.PlayerPositionMarker.BorderThickness = thickness);
@@ -628,8 +750,12 @@ public sealed class ConfigurationWindow : Window, IDisposable
             value => Update(c => c.TargetingMeCounter.Enabled = value));
         ImGui.TextWrapped("Counts currently observed enemy PvP players whose hard target is you. It cannot detect soft targets, mouseover, queued attacks, future intent, or enemies outside the client-resolved actor set.");
         var threatVisibility = (int)threat.PvPVisibility;
-        if (ImGui.Combo("PvP visibility", ref threatVisibility,
-                PvPThreatVisibilityModes, PvPThreatVisibilityModes.Length))
+        if (DrawComboSetting(
+                "TargetingMe.PvPVisibility",
+                "PvP visibility",
+                null,
+                ref threatVisibility,
+                PvPThreatVisibilityModes))
             Update(c => c.TargetingMeCounter.PvPVisibility = (PvPThreatVisibility)threatVisibility);
         DrawToggle("Hide when count is 0", threat.HideWhenZero,
             value => Update(c => c.TargetingMeCounter.HideWhenZero = value));
@@ -639,31 +765,43 @@ public sealed class ConfigurationWindow : Window, IDisposable
             value => Update(c => c.TargetingMeCounter.ShowTargeterDetails = value));
 
         var threatScale = threat.Scale;
-        if (ImGui.SliderFloat("Counter scale", ref threatScale, 0.6f, 1.8f, "%.2fx"))
+        if (DrawSliderSetting(
+                "TargetingMe.Scale", "Counter scale", null,
+                ref threatScale, 0.6f, 1.8f, "%.2fx"))
         {
             Update(c => c.TargetingMeCounter.Scale = threatScale);
             renderer.RequestReposition(HudModuleKind.TargetingMeCounter);
         }
         var threatWidth = threat.Width;
-        if (ImGui.SliderFloat("Counter width", ref threatWidth,
+        if (DrawSliderSetting(
+                "TargetingMe.Width", "Counter width", null,
+                ref threatWidth,
                 HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth, "%.0f px"))
         {
             Update(c => c.TargetingMeCounter.Width = threatWidth);
             renderer.RequestReposition(HudModuleKind.TargetingMeCounter);
         }
         var threatOpacity = threat.Opacity;
-        if (ImGui.SliderFloat("Counter opacity", ref threatOpacity, 0.15f, 1f, "%.0f%%"))
+        if (DrawSliderSetting(
+                "TargetingMe.Opacity", "Counter opacity", null,
+                ref threatOpacity, 0.15f, 1f, "%.0f%%"))
             Update(c => c.TargetingMeCounter.Opacity = threatOpacity);
         var numberSize = threat.NumberSize;
-        if (ImGui.SliderFloat("Counter number size", ref numberSize, 24f, 120f, "%.0f px"))
+        if (DrawSliderSetting(
+                "TargetingMe.NumberSize", "Counter number size", null,
+                ref numberSize, 24f, 120f, "%.0f px"))
             Update(c => c.TargetingMeCounter.NumberSize = numberSize);
         var jobSize = threat.JobTextSize;
-        if (ImGui.SliderFloat("Job text size", ref jobSize, 10f, 40f, "%.0f px"))
+        if (DrawSliderSetting(
+                "TargetingMe.JobTextSize", "Job text size", null,
+                ref jobSize, 10f, 40f, "%.0f px"))
             Update(c => c.TargetingMeCounter.JobTextSize = jobSize);
         if (threat.ShowTargeterDetails)
         {
             var detailSize = threat.DetailTextSize;
-            if (ImGui.SliderFloat("Detail text size", ref detailSize, 10f, 28f, "%.0f px"))
+            if (DrawSliderSetting(
+                    "TargetingMe.DetailTextSize", "Detail text size", null,
+                    ref detailSize, 10f, 28f, "%.0f px"))
                 Update(c => c.TargetingMeCounter.DetailTextSize = detailSize);
         }
 
@@ -698,13 +836,19 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawToggle("Change Position Marker colour when unsafe", marker.DangerDetectionEnabled,
             value => Update(c => c.PlayerPositionMarker.DangerDetectionEnabled = value));
         var dangerPreset = (int)marker.DangerColourPreset;
-        if (ImGui.Combo("Danger colour", ref dangerPreset, DangerColours, DangerColours.Length))
+        if (DrawComboSetting(
+                "Encounter.DangerColour", "Danger colour", null,
+                ref dangerPreset, DangerColours))
             Update(c => c.PlayerPositionMarker.DangerColourPreset = (DangerColourPreset)dangerPreset);
         if (marker.DangerColourPreset == DangerColourPreset.Custom)
         {
             var custom = new Vector3(marker.CustomDangerColour.Red,
                 marker.CustomDangerColour.Green, marker.CustomDangerColour.Blue);
-            if (ImGui.ColorEdit3("Custom danger colour", ref custom))
+            if (DrawColourSetting(
+                    "Encounter.CustomDangerColour",
+                    "Custom danger colour",
+                    null,
+                    ref custom))
                 Update(c => c.PlayerPositionMarker.CustomDangerColour.Set(new Vector4(custom, 1f)));
         }
         var dangerPreview = PlayerPositionMarkerPolicy.ResolveColour(marker, true);
@@ -759,7 +903,12 @@ public sealed class ConfigurationWindow : Window, IDisposable
         ImGui.Spacing();
         DrawSectionHeader("Quest Reward Selection");
         var rewardMode = (int)convenience.QuestRewardSelection;
-        if (ImGui.Combo("Reward selection", ref rewardMode, QuestRewardModes, QuestRewardModes.Length))
+        if (DrawComboSetting(
+                "Convenience.RewardSelection",
+                "Reward selection",
+                "Manual never chooses a reward; automatic modes use only positively identified choose-one entries.",
+                ref rewardMode,
+                QuestRewardModes))
             Update(c => c.Convenience.QuestRewardSelection = (QuestRewardSelectionMode)rewardMode);
         ImGui.TextWrapped("Manual never touches rewards. Automatic modes act only on positively identified choose-one entries in JournalResult; guaranteed gil, EXP, items and unlocks are not selected or altered.");
         ImGui.TextDisabled($"Reward runtime: {questConvenience.RewardState}");
@@ -781,7 +930,12 @@ public sealed class ConfigurationWindow : Window, IDisposable
         var camera = configuration.Current.Camera;
         DrawToggle("Extended zoom enabled", camera.Enabled, value => Update(c => c.Camera.Enabled = value));
         var maximum = camera.MaximumZoomDistance;
-        if (ImGui.SliderFloat("Maximum zoom distance", ref maximum, CameraZoomPolicy.StockMaximum,
+        if (DrawSliderSetting(
+                "Camera.MaximumZoom",
+                "Maximum zoom distance",
+                "Sets the normal third-person zoom ceiling while the feature is enabled.",
+                ref maximum,
+                CameraZoomPolicy.StockMaximum,
                 CameraZoomPolicy.MaximumSupported, "%.1f yalms"))
             Update(c => c.Camera.MaximumZoomDistance = maximum);
         ImGui.TextWrapped("Changes only the normal third-person maximum. Your live zoom distance is restored through death/respawn. It pauses for first person, GPose, cutscenes, transitions, and known camera-control plugins.");
@@ -804,11 +958,20 @@ public sealed class ConfigurationWindow : Window, IDisposable
         var appearance = configuration.Current.Appearance;
         DrawSectionHeader("Bar Colours");
         var playerMode = (int)appearance.PlayerHpColourMode;
-        if (ImGui.Combo("Player HP colour mode", ref playerMode, HpColourModes, HpColourModes.Length))
+        if (DrawComboSetting(
+                "Appearance.PlayerHpColourMode",
+                "Player HP colour mode",
+                null,
+                ref playerMode,
+                HpColourModes))
             Update(c => c.Appearance.PlayerHpColourMode = (HpColourMode)playerMode);
         var targetMode = (int)appearance.TargetHpColourMode;
-        if (ImGui.Combo("Target / Focus / ToT HP colour mode", ref targetMode,
-                HpColourModes, HpColourModes.Length))
+        if (DrawComboSetting(
+                "Appearance.TargetHpColourMode",
+                "Target / Focus / ToT HP colour mode",
+                null,
+                ref targetMode,
+                HpColourModes))
             Update(c => c.Appearance.TargetHpColourMode = (HpColourMode)targetMode);
         ImGui.TextDisabled("Gradient: green at high HP, yellow through mid HP, red at 35% and below.");
         ImGui.Spacing();
@@ -832,8 +995,14 @@ public sealed class ConfigurationWindow : Window, IDisposable
             Update(c => c.Locked = !c.Locked);
             renderer.RequestRepositionAll();
         }
-        ImGui.SetNextItemWidth(220f);
-        ImGui.Combo("Selected module", ref selectedLayoutModule, ModuleNames, ModuleNames.Length);
+        if (!modernThemeActive)
+            ImGui.SetNextItemWidth(220f);
+        DrawComboSetting(
+            "Layout.SelectedModule",
+            "Selected module",
+            "Reset or copy appearance from this module.",
+            ref selectedLayoutModule,
+            ModuleNames);
         var kind = (HudModuleKind)selectedLayoutModule;
         if (ImGui.Button("Reset selected module"))
             renderer.ResetModuleLayout(kind);
@@ -953,7 +1122,12 @@ public sealed class ConfigurationWindow : Window, IDisposable
             return;
         DrawToggle("Enable module", module.Enabled, value => Update(c => GetModule(c, kind).Enabled = value));
         var visibility = (int)module.Visibility;
-        if (ImGui.Combo("Show when", ref visibility, ModuleVisibilityModes, ModuleVisibilityModes.Length))
+        if (DrawComboSetting(
+                $"{kind}.Visibility",
+                "Show when",
+                "Controls when the enabled module occupies HUD space.",
+                ref visibility,
+                ModuleVisibilityModes))
             Update(c => GetModule(c, kind).Visibility = (ModuleVisibilityCondition)visibility);
         DrawToggle("Click to target", module.ClickToTarget,
             value => Update(c => GetModule(c, kind).ClickToTarget = value));
@@ -962,7 +1136,12 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (module.ClickToTarget || module.RightClickContextMenu)
         {
             var clickableArea = (int)module.ClickableArea;
-            if (ImGui.Combo("Clickable area", ref clickableArea, ClickableAreas, ClickableAreas.Length))
+            if (DrawComboSetting(
+                    $"{kind}.ClickableArea",
+                    "Clickable area",
+                    "Choose how much of the locked actor panel accepts targeting input.",
+                    ref clickableArea,
+                    ClickableAreas))
                 Update(c => GetModule(c, kind).ClickableArea = (ModuleClickableArea)clickableArea);
         }
         ImGui.TextDisabled("Unlocking the HUD temporarily shows enabled modules for editing.");
@@ -974,21 +1153,40 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (!OpenSection("Size / Layout"))
             return;
         var scale = module.Scale;
-        if (ImGui.SliderFloat("Module scale", ref scale, 0.6f, 1.8f, "%.2fx"))
+        if (DrawSliderSetting(
+                $"{kind}.Scale",
+                "Module scale",
+                "Scales type and controls without changing the saved panel width.",
+                ref scale,
+                0.6f,
+                1.8f,
+                "%.2fx"))
         {
             Update(c => GetModule(c, kind).Scale = scale);
             renderer.RequestReposition(kind);
         }
         var width = module.Width;
-        if (ImGui.SliderFloat("Module width", ref width, HudSizingPolicy.MinimumWidth,
-                HudSizingPolicy.MaximumWidth, "%.0f px"))
+        if (DrawSliderSetting(
+                $"{kind}.Width",
+                "Module width",
+                "Extends bars and text layout without stretching fonts or icons.",
+                ref width,
+                HudSizingPolicy.MinimumWidth,
+                HudSizingPolicy.MaximumWidth,
+                "%.0f px"))
         {
             Update(c => GetModule(c, kind).Width = width);
             renderer.RequestReposition(kind);
         }
         var barHeight = module.BarHeight;
-        if (ImGui.SliderFloat("Bar height", ref barHeight, HudSizingPolicy.MinimumBarHeight,
-                HudSizingPolicy.MaximumBarHeight, "%.0f px"))
+        if (DrawSliderSetting(
+                $"{kind}.BarHeight",
+                "Bar height",
+                "Controls HP, MP and cast-bar thickness independently of font scale.",
+                ref barHeight,
+                HudSizingPolicy.MinimumBarHeight,
+                HudSizingPolicy.MaximumBarHeight,
+                "%.0f px"))
             Update(c => GetModule(c, kind).BarHeight = barHeight);
         if (ImGui.Button("Reset this module's position"))
             renderer.ResetModuleLayout(kind);
@@ -999,21 +1197,45 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (!OpenSection("Appearance"))
             return;
         var opacity = module.Opacity;
-        if (ImGui.SliderFloat("Background opacity", ref opacity, 0.15f, 1f, "%.0f%%"))
+        if (DrawSliderSetting(
+                $"{kind}.BackgroundOpacity",
+                "Background opacity",
+                null,
+                ref opacity,
+                0.15f,
+                1f,
+                "%.0f%%"))
             Update(c => GetModule(c, kind).Opacity = opacity);
         DrawToggle("Window border", module.BorderEnabled,
             value => Update(c => GetModule(c, kind).BorderEnabled = value));
         if (module.BorderEnabled)
         {
             var borderOpacity = module.BorderOpacity;
-            if (ImGui.SliderFloat("Border opacity", ref borderOpacity, 0f, 1f, "%.0f%%"))
+            if (DrawSliderSetting(
+                    $"{kind}.BorderOpacity",
+                    "Border opacity",
+                    null,
+                    ref borderOpacity,
+                    0f,
+                    1f,
+                    "%.0f%%"))
                 Update(c => GetModule(c, kind).BorderOpacity = borderOpacity);
         }
         var alignment = (int)module.HpTextAlignment;
-        if (ImGui.Combo("HP / cast text alignment", ref alignment, TextAlignments, TextAlignments.Length))
+        if (DrawComboSetting(
+                $"{kind}.TextAlignment",
+                "HP / cast text alignment",
+                null,
+                ref alignment,
+                TextAlignments))
             Update(c => GetModule(c, kind).HpTextAlignment = (HudTextAlignment)alignment);
         var numberFormat = (int)module.NumberFormat;
-        if (ImGui.Combo("HP number format", ref numberFormat, NumberFormats, NumberFormats.Length))
+        if (DrawComboSetting(
+                $"{kind}.NumberFormat",
+                "HP number format",
+                null,
+                ref numberFormat,
+                NumberFormats))
             Update(c => GetModule(c, kind).NumberFormat = (HudNumberFormat)numberFormat);
     }
 
@@ -1023,19 +1245,48 @@ public sealed class ConfigurationWindow : Window, IDisposable
             return;
         ImGui.TextWrapped("Draws exact Sentinel HP beneath the visible stock target HP gauge. It detects combined _TargetInfo and split _TargetInfoMainTarget layouts, follows HUD Layout movement, and never modifies native nodes.");
         var mode = (int)overlay.Mode;
-        if (ImGui.Combo("Overlay mode", ref mode, NativeOverlayModes, NativeOverlayModes.Length))
+        if (DrawComboSetting(
+                "Target.NativeOverlay.Mode",
+                "Overlay mode",
+                null,
+                ref mode,
+                NativeOverlayModes))
             Update(c => c.Target.NativeHpOverlay.Mode = (NativeTargetOverlayMode)mode);
         var format = (int)overlay.HpFormat;
-        if (ImGui.Combo("Overlay HP format", ref format, NativeOverlayFormats, NativeOverlayFormats.Length))
+        if (DrawComboSetting(
+                "Target.NativeOverlay.HpFormat",
+                "Overlay HP format",
+                null,
+                ref format,
+                NativeOverlayFormats))
             Update(c => c.Target.NativeHpOverlay.HpFormat = (NativeTargetHpFormat)format);
         var numberFormat = (int)overlay.NumberFormat;
-        if (ImGui.Combo("Overlay number format", ref numberFormat, NumberFormats, NumberFormats.Length))
+        if (DrawComboSetting(
+                "Target.NativeOverlay.NumberFormat",
+                "Overlay number format",
+                null,
+                ref numberFormat,
+                NumberFormats))
             Update(c => c.Target.NativeHpOverlay.NumberFormat = (HudNumberFormat)numberFormat);
         var offsetX = overlay.OffsetX;
-        if (ImGui.SliderFloat("Horizontal offset", ref offsetX, -250f, 250f, "%.0f px"))
+        if (DrawSliderSetting(
+                "Target.NativeOverlay.OffsetX",
+                "Horizontal offset",
+                null,
+                ref offsetX,
+                -250f,
+                250f,
+                "%.0f px"))
             Update(c => c.Target.NativeHpOverlay.OffsetX = offsetX);
         var offsetY = overlay.OffsetY;
-        if (ImGui.SliderFloat("Vertical offset", ref offsetY, -120f, 120f, "%.0f px"))
+        if (DrawSliderSetting(
+                "Target.NativeOverlay.OffsetY",
+                "Vertical offset",
+                null,
+                ref offsetY,
+                -120f,
+                120f,
+                "%.0f px"))
             Update(c => c.Target.NativeHpOverlay.OffsetY = offsetY);
         ImGui.TextDisabled($"Runtime state: {renderer.NativeTargetOverlayState}");
     }
@@ -1043,14 +1294,24 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private void DrawShieldMode(ShieldDisplayMode current, Action<ShieldDisplayMode> setter)
     {
         var mode = (int)current;
-        if (ImGui.Combo("Shield display", ref mode, ShieldModes, ShieldModes.Length))
+        if (DrawComboSetting(
+                "Module.ShieldDisplay",
+                "Shield display",
+                "Choose text, integrated bar overlay, both, or neither.",
+                ref mode,
+                ShieldModes))
             setter((ShieldDisplayMode)mode);
     }
 
     private void DrawMpMode(MpDisplayMode current, Action<MpDisplayMode> setter)
     {
         var mode = (int)current;
-        if (ImGui.Combo("MP display", ref mode, MpModes, MpModes.Length))
+        if (DrawComboSetting(
+                "Module.MpDisplay",
+                "MP display",
+                "Choose MP text, bar, both, or neither.",
+                ref mode,
+                MpModes))
             setter((MpDisplayMode)mode);
     }
 
@@ -1058,21 +1319,100 @@ public sealed class ConfigurationWindow : Window, IDisposable
         string id, Action<HighlightColourPreset> setPreset, Action<Vector4> setCustom)
     {
         var selected = (int)preset;
-        if (ImGui.Combo($"Colour##{id}", ref selected, HighlightColours, HighlightColours.Length))
+        if (DrawComboSetting(
+                $"{id}.ColourPreset",
+                "Colour",
+                null,
+                ref selected,
+                HighlightColours))
             setPreset((HighlightColourPreset)selected);
         if (preset == HighlightColourPreset.Custom)
         {
             var value = new Vector3(custom.Red, custom.Green, custom.Blue);
-            if (ImGui.ColorEdit3($"Custom colour##{id}", ref value))
+            if (DrawColourSetting(
+                    $"{id}.CustomColour",
+                    "Custom colour",
+                    null,
+                    ref value))
                 setCustom(new Vector4(value, 1f));
         }
     }
 
-    private static void DrawColour(string label, SerializableColour colour, Action<Vector4> setter)
+    private void DrawColour(string label, SerializableColour colour, Action<Vector4> setter)
     {
         var value = new Vector3(colour.Red, colour.Green, colour.Blue);
-        if (ImGui.ColorEdit3(label, ref value))
+        if (DrawColourSetting($"Appearance.{label}", label, null, ref value))
             setter(new Vector4(value, 1f));
+    }
+
+    private bool DrawComboSetting(
+        string id,
+        string label,
+        string? description,
+        ref int value,
+        string[] choices)
+    {
+        if (!modernThemeActive)
+            return ImGui.Combo($"{label}##{id}", ref value, choices, choices.Length);
+
+        var next = value;
+        var changed = false;
+        SentinelModernSettingsRow.Draw(
+            $"SentinelHUD.Setting.{id}",
+            label,
+            description,
+            () => changed = ImGui.Combo("##Value", ref next, choices, choices.Length),
+            controlWidth: 230f,
+            scale: ImGuiHelpers.GlobalScale);
+        value = next;
+        return changed;
+    }
+
+    private bool DrawSliderSetting(
+        string id,
+        string label,
+        string? description,
+        ref float value,
+        float minimum,
+        float maximum,
+        string format)
+    {
+        if (!modernThemeActive)
+            return ImGui.SliderFloat($"{label}##{id}", ref value, minimum, maximum, format);
+
+        var next = value;
+        var changed = false;
+        SentinelModernSettingsRow.Draw(
+            $"SentinelHUD.Setting.{id}",
+            label,
+            description,
+            () => changed = ImGui.SliderFloat("##Value", ref next, minimum, maximum, format),
+            controlWidth: 230f,
+            scale: ImGuiHelpers.GlobalScale);
+        value = next;
+        return changed;
+    }
+
+    private bool DrawColourSetting(
+        string id,
+        string label,
+        string? description,
+        ref Vector3 value)
+    {
+        if (!modernThemeActive)
+            return ImGui.ColorEdit3($"{label}##{id}", ref value);
+
+        var next = value;
+        var changed = false;
+        SentinelModernSettingsRow.Draw(
+            $"SentinelHUD.Setting.{id}",
+            label,
+            description,
+            () => changed = ImGui.ColorEdit3("##Value", ref next),
+            controlWidth: 230f,
+            scale: ImGuiHelpers.GlobalScale);
+        value = next;
+        return changed;
     }
 
     private void DrawHpToggles(bool current, bool maximum, bool percentage,

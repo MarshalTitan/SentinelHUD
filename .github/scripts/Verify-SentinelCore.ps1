@@ -1,8 +1,8 @@
 param(
-    [string]$ExpectedCommit = '520f9b9837dc3286c24d6f812b8348a27f378a3e',
-    [string]$ExpectedTag = 'v0.3.0.0',
-    [string]$ExpectedPackageVersion = '0.3.0',
-    [string]$ExpectedUiPackageHash = '121e279f45206d4bc65192c1207b4044d48cf1625fe422fefb2f997f1eca819e'
+    [string]$ExpectedCommit = '300703b360a58fb4b73bf7675d31fe8cab4614cd',
+    [string]$ExpectedTag = 'v0.3.1.0',
+    [string]$ExpectedPackageVersion = '0.3.1',
+    [string]$ExpectedUiPackageHash = 'e1a9ce4e1ce36042c0fcd53f4c23874d918640be10eef16c21f1cd436c6ba747'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,7 +33,16 @@ if ($packageId -ne 'MarshalTitan.SentinelCore.UI') {
     throw "Unexpected Sentinel Core UI package ID '$packageId'."
 }
 
-$packagePath = Join-Path $env:RUNNER_TEMP 'MarshalTitan.SentinelCore.UI.0.3.0.nupkg'
+$vendoredPackagePath = "./.packages/SentinelCore/$ExpectedTag/MarshalTitan.SentinelCore.UI.$ExpectedPackageVersion.nupkg"
+if (-not (Test-Path -LiteralPath $vendoredPackagePath)) {
+    throw "Vendored Sentinel Core UI package is missing: '$vendoredPackagePath'."
+}
+$vendoredHash = (Get-FileHash -LiteralPath $vendoredPackagePath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($vendoredHash -ne $ExpectedUiPackageHash) {
+    throw "Vendored Sentinel Core UI package hash '$vendoredHash' does not match '$ExpectedUiPackageHash'."
+}
+
+$packagePath = Join-Path $env:RUNNER_TEMP "MarshalTitan.SentinelCore.UI.$ExpectedPackageVersion.nupkg"
 $packageUrl = "https://github.com/MarshalTitan/SentinelCore/releases/download/$ExpectedTag/MarshalTitan.SentinelCore.UI.$ExpectedPackageVersion.nupkg"
 Invoke-WebRequest -Uri $packageUrl -OutFile $packagePath
 $actualHash = (Get-FileHash -LiteralPath $packagePath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -41,4 +50,4 @@ if ($actualHash -ne $ExpectedUiPackageHash) {
     throw "Sentinel Core UI package hash '$actualHash' does not match '$ExpectedUiPackageHash'."
 }
 
-Write-Host "Verified MarshalTitan.SentinelCore.UI $ExpectedPackageVersion at $ExpectedCommit ($actualHash)."
+Write-Host "Verified vendored and published MarshalTitan.SentinelCore.UI $ExpectedPackageVersion at $ExpectedCommit ($actualHash)."

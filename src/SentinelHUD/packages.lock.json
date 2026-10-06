@@ -15,18 +15,27 @@
         "contentHash": "fcFN01tDTIQqDuTwr1jUQK/geofiwjG5DycJQOnC72i1SsLAk1ELe+apBOuZ11UMQG8YKFZG1FgvjZPbqHyatg=="
       },
       "MarshalTitan.SentinelCore": {
-        "type": "Project"
+        "type": "Direct",
+        "requested": "[0.3.1, 0.3.1]",
+        "resolved": "0.3.1",
+        "contentHash": "vL3hVnWi2Md/EsHidfupM08F/WYPJtn0W0vYZUqEi4KwarQi3Aoshw2hluL1DBtVoj3Qsi9FEaFWwleyerD8ew=="
       },
       "MarshalTitan.SentinelCore.Dalamud": {
-        "type": "Project",
+        "type": "Direct",
+        "requested": "[0.3.1, 0.3.1]",
+        "resolved": "0.3.1",
+        "contentHash": "vIIKyWnT/yYaEoz1bh9wGh2BtfalIUy0XPMDyDF3z60zC4Fizrq8N7L4gLPoUHbh/rjgzgYfUz+9Dyg/MUMCmA==",
         "dependencies": {
-          "MarshalTitan.SentinelCore": "[0.3.0, )"
+          "MarshalTitan.SentinelCore": "0.3.1"
         }
       },
       "MarshalTitan.SentinelCore.UI": {
-        "type": "Project",
+        "type": "Direct",
+        "requested": "[0.3.1, 0.3.1]",
+        "resolved": "0.3.1",
+        "contentHash": "dqe2P5SAGHFRSnhB5/C+SZM8pdPMLcsUCn442xOAhnwqClD2NRqzQKTeTswNjvAaGvgTXBnmqC89JrPkaPDixw==",
         "dependencies": {
-          "MarshalTitan.SentinelCore": "[0.3.0, )"
+          "MarshalTitan.SentinelCore": "0.3.1"
         }
       },
       "sentinelhud.core": {

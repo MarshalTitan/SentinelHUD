@@ -1,4 +1,4 @@
-# Sentinel HUD 0.8.4.0 — Live Test
+# Sentinel HUD 0.8.4.1 — Live Test
 
 ## Startup and configuration migration
 
@@ -7,19 +7,22 @@
 - [ ] Diagnostics reports configuration schema 11 and, when upgrading schema 10, shows a one-time `SentinelHUD.schema-v10.backup.json` path.
 - [ ] Reload again and confirm the schema backup is not replaced or multiplied.
 - [ ] `/shud` opens and closes configuration.
-- [ ] The normal title-bar collapse arrow is available.
-- [ ] Collapse and reopen the configuration window successfully.
+- [ ] Modern mode has no native `Sentinel HUD Configuration` title strip above the application header.
+- [ ] The custom header collapse and close controls work; `/shud` or Dalamud reopening expands a collapsed window successfully.
 
 ## Sentinel Modern 2
 
 - [ ] `/shud` opens in Sentinel Modern 2 after updating from 0.8.3.3 without asking you to reselect the theme.
 - [ ] Confirm the midnight-navy canvas, electric-blue accents and violet/teal ambient rings are visible and restrained rather than distracting.
-- [ ] Confirm the primary icon rail is fixed on the far left and exposes General, HUD, Awareness, Systems, Appearance and Diagnostics through its tooltips.
+- [ ] Confirm the primary icon rail uses recognizable crisp icons rather than `G/H/A/S/P/D` letters, remains fixed on the far left and exposes General, HUD, Awareness, Systems, Appearance and Diagnostics through its tooltips.
 - [ ] Confirm HUD's secondary sidebar opens Player, Target, Focus Target, Target-of-Target and Layout.
 - [ ] Confirm Awareness's secondary sidebar opens Personal Awareness and Encounter Awareness.
 - [ ] Confirm Systems' secondary sidebar opens Camera and Questing / Convenience.
+- [ ] Confirm secondary categories are text-only with no `P/T/F/2/L/A/E/C/Q` letter placeholders.
 - [ ] Confirm General, Appearance and Diagnostics do not show a redundant secondary sidebar.
 - [ ] Confirm the compact header has no internal scrollbar and shows icon, `Sentinel HUD`, status pill, page context, collapse and close controls on one row.
+- [ ] Drag unused space in the custom header; confirm the complete configuration window moves and its new position survives reopen/restart.
+- [ ] Confirm the header, rail, optional sidebar and content read as one continuous surface without heavy boxed pane divisions.
 - [ ] Confirm every page title and its short explanation appear only in the right content area.
 - [ ] Confirm General opens into its Core glass settings card.
 - [ ] Confirm General has one Lock HUD switch and no duplicate lower Unlock HUD button.
@@ -28,10 +31,11 @@
 - [ ] Enable Dalamud reduced motion; confirm page/rail changes become immediate and ambient movement becomes static without changing inputs.
 - [ ] Toggle several modern switches and confirm each changes only its labelled setting.
 - [ ] Confirm combos, sliders, colour pickers, collapsible sections and buttons remain readable and functional.
+- [ ] Narrow the window and test at 1.25/1.5 UI scale; confirm long labels/descriptions wrap and controls stack below them before any overlap occurs.
 - [ ] Unlock and lock the HUD; confirm the header status changes between `EDIT MODE` and `HUD LOCKED` without moving any HUD module.
 - [ ] At UI scales 1.0, 1.25 and 1.5, resize to the minimum and substantially enlarge the window; confirm header, rail, secondary sidebar and Appearance action dock remain fixed while content alone scrolls.
 - [ ] Confirm navigation never moves between the page heading and its settings and page content never overlaps the Appearance action dock.
-- [ ] Collapse and restore the title bar; confirm normal Dalamud window behaviour remains intact.
+- [ ] Collapse from the custom header, reopen through `/shud`, and confirm the same saved size/position returns without an empty native-title strip.
 - [ ] Open Appearance, click its single `Use Classic Theme` action and confirm the original tab layout returns without changing gameplay or layout settings.
 - [ ] Use the compact Classic-header action and confirm Sentinel Modern returns immediately.
 - [ ] Reload the plugin and restart FFXIV; confirm the selected configuration theme persists.

@@ -4,7 +4,7 @@
 
 - `SentinelHUD.Core` is platform-neutral. It owns configuration data/defaults/migration, formatting, shield-segment math, conditional visibility, resolution-safe layout math, PvP threat classification and awareness policies.
 - `SentinelHUD` is the API 15 Dalamud plugin. It resolves transient game objects every frame, renders modules, owns the configuration window and uses the official game/data services.
-- `external/SentinelCore` is pinned to an immutable commit. Selected Core projects are compiled and packaged with this plugin; there is no shared runtime plugin.
+- `external/SentinelCore` is pinned to an immutable commit for source/documentation verification and Core UI tests. Exact vendored `0.3.1` packages are restored through the repository's mapped local feed and packaged with this plugin; there is no shared runtime plugin.
 
 ## Rendering
 
@@ -46,11 +46,11 @@ The runtime filters to live, targetable, non-dead enemy players whose current ha
 
 ## Configuration UI boundary
 
-Sentinel HUD is the first reference consumer of Sentinel Modern 2 from `MarshalTitan.SentinelCore.UI` 0.3.0. `SentinelModernAppShell` owns the compact header, far-left icon rail, optional secondary sidebar, independently scrolling page region and optional action dock. The plugin retains one `SentinelModernAppShellState`, one renderer-independent `SentinelHudModernNavigationState`, one stable primary-navigation definition and stable shell callbacks for the window lifetime.
+Sentinel HUD is the first reference consumer of the polished Sentinel Modern 2 shell from `MarshalTitan.SentinelCore.UI` 0.3.1. `SentinelModernWindowChrome` supplies Modern-only frameless flags, `SentinelModernStyleScope.PushAppShell` supplies full-bleed geometry, and `SentinelModernAppShell` owns the compact custom header, unified surface, far-left icon rail, optional secondary sidebar, independently scrolling page region and optional action dock. The plugin retains one `SentinelModernAppShellState`, one renderer-independent `SentinelHudModernNavigationState`, one stable primary-navigation definition and stable shell callbacks for the window lifetime.
 
-The primary rail contains General, HUD, Awareness, Systems, Appearance and Diagnostics. HUD, Awareness and Systems alone supply secondary categories; navigation never becomes a middle section above page settings. The Appearance-only action dock provides the single Modern-to-Classic action. Core owns the Modern palette, style scope, geometry, paint, ambience, transitions, hover motion, glass cards, settings rows, switches and status pills. Sentinel HUD keeps only page metadata, configuration mutations and plugin-specific controls. It passes `ImGuiHelpers.GlobalScale`, frame delta and Dalamud's reduced-motion setting on every shell frame.
+The primary rail contains General, HUD, Awareness, Systems, Appearance and Diagnostics. Sentinel HUD retains only the selected Font Awesome glyph callbacks; Core owns every hit target, tooltip, hover, badge and selected indicator. HUD, Awareness and Systems alone supply Core's text-only secondary categories; navigation never becomes a middle section above page settings. The Appearance-only action dock provides the single Modern-to-Classic action. Core owns the Modern palette, style scope, geometry, unified paint, ambience, transitions, hover motion, glass cards, responsive settings-row resolver, switches and status pills. Sentinel HUD keeps only page metadata, configuration mutations and plugin-specific controls. It passes `ImGuiHelpers.GlobalScale`, frame delta and Dalamud's reduced-motion setting on every shell frame.
 
-The existing Classic tab renderer remains a separate branch and still uses its prior shared Classic style scope. The persisted `ConfigurationWindowTheme.SentinelModern` value selects Modern 2 without a schema change, so no saved HUD or configuration value is rewritten. The top-level Dalamud `Window` continues to own movement, resizing, saved geometry and native restoration after collapse; the Core header delegates close and collapse requests back to that window.
+The existing Classic tab renderer remains a separate branch with its native title bar and prior shared Classic style scope. The persisted `ConfigurationWindowTheme.SentinelModern` value selects Modern 2 without a schema change, so no saved HUD or configuration value is rewritten. The top-level Dalamud `Window` continues to own movement, resizing and saved geometry. Core's empty header region moves that window, while close/collapse callbacks return control to the consumer; opening through `/shud` or Dalamud explicitly expands a previously collapsed custom-header window.
 
 ## Convenience boundary
 

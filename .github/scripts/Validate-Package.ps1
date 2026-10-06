@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ExpectedVersion,
 
-    [string]$ExpectedSentinelCoreUiVersion = '0.3.0.0'
+    [string]$ExpectedSentinelCoreUiVersion = '0.3.1.0'
 )
 
 $ErrorActionPreference = 'Stop'

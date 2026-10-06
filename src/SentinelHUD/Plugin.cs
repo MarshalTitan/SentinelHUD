@@ -132,7 +132,7 @@ public sealed class Plugin : IDalamudPlugin
         });
 
         diagnostics.Information($"{identity.DiagnosticPrefix} loaded with configuration schema {configuration.Current.Version}.");
-        logger.Information($"{identity.DiagnosticPrefix} loaded. Sentinel Core v0.3.0.0 pinned at 520f9b9837dc3286c24d6f812b8348a27f378a3e.");
+        logger.Information($"{identity.DiagnosticPrefix} loaded. Sentinel Core v0.3.1.0 pinned at 300703b360a58fb4b73bf7675d31fe8cab4614cd.");
     }
 
     public void Dispose()
@@ -196,7 +196,7 @@ public sealed class Plugin : IDalamudPlugin
         switch (arguments.Trim().ToLowerInvariant())
         {
             case "":
-                configurationWindow.Toggle();
+                configurationWindow.ToggleFromCommand();
                 break;
             case "lock":
                 SetLocked(true);
@@ -239,5 +239,5 @@ public sealed class Plugin : IDalamudPlugin
         ChatGui.Print($"[Sentinel HUD] HUD {(locked ? "locked" : "unlocked for editing")}.");
     }
 
-    private void OpenConfiguration() => configurationWindow.IsOpen = true;
+    private void OpenConfiguration() => configurationWindow.OpenAndExpand();
 }

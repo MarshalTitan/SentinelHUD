@@ -168,7 +168,7 @@ static void TestModernMinimumWindowGeometry()
         new Vector2(1080f, 840f),
         SentinelHudModernWindowPolicy.MinimumSize(1.5f, new Vector2(870f, 612f)));
     Equal(
-        new Vector2(1224f, 820f),
+        new Vector2(1200f, 800f),
         SentinelHudModernWindowPolicy.MinimumSize(1f, new Vector2(1200f, 800f)));
     Throws<ArgumentOutOfRangeException>(() =>
         SentinelHudModernWindowPolicy.MinimumSize(0f, new Vector2(580f, 408f)));
