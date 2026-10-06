@@ -280,12 +280,11 @@ internal static class Program
                 try
                 {
                     // Match Dalamud WindowHost's public property application order and scaling.
-                    ImGui.SetNextWindowPos(Position, ImGuiCond.FirstUseEver);
+                    ImGui.SetNextWindowPos(Program.Position, ImGuiCond.FirstUseEver);
                     if (Size is { } size) ImGui.SetNextWindowSize(size * scale, SizeCondition);
                     if (Collapsed is { } collapsed) ImGui.SetNextWindowCollapsed(collapsed, CollapsedCondition);
                     if (SizeConstraints is { } constraints)
-                        ImGui.SetNextWindowSizeConstraints((constraints.MinimumSize ?? Vector2.Zero) * scale,
-                            (constraints.MaximumSize ?? new Vector2(float.MaxValue)) * scale);
+                        ImGui.SetNextWindowSizeConstraints(constraints.MinimumSize * scale, constraints.MaximumSize * scale);
                     var open = IsOpen;
                     if (ImGui.Begin(WindowName, ref open, Flags)) Draw();
                     ImGui.End();
