@@ -1,4 +1,17 @@
-# Sentinel HUD 0.8.4.2 — Live Test
+# Sentinel HUD 0.8.4.3 — Live Test
+
+## 0.8.4.3 focused checks
+
+- [ ] Update from 0.8.4.2 without deleting configuration. Verify the version is 0.8.4.3 and the customized positions, widths, heights, colours and feature switches remain unchanged after a full client restart.
+- [ ] At 100% Dalamud UI scale, check wide (1440 × 900), medium (920 × 720) and minimum (720 × 560) configuration sizes. Repeat at your normal UI scale.
+- [ ] Visit General, every HUD page and Layout, both Awareness pages, Camera, Questing / Convenience, Appearance, Diagnostics and Plugins. Wrapped descriptions and long labels remain fully visible; later rows move down; controls stay inside their columns.
+- [ ] In Encounter Awareness, inspect **Treat unclassified visible Splatoon geometry as danger** without enabling it. Its label must wrap clear of its On/Off switch.
+- [ ] In Appearance, **Target / Focus / ToT HP colour mode** wraps without drawing over the combo. The fixed Classic action dock and all navigation remain usable.
+- [ ] In Camera and Layout, paired action buttons move to separate lines when needed. Long individual action labels fit inside the content region.
+- [ ] Plugins lists exactly S Rank Sentinel, PvP Sentinel, Classy Sentinel, Sentinel Relay and Sentinel Profiles. Versions reflect the installed plugins. Disabled entries remain distinct and neutral; absent companions never become dependency errors.
+- [ ] Close/reopen configuration and change one companion's enabled state through Dalamud. The Plugins page refreshes within three seconds without HUD actions, installing or enabling companions itself.
+- [ ] Confirm click-to-target, Focus Target's Target, native right-click menus, cast/shield bars and lock/unlock without drift. Existing camera, marker, threat-counter and convenience behavior should match 0.8.4.2.
+
 
 ## Startup and configuration migration
 

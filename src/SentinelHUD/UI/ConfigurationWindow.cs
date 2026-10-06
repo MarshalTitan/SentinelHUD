@@ -94,6 +94,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private bool expandOnNextDraw;
     private IDisposable? activeClassicStyleScope;
     private bool disposed;
+    private readonly Dictionary<string, (float Width, float FontSize, float TextWidth, string Text)> wrappedLabels = new();
 
     public ConfigurationWindow(
         ConfigurationCoordinator<Configuration> configuration,
@@ -344,40 +345,23 @@ public sealed class ConfigurationWindow : Window, IDisposable
     {
         var scale = ImGuiHelpers.GlobalScale;
         SentinelModernUi.SectionHeader("Global HUD");
-        var enabled = configuration.Current.Enabled;
-        if (SentinelModernSwitch.Draw(
-                "SentinelHUD.Enabled",
-                "Enable Sentinel HUD",
-                ref enabled,
-                modernShellState.Motion,
-                scale))
-            Update(c => c.Enabled = enabled);
-
-        var locked = configuration.Current.Locked;
-        if (SentinelModernSwitch.Draw(
-                "SentinelHUD.Locked",
-                "Lock HUD",
-                ref locked,
-                modernShellState.Motion,
-                scale))
-        {
-            Update(c => c.Locked = locked);
+        DrawToggle("Enable Sentinel HUD", configuration.Current.Enabled, value => Update(c => c.Enabled = value));
+        if (DrawToggle("Lock HUD", configuration.Current.Locked, value => Update(c => c.Locked = value)))
             renderer.RequestRepositionAll();
-        }
 
-        SentinelModernSettingsRow.Draw(
+        DrawResponsiveSettingsRow(
             "SentinelHUD.GlobalScale",
             "Global scale",
             "Scales all Sentinel HUD modules without changing their saved anchors.",
             drawGlobalScaleControl,
             scale: scale);
-        SentinelModernSettingsRow.Draw(
+        DrawResponsiveSettingsRow(
             "SentinelHUD.GlobalOpacity",
             "Global opacity",
             "Applies a shared opacity multiplier while retaining module appearance values.",
             drawGlobalOpacityControl,
             scale: scale);
-        SentinelModernSettingsRow.Draw(
+        DrawResponsiveSettingsRow(
             "SentinelHUD.InteractionMode",
             "Interaction mode",
             configuration.Current.Locked
@@ -521,15 +505,18 @@ public sealed class ConfigurationWindow : Window, IDisposable
             var description = status.Version is null
                 ? status.Definition.Description
                 : $"{status.Definition.Description}\nInstalled version: v{status.Version}";
-            SentinelModernSettingsRow.Draw(
+            var statusWidth = SentinelModernStatusPill.Measure(
+                new SentinelModernStatusPillOptions(PluginStatusText(status.State)),
+                ImGuiHelpers.GlobalScale).X / ImGuiHelpers.GlobalScale;
+            DrawResponsiveSettingsRow(
                 $"SentinelHUD.Plugin.{status.Definition.InternalName}",
                 status.Definition.DisplayName,
                 description,
                 StatusAction(status.State),
                 SentinelModernSettingsRowLayoutOptions.Default with
                 {
-                    PreferredControlWidth = 190f,
-                    MinimumControlWidth = 150f,
+                    PreferredControlWidth = MathF.Max(190f, statusWidth),
+                    MinimumControlWidth = statusWidth,
                 },
                 ImGuiHelpers.GlobalScale);
         }
@@ -550,10 +537,17 @@ public sealed class ConfigurationWindow : Window, IDisposable
         => DrawPluginStatus("Enabled", SentinelModernPillTone.Enabled);
 
     private void DrawPluginDisabledStatus()
-        => DrawPluginStatus("Installed · Disabled", SentinelModernPillTone.Warning);
+        => DrawPluginStatus("Installed · Disabled", SentinelModernPillTone.Neutral);
 
     private void DrawPluginNotInstalledStatus()
         => DrawPluginStatus("Not Installed", SentinelModernPillTone.Neutral);
+
+    private static string PluginStatusText(SentinelCompanionState state) => state switch
+    {
+        SentinelCompanionState.Enabled => "Enabled",
+        SentinelCompanionState.InstalledDisabled => "Installed · Disabled",
+        _ => "Not Installed",
+    };
 
     private void DrawPluginStatus(string text, SentinelModernPillTone tone)
         => SentinelModernStatusPill.Draw(
@@ -897,7 +891,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 value => Update(c => c.TargetingMeCounter.ExtremeColour.Set(value)));
             DrawMutedText("Preserves PvP Sentinel threat semantics: nearby enemy density can raise the warning level even before every enemy hard-targets you.");
         }
-        if (ImGui.Button("Reset Targeting Me Counter position"))
+        if (DrawActionButton("Reset Targeting Me Counter position"))
             renderer.ResetModuleLayout(HudModuleKind.TargetingMeCounter);
         DrawMutedText($"Runtime: {renderer.PvPThreat.Explanation}");
     }
@@ -1019,13 +1013,13 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 CameraZoomPolicy.MaximumSupported, "%.1f yalms"))
             Update(c => c.Camera.MaximumZoomDistance = maximum);
         ImGui.TextWrapped("Changes only the normal third-person maximum. Your live zoom distance is restored through death/respawn. It pauses for first person, GPose, cutscenes, transitions, and known camera-control plugins.");
-        if (ImGui.Button("Disable and restore normal camera limits"))
+        if (DrawActionButton("Disable and restore normal camera limits"))
         {
             Update(c => c.Camera.Enabled = false);
             renderer.RestoreCameraDefaults();
         }
-        ImGui.SameLine();
-        if (ImGui.Button("Retry after conflict"))
+        SameLineIfActionFits("Retry after conflict");
+        if (DrawActionButton("Retry after conflict"))
             renderer.RetryCameraZoom();
         ImGui.TextWrapped($"Runtime state: {renderer.CameraZoomState}");
         ImGui.TextWrapped($"Current maximum: {renderer.CameraCurrentMaximum:0.0} yalms");
@@ -1070,7 +1064,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     {
         var config = configuration.Current;
         ImGui.TextWrapped("Unlock the HUD to open the visual editor. Drag the body to move, horizontal edges for width, vertical edges for bar height, or a corner for both. Text is reflowed and never stretched. The titleless origin remains identical in both modes.");
-        if (ImGui.Button(config.Locked ? "Unlock HUD" : "Lock HUD"))
+        if (DrawActionButton(config.Locked ? "Unlock HUD" : "Lock HUD"))
         {
             Update(c => c.Locked = !c.Locked);
             renderer.RequestRepositionAll();
@@ -1084,12 +1078,12 @@ public sealed class ConfigurationWindow : Window, IDisposable
             ref selectedLayoutModule,
             ModuleNames);
         var kind = (HudModuleKind)selectedLayoutModule;
-        if (ImGui.Button("Reset selected module"))
+        if (DrawActionButton("Reset selected module"))
             renderer.ResetModuleLayout(kind);
-        ImGui.SameLine();
-        if (ImGui.Button("Reset complete HUD layout"))
+        SameLineIfActionFits("Reset complete HUD layout");
+        if (DrawActionButton("Reset complete HUD layout"))
             renderer.ResetAllLayouts();
-        if (ImGui.Button("Copy selected appearance to other modules"))
+        if (DrawActionButton("Copy selected appearance to other modules"))
             renderer.CopyAppearanceToOtherModules(kind);
         DrawMutedText("Copies scale, width, bar height, opacity, border, HP alignment and number format only.");
 
@@ -1098,7 +1092,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         foreach (var moduleKind in Enum.GetValues<HudModuleKind>())
         {
             var module = GetModule(configuration.Current, moduleKind);
-            ImGui.BulletText($"{ModuleNames[(int)moduleKind]}: {module.Layout.AnchorX:0.000}, {module.Layout.AnchorY:0.000}");
+            DrawWrappedBullet($"{ModuleNames[(int)moduleKind]}: {module.Layout.AnchorX:0.000}, {module.Layout.AnchorY:0.000}");
         }
     }
 
@@ -1179,10 +1173,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
             && ImGui.TreeNode($"Observed hard targeters ({renderer.PvPThreat.TargeterCount})"))
         {
             foreach (var targeter in renderer.PvPThreat.Targeters)
-                ImGui.BulletText($"{targeter.JobAbbreviation} — {targeter.Name}, {targeter.Distance:0.0}y");
+                DrawWrappedBullet($"{targeter.JobAbbreviation} — {targeter.Name}, {targeter.Distance:0.0}y");
             ImGui.TreePop();
         }
-        if (ImGui.Button("Clear diagnostic history"))
+        if (DrawActionButton("Clear diagnostic history"))
             diagnostics.Clear();
         ImGui.Separator();
         if (ImGui.BeginChild("SentinelHUD-DiagnosticHistory", Vector2.Zero, true))
@@ -1269,7 +1263,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 HudSizingPolicy.MaximumBarHeight,
                 "%.0f px"))
             Update(c => GetModule(c, kind).BarHeight = barHeight);
-        if (ImGui.Button("Reset this module's position"))
+        if (DrawActionButton("Reset this module's position"))
             renderer.ResetModuleLayout(kind);
     }
 
@@ -1426,6 +1420,78 @@ public sealed class ConfigurationWindow : Window, IDisposable
             setter(new Vector4(value, 1f));
     }
 
+    private void DrawResponsiveSettingsRow(
+        string id, string label, string? description, Action drawControl,
+        float controlWidth = 180f, float scale = 1f)
+        => DrawResponsiveSettingsRow(
+            id, label, description, drawControl,
+            SentinelModernSettingsRowLayoutOptions.Default with
+            {
+                PreferredControlWidth = controlWidth,
+                MinimumControlWidth = MathF.Min(controlWidth, 120f),
+            },
+            scale);
+
+    private void DrawResponsiveSettingsRow(
+        string id, string label, string? description, Action drawControl,
+        SentinelModernSettingsRowLayoutOptions options, float scale)
+    {
+        var columns = SentinelModernSettingsRowLayout.ResolveColumns(
+            ImGui.GetContentRegionAvail().X, scale, options);
+        SentinelModernSettingsRow.Draw(
+            id, WrapSettingLabel(label, columns.TextWidth), description, drawControl, options, scale);
+    }
+
+    private string WrapSettingLabel(string label, float width)
+    {
+        var fontSize = ImGui.GetFontSize();
+        var textWidth = ImGui.CalcTextSize(label).X;
+        if (wrappedLabels.TryGetValue(label, out var cached)
+            && cached.Width == width && cached.FontSize == fontSize && cached.TextWidth == textWidth)
+            return cached.Text;
+
+        var wrapped = ConfigurationFlowPolicy.WrapLabel(label, width, text => ImGui.CalcTextSize(text).X);
+        // Keep only the current measurement per label, even while continuously resizing.
+        wrappedLabels[label] = (width, fontSize, textWidth, wrapped);
+        return wrapped;
+    }
+
+    private void SameLineIfActionFits(string nextLabel)
+    {
+        var nextWidth = ImGui.CalcTextSize(nextLabel).X + ImGui.GetStyle().FramePadding.X * 2f;
+        if (ConfigurationFlowPolicy.FitsInline(
+                ImGui.GetItemRectSize().X, nextWidth, ImGui.GetStyle().ItemSpacing.X,
+                ImGui.GetContentRegionAvail().X))
+            ImGui.SameLine();
+    }
+
+    private bool DrawActionButton(string label)
+    {
+        var available = ImGui.GetContentRegionAvail().X;
+        var padding = ImGui.GetStyle().FramePadding;
+        var wrapped = WrapSettingLabel(label, MathF.Max(1f, available - padding.X * 2f));
+        var textSize = ImGui.CalcTextSize(wrapped);
+        ImGui.PushID(label);
+        try
+        {
+            return ImGui.Button(
+                $"{wrapped}###Action",
+                new Vector2(MathF.Min(available, textSize.X + padding.X * 2f),
+                    MathF.Max(ImGui.GetFrameHeight(), textSize.Y + padding.Y * 2f)));
+        }
+        finally
+        {
+            ImGui.PopID();
+        }
+    }
+
+    private static void DrawWrappedBullet(string text)
+    {
+        ImGui.Bullet();
+        ImGui.SameLine();
+        ImGui.TextWrapped(text);
+    }
+
     private bool DrawComboSetting(
         string id,
         string label,
@@ -1438,7 +1504,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
 
         var next = value;
         var changed = false;
-        SentinelModernSettingsRow.Draw(
+        DrawResponsiveSettingsRow(
             $"SentinelHUD.Setting.{id}",
             label,
             description,
@@ -1463,7 +1529,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
 
         var next = value;
         var changed = false;
-        SentinelModernSettingsRow.Draw(
+        DrawResponsiveSettingsRow(
             $"SentinelHUD.Setting.{id}",
             label,
             description,
@@ -1485,7 +1551,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
 
         var next = value;
         var changed = false;
-        SentinelModernSettingsRow.Draw(
+        DrawResponsiveSettingsRow(
             $"SentinelHUD.Setting.{id}",
             label,
             description,
@@ -1533,12 +1599,21 @@ public sealed class ConfigurationWindow : Window, IDisposable
             var value = current;
             var separator = label.IndexOf("##", StringComparison.Ordinal);
             var visibleLabel = separator >= 0 ? label[..separator] : label;
-            if (!SentinelModernSwitch.Draw(
+            var changed = false;
+            DrawResponsiveSettingsRow(
+                $"SentinelHUD.ToggleRow.{label}",
+                visibleLabel,
+                null,
+                () => changed = SentinelModernSwitch.Draw(
                     $"SentinelHUD.Toggle.{label}",
-                    visibleLabel,
+                    value ? "On" : "Off",
                     ref value,
                     modernShellState.Motion,
-                    ImGuiHelpers.GlobalScale))
+                    ImGuiHelpers.GlobalScale,
+                    width: 100f),
+                controlWidth: 100f,
+                scale: ImGuiHelpers.GlobalScale);
+            if (!changed)
                 return false;
             setter(value);
             return true;

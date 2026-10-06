@@ -2,6 +2,8 @@ using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SentinelHUD.Core;
+using SentinelCore.UI;
+using System.Globalization;
 
 var tests = new (string Name, Action Run)[]
 {
@@ -21,6 +23,10 @@ var tests = new (string Name, Action Run)[]
     ("Sentinel ecosystem registry and summary", TestSentinelEcosystemRegistry),
     ("modern minimum window geometry", TestModernMinimumWindowGeometry),
     ("configuration serialization", TestSerialization),
+    ("current-schema customization persistence", TestCurrentSchemaPersistence),
+    ("responsive setting label wrapping", TestResponsiveLabelWrapping),
+    ("responsive action flow", TestResponsiveActionFlow),
+    ("wide medium narrow settings geometry", TestResponsiveSettingsGeometry),
     ("HP formatting", TestHitPointFormatting),
     ("compact number formatting", TestCompactNumberFormatting),
     ("percentage formatting", TestPercentageFormatting),
@@ -193,6 +199,135 @@ static void TestSentinelEcosystemRegistry()
     Equal(
         "Your Sentinel ecosystem is ready. All known companion plugins are enabled.",
         SentinelEcosystemRegistry.Summarize(allEnabled).Description);
+}
+
+
+static void TestResponsiveLabelWrapping()
+{
+    static float Measure(string text) => new StringInfo(text).LengthInTextElements * 8f;
+    var labels = new[]
+    {
+        "Target / Focus / ToT HP colour mode",
+        "Treat unclassified visible Splatoon geometry as danger",
+        "Installed · Disabled",
+        "LongUnbrokenConfigurationIdentifier",
+        "A😀e\u0301𐐀Example",
+    };
+    foreach (var label in labels)
+    {
+        foreach (var width in new[] { 40f, 100f, 180f, 420f })
+        {
+            var wrapped = ConfigurationFlowPolicy.WrapLabel(label, width, Measure);
+            True(wrapped.Split('\n').All(line => Measure(line) <= width));
+            Equal(label.Replace(" ", string.Empty), wrapped.Replace(" ", string.Empty).Replace("\n", string.Empty));
+        }
+    }
+    Equal("First\n\nSecond", ConfigurationFlowPolicy.WrapLabel("First\n\nSecond", 200f, Measure));
+    Equal("😀", ConfigurationFlowPolicy.WrapLabel("😀", 1f, Measure));
+    Throws<ArgumentOutOfRangeException>(() => ConfigurationFlowPolicy.WrapLabel("Label", 0f, Measure));
+}
+
+static void TestResponsiveActionFlow()
+{
+    True(ConfigurationFlowPolicy.FitsInline(250f, 140f, 8f, 420f));
+    False(ConfigurationFlowPolicy.FitsInline(350f, 140f, 8f, 420f));
+    True(ConfigurationFlowPolicy.FitsInline(250f, 162f, 8f, 420f));
+}
+
+static void TestResponsiveSettingsGeometry()
+{
+    var labels = new[]
+    {
+        "Interaction mode",
+        "Target / Focus / ToT HP colour mode",
+        "Treat unclassified visible Splatoon geometry as danger",
+        "Sentinel Profiles",
+    };
+    const string description = "Gameplay mode is active. Enabled actor regions use the configured targeting interactions; unrelated HUD space remains click-through.";
+    foreach (var scale in new[] { 1f, 1.25f, 1.5f })
+    foreach (var size in new[] { new Vector2(1440f, 900f), new Vector2(920f, 720f), new Vector2(720f, 560f) })
+    foreach (var secondary in new[] { false, true })
+    {
+        var shell = SentinelModernAppLayout.Resolve(size * scale, scale, secondary);
+        True(shell.IsUsable);
+        True(shell.RailButtonSize <= shell.RailWidth);
+        // Include the real content padding plus a conservative scrollbar allowance.
+        var available = shell.ContentWidth - shell.ContentPadding * 2f - 16f * scale;
+        foreach (var label in labels)
+        foreach (var controlWidth in new[] { 100f, 190f, 230f })
+        {
+            var options = SentinelModernSettingsRowLayoutOptions.Default with
+            {
+                PreferredControlWidth = controlWidth,
+                MinimumControlWidth = MathF.Min(controlWidth, 120f),
+            };
+            var columns = SentinelModernSettingsRowLayout.ResolveColumns(available, scale, options);
+            float Measure(string text) => new StringInfo(text).LengthInTextElements * 8f * scale;
+            var wrappedLabel = ConfigurationFlowPolicy.WrapLabel(label, columns.TextWidth, Measure);
+            var wrappedDescription = ConfigurationFlowPolicy.WrapLabel(description, columns.TextWidth, Measure);
+            var labelHeight = wrappedLabel.Split('\n').Length * 17f * scale;
+            var descriptionHeight = wrappedDescription.Split('\n').Length * 17f * scale;
+            var row = SentinelModernSettingsRowLayout.Resolve(
+                available, labelHeight, descriptionHeight, 32f * scale, true, scale, options);
+            True(wrappedLabel.Split('\n').All(line => Measure(line) <= row.TextWidth));
+            True(row.TextOffset.Y + labelHeight + descriptionHeight + 4f * scale <= row.Size.Y);
+            True(row.ControlOffset.X + row.ControlWidth <= row.Size.X);
+            True(row.ControlOffset.Y + 32f * scale <= row.Size.Y);
+            if (row.IsStacked)
+                True(row.ControlOffset.Y >= row.TextOffset.Y + labelHeight + descriptionHeight + 4f * scale);
+            else
+                True(row.TextOffset.X + row.TextWidth <= row.ControlOffset.X);
+        }
+    }
+
+    var wide = SentinelModernSettingsRowLayout.Resolve(700f, 17f, 34f, 32f, true);
+    var narrow = SentinelModernSettingsRowLayout.Resolve(280f, 34f, 85f, 32f, true);
+    False(wide.IsStacked);
+    True(narrow.IsStacked);
+    True(narrow.Size.Y > wide.Size.Y);
+}
+
+static void TestCurrentSchemaPersistence()
+{
+    var source = HudConfigurationMigrator.Normalize(new HudConfigurationData());
+    foreach (var module in new HudModuleConfiguration[]
+        { source.Player, source.Target, source.FocusTarget, source.TargetOfTarget, source.TargetingMeCounter })
+    {
+        module.Layout.AnchorX = 0.413f;
+        module.Layout.AnchorY = 0.772f;
+        module.Width = 391f;
+        module.BarHeight = 17f;
+        module.Scale = 1.23f;
+        module.Opacity = 0.67f;
+        module.Visibility = ModuleVisibilityCondition.CombatOrDuty;
+        module.ClickableArea = ModuleClickableArea.HeaderOrName;
+        module.RightClickContextMenu = false;
+        module.NumberFormat = HudNumberFormat.Compact;
+    }
+    source.Player.ShowCastRemainingTime = true;
+    source.Target.NativeHpOverlay.OffsetX = -23f;
+    source.FocusTarget.TargetOfFocus.RightClickContextMenu = false;
+    source.PlayerPositionMarker.Style = PlayerPositionMarkerStyle.GroundProjected;
+    source.PlayerPositionMarker.ColourPreset = HighlightColourPreset.Custom;
+    source.PlayerPositionMarker.CustomColour.Set(new Vector4(0.1f, 0.3f, 0.8f, 1f));
+    source.PlayerPositionMarker.Radius = 0.07f;
+    source.EncounterAwareness.SplatoonIntegrationEnabled = true;
+    source.Camera.Enabled = true;
+    source.Camera.MaximumZoomDistance = 73f;
+    source.Convenience.SkipDialogue = true;
+    source.Convenience.SkipCutscenes = true;
+    source.Convenience.QuestRewardSelection = QuestRewardSelectionMode.AllaganPiece;
+    source.TargetingMeCounter.ShowJobs = true;
+    source.TargetingMeCounter.BorderEnabled = false;
+    source.Appearance.ConfigurationTheme = ConfigurationWindowTheme.Classic;
+    source.Appearance.HostileHealth.Set(new Vector4(0.7f, 0.15f, 0.12f, 1f));
+    var before = JsonSerializer.Serialize(source);
+    var loaded = JsonSerializer.Deserialize<HudConfigurationData>(before)!;
+    HudConfigurationMigrator.Normalize(loaded);
+    Equal(11, loaded.Version);
+    Equal(before, JsonSerializer.Serialize(loaded));
+    HudConfigurationMigrator.Normalize(loaded);
+    Equal(before, JsonSerializer.Serialize(loaded));
 }
 
 static void TestModernMinimumWindowGeometry()
