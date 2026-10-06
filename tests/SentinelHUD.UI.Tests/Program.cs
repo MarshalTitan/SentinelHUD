@@ -96,7 +96,7 @@ internal static class Program
                 window.Settle();
                 var native = FindWindow(window.WindowName);
                 var before = native.Pos;
-                window.Toggle();
+                window.ToggleMinimize();
                 window.Settle();
                 Check(native.Size == new Vector2(size.X, 56f) * scale, "Minimized size does not match the Core header.");
                 Check(native.Pos == before && !native.Collapsed, "Minimize moved or natively collapsed the window.");
@@ -106,7 +106,7 @@ internal static class Program
                 var calls = window.BodyCalls;
                 window.Settle();
                 Check(window.BodyCalls == calls && window.HeaderCalls > 0, "Settings rendered while minimized, or header disappeared.");
-                window.Toggle();
+                window.ToggleMinimize();
                 window.Settle();
                 Check(native.Size == size * scale && native.Pos == before, "Restore lost expanded geometry.");
                 Check(window.Size is null, "One-shot size request was left active.");
@@ -159,7 +159,7 @@ internal static class Program
     {
         using var original = new Fixture(new Vector2(1120f, 860f), 1.25f);
         original.Settle();
-        original.Toggle();
+        original.ToggleMinimize();
         original.Settle();
         var saved = new ModernWindowConfiguration();
         original.State.SaveTo(saved);
@@ -177,7 +177,7 @@ internal static class Program
     {
         using var window = new Fixture(new Vector2(1120f, 860f));
         window.Settle();
-        window.Toggle();
+        window.ToggleMinimize();
         window.Settle();
         var header = FindWindow(window.WindowName, "##Modern2Header");
         var start = header.Pos + new Vector2(650f, header.Size.Y / 2f);
@@ -192,7 +192,7 @@ internal static class Program
         window.Settle();
         var moved = FindWindow(window.WindowName).Pos;
         Check(moved == Position + new Vector2(40f, 25f), "The minimized Core header did not drag.");
-        window.Toggle();
+        window.ToggleMinimize();
         window.Settle();
         Check(FindWindow(window.WindowName).Pos == moved && FindWindow(window.WindowName).Size == new Vector2(1120f, 860f), "Restore lost dragged placement or expanded size.");
     });
@@ -210,7 +210,7 @@ internal static class Program
         Check(!FindWindow(window.WindowName).Collapsed, "Classic Open Config did not expand.");
         window.Modern = true;
         window.Settle();
-        window.Toggle();
+        window.ToggleMinimize();
         window.Settle();
         window.Modern = false;
         window.Settle();
@@ -265,7 +265,7 @@ internal static class Program
             {
                 Scale = scale, ReducedMotion = true, EnableWindowDragging = true,
                 ContextLabel = "General", DrawPluginIcon = _ => HeaderCalls++,
-                RequestCollapse = Toggle, RequestClose = () => IsOpen = false,
+                RequestCollapse = ToggleMinimize, RequestClose = () => IsOpen = false,
                 Status = new SentinelModernStatusPillOptions("HUD LOCKED", SentinelModernPillTone.Ready),
             }, State, shell, [new SentinelModernNavItem("General", "G", "General")],
                 _ => { }, () => BodyCalls++, () => BodyCalls++, () => BodyCalls++);
@@ -284,7 +284,8 @@ internal static class Program
                     if (Size is { } size) ImGui.SetNextWindowSize(size * scale, SizeCondition);
                     if (Collapsed is { } collapsed) ImGui.SetNextWindowCollapsed(collapsed, CollapsedCondition);
                     if (SizeConstraints is { } constraints)
-                        ImGui.SetNextWindowSizeConstraints(constraints.MinimumSize * scale, constraints.MaximumSize * scale);
+                        ImGui.SetNextWindowSizeConstraints((constraints.MinimumSize ?? Vector2.Zero) * scale,
+                            (constraints.MaximumSize ?? new Vector2(float.MaxValue)) * scale);
                     var open = IsOpen;
                     if (ImGui.Begin(WindowName, ref open, Flags)) Draw();
                     ImGui.End();
@@ -297,7 +298,7 @@ internal static class Program
 
         public void Settle() { for (var index = 0; index < 3; index++) Frame(); }
 
-        public unsafe void Toggle()
+        public unsafe void ToggleMinimize()
         {
             LastCollapseId = ImGui.GetCurrentContext().LastItemData.ID;
             if (State.IsMinimized) State.Expand();
