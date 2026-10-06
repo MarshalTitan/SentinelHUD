@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.8.4.3 — Complete responsive configuration flow
+## 0.8.4.4 - Working Modern minimize and restore
+
+- Fixed the Modern header's minimize action: it previously requested native collapse while Core's expanded chrome set `NoTitleBar` and `NoCollapse`, so ImGui discarded the request.
+- Queue collapse through Dalamud's top-level Window before Begin and use its native title strip only while minimized. The strip supports restoring, dragging and closing; the expanded window returns to its single Core Modern header.
+- Apply collapse/expand requests once so the native restore arrow remains usable. `/shud` and Dalamud Open Config explicitly expand the same window; no size, position, configuration or HUD state is reset.
+- Added repeated minimize/restore and queued-request regression coverage. Configuration schema 11 and the exact Sentinel Core 0.3.1 pin/packages remain unchanged; Sentinel Core itself was not changed.
+
+## 0.8.4.3 - Complete responsive configuration flow
 
 - Prepared long setting labels for the pinned Core row's measured text width, including labels without descriptions. Labels now contribute their full multiline height to the canonical row resolver.
 - Routed Modern switches through those same responsive rows with a separate, keyboard-accessible On/Off control, preventing long toggle labels from covering the switch.
