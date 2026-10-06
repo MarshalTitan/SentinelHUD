@@ -74,7 +74,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private readonly SentinelModernStyleScope modernStyle = new();
     private readonly SentinelModernAppShellState modernShellState = new();
     private readonly SentinelHudModernNavigationState modernNavigation = new();
-    private readonly SentinelHudModernWindowState modernWindowState = new();
+    private readonly SentinelHudModernWindowState modernWindowState;
     private readonly Action<string> selectModernPrimaryPage;
     private readonly Action drawModernPage;
     private readonly Action drawModernSecondaryNavigation;
@@ -106,6 +106,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
         : base("Sentinel HUD Configuration##SentinelHUD-Configuration")
     {
         this.configuration = configuration;
+        modernWindowState = new SentinelHudModernWindowState(configuration.Current.Appearance.ModernWindow,
+            SentinelModernAppLayoutOptions.Default.HeaderHeight);
         this.renderer = renderer;
         this.questConvenience = questConvenience;
         this.ecosystemStatus = ecosystemStatus;
@@ -139,30 +141,20 @@ public sealed class ConfigurationWindow : Window, IDisposable
         modernThemeActive = configuration.Current.Appearance.ConfigurationTheme
                             == ConfigurationWindowTheme.SentinelModern;
         if (!modernThemeActive && modernWindowState.IsMinimized)
+        {
             modernWindowState.Expand();
-        // The host applies this to the correct top-level window after PreDraw. Never
-        // collapse from inside Core's header child or hold an Always request every frame.
-        Collapsed = modernWindowState.ConsumeCollapseRequest();
-        CollapsedCondition = ImGuiCond.Always;
-        if (modernThemeActive && !modernWindowState.IsMinimized)
+            PersistModernWindow();
+        }
+        ModernWindowPresentation.Prepare(this, modernWindowState, modernThemeActive,
+            classicWindowFlags, ClassicMinimumWindowSize);
+        if (modernThemeActive)
         {
             var scale = ImGuiHelpers.GlobalScale;
-            Flags = SentinelModernWindowChrome.UseCustomHeader(classicWindowFlags);
             modernStyle.PushAppShell(scale);
-            var shellMinimum = SentinelModernAppLayout.MinimumWindowSize(
-                scale,
-                hasSecondarySidebar: true,
-                hasActionDock: true);
-            SizeConstraints = new WindowSizeConstraints
-            {
-                MinimumSize = SentinelHudModernWindowPolicy.MinimumSize(scale, shellMinimum),
-            };
         }
         else
         {
-            Flags = classicWindowFlags;
             activeClassicStyleScope = SentinelStyleScope.PushWindow();
-            SizeConstraints = new WindowSizeConstraints { MinimumSize = ClassicMinimumWindowSize };
         }
     }
 
@@ -177,13 +169,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
     {
         if (modernThemeActive)
         {
-            if (modernWindowState.IsMinimized)
-            {
-                // The native title strip was just restored. Finish this frame without
-                // adding a second header; PreDraw reinstates Core's custom chrome next frame.
-                modernWindowState.ObserveExpanded();
-                return;
-            }
             DrawModernShell();
             return;
         }
@@ -252,8 +237,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
             RequestClose = requestModernClose,
         };
 
-        SentinelModernAppShell.Draw(
+        ModernWindowPresentation.DrawShell(
             options,
+            modernWindowState,
             modernShellState,
             ModernPrimaryNavigation,
             selectModernPrimaryPage,
@@ -414,7 +400,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
     public void OpenAndExpand()
     {
         IsOpen = true;
+        var wasMinimized = modernWindowState.IsMinimized;
         modernWindowState.Expand();
+        if (wasMinimized)
+            PersistModernWindow();
         ecosystemStatus.Refresh(force: true);
     }
 
@@ -429,9 +418,20 @@ public sealed class ConfigurationWindow : Window, IDisposable
         IsOpen = false;
     }
 
-    // Core's expanded chrome sets NoTitleBar/NoCollapse. Use the existing native
-    // window only while minimized so its restore arrow, drag area and close button work.
-    private void RequestModernCollapse() => modernWindowState.Minimize();
+    private void RequestModernCollapse()
+    {
+        if (modernWindowState.IsMinimized)
+            modernWindowState.Expand();
+        else
+            modernWindowState.Minimize(SentinelModernAppLayoutOptions.Default.HeaderHeight);
+        PersistModernWindow();
+    }
+
+    private void PersistModernWindow()
+    {
+        Update(c => modernWindowState.SaveTo(c.Appearance.ModernWindow));
+        configuration.SaveNow();
+    }
 
     private void RequestModernClose() => IsOpen = false;
 

@@ -351,9 +351,17 @@ public sealed class NativeTargetOverlayConfiguration
     public float OffsetY { get; set; } = 4f;
 }
 
+public sealed class ModernWindowConfiguration
+{
+    public bool Minimized { get; set; }
+    public float ExpandedWidth { get; set; } = 920f;
+    public float ExpandedHeight { get; set; } = 720f;
+}
+
 public sealed class HudAppearanceConfiguration
 {
     public ConfigurationWindowTheme ConfigurationTheme { get; set; } = ConfigurationWindowTheme.SentinelModern;
+    public ModernWindowConfiguration ModernWindow { get; set; } = new();
     public HpColourMode PlayerHpColourMode { get; set; } = HpColourMode.StaticRoleBased;
     public HpColourMode TargetHpColourMode { get; set; } = HpColourMode.StaticRoleBased;
     public SerializableColour PlayerHealth { get; set; } = new() { Red = 0.28f, Green = 0.76f, Blue = 0.43f, Alpha = 1f };
@@ -372,7 +380,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 11;
+    public const int CurrentVersion = 12;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -465,6 +473,7 @@ public static class HudConfigurationMigrator
         configuration.EncounterAwareness ??= new EncounterAwarenessConfiguration();
         configuration.Convenience ??= new ConvenienceConfiguration();
         configuration.Appearance ??= new HudAppearanceConfiguration();
+        configuration.Appearance.ModernWindow ??= new ModernWindowConfiguration();
         configuration.Target.NativeHpOverlay ??= new NativeTargetOverlayConfiguration();
         configuration.FocusTarget.TargetOfFocus ??= new FocusTargetsTargetConfiguration();
         configuration.SelfHighlight.CustomColour ??= new SerializableColour
@@ -501,6 +510,11 @@ public static class HudConfigurationMigrator
         configuration.TargetingMeCounter.ExtremeColour ??= HudConfigurationDefaults.CreateTargetingMeCounter().ExtremeColour;
 
         ApplyMigrations(configuration, sourceVersion);
+
+        configuration.Appearance.ModernWindow.ExpandedWidth = ClampFinite(
+            configuration.Appearance.ModernWindow.ExpandedWidth, 720f, 16384f, 920f);
+        configuration.Appearance.ModernWindow.ExpandedHeight = ClampFinite(
+            configuration.Appearance.ModernWindow.ExpandedHeight, 560f, 16384f, 720f);
 
         NormalizeModule(configuration.Player, HudConfigurationDefaults.CreatePlayer().Layout);
         NormalizeModule(configuration.Target, HudConfigurationDefaults.CreateTarget().Layout);
@@ -735,6 +749,11 @@ public static class HudConfigurationMigrator
                     // HUD layout, module styling and every gameplay setting remain untouched.
                     configuration.Appearance.ConfigurationTheme = ConfigurationWindowTheme.SentinelModern;
                     version = 11;
+                    break;
+                case 11:
+                    // Schema 12 records only Modern minimize state and expanded dimensions.
+                    // Initializers supply the new fields; all prior settings remain untouched.
+                    version = 12;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;
