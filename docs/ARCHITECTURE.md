@@ -63,3 +63,9 @@ Choose-one reward policy is platform-neutral and tested independently. The Dalam
 ## Future modules
 
 The renderer and configuration model are organized by module kind so party/alliance, job gauges, status filtering, boss information, PvP data and optional versioned Sentinel IPC can be added without coupling the existing modules or requiring other Sentinel plugins.
+
+## Responsive configuration adapters
+
+HUD prepares multiline labels for Core 0.3.1's existing settings-row columns and passes them to the canonical row renderer, so Core measures the full label/description height. It does not vendor a second row painter, palette, switch, shell or geometry resolver. Modern toggles use a reserved Core switch control; plugin status columns use Core's actual pill measurement. A per-label cache retains only the current width/font measurement. Action controls and bullet text use normal ImGui flow and wrap within the remaining content region. The logical minimum remains 720 × 560.
+
+Tests link the two renderer-independent application/row geometry files directly from the exact pinned submodule. The window matrix covers 1440 × 900, 920 × 720 and 720 × 560 at 1.0, 1.25 and 1.5 UI scales with and without secondary navigation. This verifies geometry and flow; final native/game rendering still requires the live checklist.

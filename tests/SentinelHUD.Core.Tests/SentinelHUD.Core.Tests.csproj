@@ -9,5 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/SentinelHUD.Core/SentinelHUD.Core.csproj" />
+    <Compile Include="../../external/SentinelCore/src/SentinelCore.UI/SentinelModernSettingsRowLayout.cs" Link="PinnedCore/SentinelModernSettingsRowLayout.cs" />
+    <Compile Include="../../external/SentinelCore/src/SentinelCore.UI/SentinelModernAppLayout.cs" Link="PinnedCore/SentinelModernAppLayout.cs" />
   </ItemGroup>
 </Project>

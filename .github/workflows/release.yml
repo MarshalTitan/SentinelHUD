@@ -49,11 +49,23 @@ jobs:
           $version = [string]$project.Project.PropertyGroup.Version
           if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw "Invalid version: $version" }
           $tag = "v$version"
-          gh release view $tag --repo '${{ github.repository }}' *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Release '$tag' already exists. Increment the version." }
+          $releaseJson = gh release view $tag --repo '${{ github.repository }}' --json targetCommitish,isDraft,isPrerelease 2>$null
+          $exists = $LASTEXITCODE -eq 0
+          if ($exists) {
+            $release = $releaseJson | ConvertFrom-Json
+            if ($release.targetCommitish -ne '${{ github.sha }}' -or $release.isDraft -or $release.isPrerelease) {
+              throw "Release '$tag' already belongs to a different source or publication state. Increment the version."
+            }
+            Write-Host "Release '$tag' already exists for this source. Revalidating its public asset and catalog."
+          }
           $global:LASTEXITCODE = 0
+          "exists=$($exists.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Test catalog verification policy
+        shell: pwsh
+        run: ./.github/scripts/Test-CatalogPolicy.ps1
 
       - name: Restore
         run: dotnet restore SentinelHUD.slnx --locked-mode -m:1
@@ -80,6 +92,7 @@ jobs:
         run: Copy-Item -LiteralPath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -Destination "$env:RUNNER_TEMP\SentinelHUD.zip" -Force
 
       - name: Publish GitHub release
+        if: steps.version.outputs.exists != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -88,7 +101,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Adds a Sentinel ecosystem Plugins page to the Sentinel Modern 2 rail. It uses Dalamud's supported installed-plugin interface to distinguish Enabled, Installed/Disabled, and Not Installed companions, includes installed versions, updates from plugin-state events with a bounded fallback refresh, and introduces no hard dependencies. This release also removes the General page's fixed-height container and applies wrapped muted helper text throughout the configuration UI so content grows cleanly at medium and narrow widths. Configuration schema 11, Classic, HUD behavior, layouts, targeting, awareness, camera, and convenience systems remain unchanged."
+            --notes "Completes responsive Sentinel Modern settings flow: long labels wrap within Core-resolved text columns, switches reserve their control region, and Camera/Layout actions wrap or move to another line when needed. The existing five-plugin ecosystem dashboard measures status pills and uses neutral companion states with current descriptions. Core remains pinned to 0.3.1, configuration schema remains 11, and HUD/gameplay services are unchanged. Build, package, persistence and wide/medium/narrow geometry checks run before publication. Catalog verification parses the public JSON array explicitly, requests fresh responses, reports observed versions, and can resume safely after publication for the same source commit."
 
       - name: Verify public release asset
         shell: pwsh
@@ -138,29 +151,6 @@ jobs:
       - name: Verify public central Sentinel catalog
         shell: pwsh
         run: |
-          $catalogUrl = 'https://raw.githubusercontent.com/MarshalTitan/Sentinel/main/repo.json'
-          $expectedVersion = '${{ steps.version.outputs.value }}'
-          $expectedAsset = "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/SentinelHUD.zip"
-
-          for ($attempt = 1; $attempt -le 60; $attempt++) {
-            try {
-              $catalog = @(Invoke-RestMethod -Uri "$catalogUrl`?release=${{ github.run_id }}-$attempt")
-              $entry = @($catalog | Where-Object InternalName -eq 'SentinelHUD')
-              if ($entry.Count -eq 1 `
-                  -and $entry[0].AssemblyVersion -eq $expectedVersion `
-                  -and $entry[0].TestingAssemblyVersion -eq $expectedVersion `
-                  -and $entry[0].DownloadLinkInstall -eq $expectedAsset `
-                  -and $entry[0].DownloadLinkUpdate -eq $expectedAsset `
-                  -and $entry[0].DownloadLinkTesting -eq $expectedAsset) {
-                Write-Host "Verified Sentinel HUD $expectedVersion in the public central catalog."
-                exit 0
-              }
-            }
-            catch {
-              Write-Host "Central catalog verification attempt $attempt failed: $($_.Exception.Message)"
-            }
-
-            Start-Sleep -Seconds 5
-          }
-
-          throw "The public central Sentinel catalog did not reach Sentinel HUD $expectedVersion within five minutes."
+          ./.github/scripts/Wait-ForCatalog.ps1 `
+            -ExpectedVersion '${{ steps.version.outputs.value }}' `
+            -ExpectedAsset "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/SentinelHUD.zip"

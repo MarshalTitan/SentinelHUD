@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.4.3 — Complete responsive configuration flow
+
+- Prepared long setting labels for the pinned Core row's measured text width, including labels without descriptions. Labels now contribute their full multiline height to the canonical row resolver.
+- Routed Modern switches through those same responsive rows with a separate, keyboard-accessible On/Off control, preventing long toggle labels from covering the switch.
+- Made Camera/Layout action pairs move to a following line when they do not fit; long individual action labels and diagnostic/anchor bullet rows wrap.
+- Measured companion status-pill widths before allocating their columns and kept installed-but-disabled companions neutral. Corrected PvP Sentinel and Sentinel Profiles descriptions to match their current purpose.
+- Added label/grapheme wrapping and action-flow cases, a wide/medium/narrow geometry matrix at three UI scales using the exact pinned Core source, and an entire customized schema-11 serialization/normalization preservation check.
+- Hardened publication with explicit public-array parsing, uncached catalog requests, observed-version diagnostics, a bounded ten-minute verification deadline, and safe resume for a release already published by the same source commit.
+- Preserved configuration schema 11, the five-companion Plugins implementation, all HUD/gameplay services and exact Core 0.3.1 pin/packages. Sentinel Core itself was not changed.
+
 ## 0.8.4.2 — Sentinel ecosystem status and responsive text
 
 - Added a plug-icon **Plugins** destination to the Sentinel Modern primary rail for the five optional Dalamud companions: S Rank Sentinel, PvP Sentinel, Classy Sentinel, Sentinel Relay and Sentinel Profiles.

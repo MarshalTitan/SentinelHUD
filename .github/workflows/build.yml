@@ -24,6 +24,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Test catalog verification policy
+        shell: pwsh
+        run: ./.github/scripts/Test-CatalogPolicy.ps1
+
       - name: Run platform-neutral tests
         run: dotnet run --project tests/SentinelHUD.Core.Tests/SentinelHUD.Core.Tests.csproj -c Release
 
@@ -71,11 +75,11 @@ jobs:
 
       - name: Validate installable package
         shell: pwsh
-        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '0.8.4.2'
+        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '0.8.4.3'
 
       - name: Upload installable package
         uses: actions/upload-artifact@v7
         with:
-          name: SentinelHUD-0.8.4.2
+          name: SentinelHUD-0.8.4.3
           path: src/SentinelHUD/bin/Release/SentinelHUD/latest.zip
           if-no-files-found: error

@@ -50,7 +50,7 @@ public static class SentinelEcosystemRegistry
         new(
             "PvP Sentinel",
             "PvPSentinel",
-            "PvP awareness, target intelligence and combat support."),
+            "Frontline navigation and automation."),
         new(
             "Classy Sentinel",
             "ClassySentinel",
@@ -58,11 +58,11 @@ public static class SentinelEcosystemRegistry
         new(
             "Sentinel Relay",
             "SentinelRelay",
-            "FFXIV and Discord chat relay."),
+            "FFXIV ↔ Discord chat relay."),
         new(
             "Sentinel Profiles",
             "SentinelProfiles",
-            "Shared Sentinel profile and configuration management."),
+            "Manual plugin profile switching."),
     ];
 
     public static IReadOnlyList<SentinelPluginDefinition> Plugins => Entries;
