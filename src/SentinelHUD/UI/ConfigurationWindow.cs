@@ -74,6 +74,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private readonly SentinelModernStyleScope modernStyle = new();
     private readonly SentinelModernAppShellState modernShellState = new();
     private readonly SentinelHudModernNavigationState modernNavigation = new();
+    private readonly SentinelHudModernWindowState modernWindowState = new();
     private readonly Action<string> selectModernPrimaryPage;
     private readonly Action drawModernPage;
     private readonly Action drawModernSecondaryNavigation;
@@ -90,8 +91,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private readonly ImGuiWindowFlags classicWindowFlags;
     private int selectedLayoutModule;
     private bool modernThemeActive;
-    private bool modernCollapsed;
-    private bool expandOnNextDraw;
     private IDisposable? activeClassicStyleScope;
     private bool disposed;
     private readonly Dictionary<string, (float Width, float FontSize, float TextWidth, string Text)> wrappedLabels = new();
@@ -139,13 +138,13 @@ public sealed class ConfigurationWindow : Window, IDisposable
         modernStyle.Pop();
         modernThemeActive = configuration.Current.Appearance.ConfigurationTheme
                             == ConfigurationWindowTheme.SentinelModern;
-        if (expandOnNextDraw)
-        {
-            ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
-            expandOnNextDraw = false;
-            modernCollapsed = false;
-        }
-        if (modernThemeActive)
+        if (!modernThemeActive && modernWindowState.IsMinimized)
+            modernWindowState.Expand();
+        // The host applies this to the correct top-level window after PreDraw. Never
+        // collapse from inside Core's header child or hold an Always request every frame.
+        Collapsed = modernWindowState.ConsumeCollapseRequest();
+        CollapsedCondition = ImGuiCond.Always;
+        if (modernThemeActive && !modernWindowState.IsMinimized)
         {
             var scale = ImGuiHelpers.GlobalScale;
             Flags = SentinelModernWindowChrome.UseCustomHeader(classicWindowFlags);
@@ -178,6 +177,13 @@ public sealed class ConfigurationWindow : Window, IDisposable
     {
         if (modernThemeActive)
         {
+            if (modernWindowState.IsMinimized)
+            {
+                // The native title strip was just restored. Finish this frame without
+                // adding a second header; PreDraw reinstates Core's custom chrome next frame.
+                modernWindowState.ObserveExpanded();
+                return;
+            }
             DrawModernShell();
             return;
         }
@@ -408,13 +414,13 @@ public sealed class ConfigurationWindow : Window, IDisposable
     public void OpenAndExpand()
     {
         IsOpen = true;
-        expandOnNextDraw = true;
+        modernWindowState.Expand();
         ecosystemStatus.Refresh(force: true);
     }
 
     public void ToggleFromCommand()
     {
-        if (!IsOpen || modernCollapsed)
+        if (!IsOpen || modernWindowState.IsMinimized)
         {
             OpenAndExpand();
             return;
@@ -423,11 +429,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
         IsOpen = false;
     }
 
-    private void RequestModernCollapse()
-    {
-        modernCollapsed = true;
-        ImGui.SetWindowCollapsed("Sentinel HUD Configuration##SentinelHUD-Configuration", true);
-    }
+    // Core's expanded chrome sets NoTitleBar/NoCollapse. Use the existing native
+    // window only while minimized so its restore arrow, drag area and close button work.
+    private void RequestModernCollapse() => modernWindowState.Minimize();
 
     private void RequestModernClose() => IsOpen = false;
 

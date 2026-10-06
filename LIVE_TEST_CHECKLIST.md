@@ -1,4 +1,14 @@
-# Sentinel HUD 0.8.4.3 — Live Test
+# Sentinel HUD 0.8.4.4 - Live Test
+
+## 0.8.4.4 focused checks
+
+- [ ] Update from 0.8.4.3 without deleting configuration; verify 0.8.4.4 and existing customized settings.
+- [ ] Click the Modern header's minimize button. Only a compact native title strip remains; HUD overlays continue running.
+- [ ] Restore using its triangle or double-click its title. The single Modern header returns with the same window size and position and selected page.
+- [ ] Repeat minimize/restore several times at your normal UI scale and at the minimum useful window size.
+- [ ] Drag the minimized strip, then restore. The restored window stays at the new position and keeps its previous size.
+- [ ] Minimize and reopen through `/shud`, then through Dalamud Open Config. Each expands instead of closing the minimized window.
+- [ ] Close the minimized strip, reopen, and verify the expanded Modern shell and unchanged configuration. Check the Classic theme's native collapse/restore too.
 
 ## 0.8.4.3 focused checks
 
@@ -20,7 +30,7 @@
 - [ ] Diagnostics reports configuration schema 11 and, when upgrading schema 10, shows a one-time `SentinelHUD.schema-v10.backup.json` path.
 - [ ] Reload again and confirm the schema backup is not replaced or multiplied.
 - [ ] `/shud` opens and closes configuration.
-- [ ] Modern mode has no native `Sentinel HUD Configuration` title strip above the application header.
+- [ ] Expanded Modern mode has no native `Sentinel HUD Configuration` title strip above the application header; the native strip appears only while minimized.
 - [ ] The custom header collapse and close controls work; `/shud` or Dalamud reopening expands a collapsed window successfully.
 
 ## Sentinel Modern 2

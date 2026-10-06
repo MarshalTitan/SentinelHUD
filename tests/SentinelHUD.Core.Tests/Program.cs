@@ -22,6 +22,7 @@ var tests = new (string Name, Action Run)[]
     ("modern navigation state", TestModernNavigationState),
     ("Sentinel ecosystem registry and summary", TestSentinelEcosystemRegistry),
     ("modern minimum window geometry", TestModernMinimumWindowGeometry),
+    ("modern minimize and restore transitions", TestModernWindowTransitions),
     ("configuration serialization", TestSerialization),
     ("current-schema customization persistence", TestCurrentSchemaPersistence),
     ("responsive setting label wrapping", TestResponsiveLabelWrapping),
@@ -348,6 +349,45 @@ static void TestModernMinimumWindowGeometry()
         SentinelHudModernWindowPolicy.MinimumSize(0f, new Vector2(580f, 408f)));
     Throws<ArgumentOutOfRangeException>(() =>
         SentinelHudModernWindowPolicy.MinimumSize(1f, new Vector2(float.NaN, 408f)));
+}
+
+static void TestModernWindowTransitions()
+{
+    var state = new SentinelHudModernWindowState();
+    Equal(false, state.IsMinimized);
+    Equal<bool?>(null, state.ConsumeCollapseRequest());
+
+    state.Minimize();
+    Equal(true, state.IsMinimized);
+    Equal<bool?>(true, state.ConsumeCollapseRequest());
+    // No forced collapse on subsequent frames: the native arrow must be able to restore.
+    Equal<bool?>(null, state.ConsumeCollapseRequest());
+    Equal(true, state.IsMinimized);
+    state.ObserveExpanded();
+    Equal(false, state.IsMinimized);
+    Equal<bool?>(null, state.ConsumeCollapseRequest());
+
+    state.Minimize();
+    state.ConsumeCollapseRequest();
+    state.Expand(); // /shud or Dalamud's Open Config while minimized.
+    Equal(false, state.IsMinimized);
+    Equal<bool?>(false, state.ConsumeCollapseRequest());
+    Equal<bool?>(null, state.ConsumeCollapseRequest());
+
+    state.Minimize();
+    state.Expand(); // Reopen/Classic theme change overrides a queued minimize.
+    Equal<bool?>(false, state.ConsumeCollapseRequest());
+    Equal(false, state.IsMinimized);
+
+    // Repeated cycles must not retain a stale forced collapse or restore request.
+    for (var cycle = 0; cycle < 20; cycle++)
+    {
+        state.Minimize();
+        Equal<bool?>(true, state.ConsumeCollapseRequest());
+        Equal<bool?>(null, state.ConsumeCollapseRequest());
+        state.ObserveExpanded();
+        Equal(false, state.IsMinimized);
+    }
 }
 
 static void TestMigration()
