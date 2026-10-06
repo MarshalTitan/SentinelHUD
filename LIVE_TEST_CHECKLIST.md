@@ -1,6 +1,18 @@
-# Sentinel HUD 0.8.4.4 - Live Test
+# Sentinel HUD 0.8.4.5 - Live Test
+
+## 0.8.4.5 focused checks
+
+- [ ] Update from 0.8.4.4 with the existing config. Diagnostics shows schema 12 and a schema-v11 backup; all actor, editor, colour, awareness, camera and convenience settings remain intact.
+- [ ] Minimize in Modern. The same Sentinel Modern header remains visible, matching S Rank Sentinel; no native title strip appears.
+- [ ] The icon, title, status, page context and Expand/Close controls remain readable. Settings, secondary categories and the Appearance action dock are hidden.
+- [ ] Expand using the same header button; the prior full size, position and current page return. Repeat at wide, medium and minimum sizes and your normal UI scale.
+- [ ] Drag unused minimized header space, then expand. The moved position and original full dimensions remain.
+- [ ] Restore through `/shud` and Dalamud Open Config. Close while minimized and reopen. Reload the plugin while minimized, then expand; it remembers the full size.
+- [ ] Check keyboard/controller activation of the focused Expand/Close controls and Classic's native collapse/restore. HUD overlays continue running while configuration is minimized.
 
 ## 0.8.4.4 focused checks
+
+Historical checks for the superseded native-strip implementation. Use the 0.8.4.5 checks above for current minimize behavior.
 
 - [ ] Update from 0.8.4.3 without deleting configuration; verify 0.8.4.4 and existing customized settings.
 - [ ] Click the Modern header's minimize button. Only a compact native title strip remains; HUD overlays continue running.
@@ -27,10 +39,10 @@
 
 - [ ] Update Sentinel HUD from the Sentinel custom repository without deleting the existing configuration.
 - [ ] Existing module positions, widths, scale, bar heights, colours, field toggles, visibility modes, HP/MP/shield/cast settings, Awareness settings, marker radius/opacity, camera settings and native-target offsets remain intact.
-- [ ] Diagnostics reports configuration schema 11 and, when upgrading schema 10, shows a one-time `SentinelHUD.schema-v10.backup.json` path.
+- [ ] Diagnostics reports configuration schema 12 and, when upgrading schema 11, shows a one-time `SentinelHUD.schema-v11.backup.json` path.
 - [ ] Reload again and confirm the schema backup is not replaced or multiplied.
 - [ ] `/shud` opens and closes configuration.
-- [ ] Expanded Modern mode has no native `Sentinel HUD Configuration` title strip above the application header; the native strip appears only while minimized.
+- [ ] Modern mode has no native `Sentinel HUD Configuration` title strip above the application header, including while minimized.
 - [ ] The custom header collapse and close controls work; `/shud` or Dalamud reopening expands a collapsed window successfully.
 
 ## Sentinel Modern 2

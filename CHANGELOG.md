@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.4.5 - Keep minimized HUD in Sentinel Modern
+
+- Replaced 0.8.4.4's native minimized title strip with S Rank Sentinel's Core-header presentation. The same Modern header stays visible at its 56-logical-pixel height with icon, title, status, context, drag region and Core Expand/Close controls.
+- Settings content, secondary categories and the action dock stay hidden while minimized. The header button, `/shud` and Dalamud Open Config restore the full dimensions without moving the window or changing its current page.
+- Schema 12 adds only the minimized flag and expanded logical dimensions under Appearance. Minimize/restore saves them immediately so a header-sized ImGui record cannot erase the full size on reload. All schema-11 settings remain intact, with a schema-specific backup through the existing loader.
+- Corrected logical outer constraints because Dalamud applies the UI scale: minimized height and the useful expanded minimum are scaled once.
+- Added native ImGui geometry, mouse controls, keyboard/controller restore, minimized dragging, reload/reopen and Classic checks using the actual HUD presentation adapter and pinned Core shell, plus v11 migration preservation coverage.
+- Sentinel Core stays exactly pinned to 0.3.1 / v0.3.1.0. Core source/packages and all HUD/gameplay services are unchanged.
+
 ## 0.8.4.4 - Working Modern minimize and restore
 
 - Fixed the Modern header's minimize action: it previously requested native collapse while Core's expanded chrome set `NoTitleBar` and `NoCollapse`, so ImGui discarded the request.

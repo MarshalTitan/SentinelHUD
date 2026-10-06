@@ -23,6 +23,7 @@ var tests = new (string Name, Action Run)[]
     ("Sentinel ecosystem registry and summary", TestSentinelEcosystemRegistry),
     ("modern minimum window geometry", TestModernMinimumWindowGeometry),
     ("modern minimize and restore transitions", TestModernWindowTransitions),
+    ("version-eleven window-state migration preserves settings", TestVersionElevenWindowMigration),
     ("configuration serialization", TestSerialization),
     ("current-schema customization persistence", TestCurrentSchemaPersistence),
     ("responsive setting label wrapping", TestResponsiveLabelWrapping),
@@ -322,10 +323,13 @@ static void TestCurrentSchemaPersistence()
     source.TargetingMeCounter.BorderEnabled = false;
     source.Appearance.ConfigurationTheme = ConfigurationWindowTheme.Classic;
     source.Appearance.HostileHealth.Set(new Vector4(0.7f, 0.15f, 0.12f, 1f));
+    source.Appearance.ModernWindow.Minimized = true;
+    source.Appearance.ModernWindow.ExpandedWidth = 1170f;
+    source.Appearance.ModernWindow.ExpandedHeight = 845f;
     var before = JsonSerializer.Serialize(source);
     var loaded = JsonSerializer.Deserialize<HudConfigurationData>(before)!;
     HudConfigurationMigrator.Normalize(loaded);
-    Equal(11, loaded.Version);
+    Equal(HudConfigurationData.CurrentVersion, loaded.Version);
     Equal(before, JsonSerializer.Serialize(loaded));
     HudConfigurationMigrator.Normalize(loaded);
     Equal(before, JsonSerializer.Serialize(loaded));
@@ -355,39 +359,76 @@ static void TestModernWindowTransitions()
 {
     var state = new SentinelHudModernWindowState();
     Equal(false, state.IsMinimized);
-    Equal<bool?>(null, state.ConsumeCollapseRequest());
-
-    state.Minimize();
+    Equal<Vector2?>(null, state.ConsumeSizeRequest());
+    state.ObserveFrame(new Vector2(1120f, 860f));
+    state.Minimize(56f);
     Equal(true, state.IsMinimized);
-    Equal<bool?>(true, state.ConsumeCollapseRequest());
-    // No forced collapse on subsequent frames: the native arrow must be able to restore.
-    Equal<bool?>(null, state.ConsumeCollapseRequest());
+    Equal<Vector2?>(new Vector2(1120f, 56f), state.ConsumeSizeRequest());
+    Equal<Vector2?>(null, state.ConsumeSizeRequest());
+    state.ObserveFrame(new Vector2(1120f, 56f));
+    Equal(new Vector2(1120f, 860f), state.ExpandedSize);
+
+    var saved = new ModernWindowConfiguration();
+    state.SaveTo(saved);
+    var loaded = JsonSerializer.Deserialize<ModernWindowConfiguration>(JsonSerializer.Serialize(saved))!;
+    state = new SentinelHudModernWindowState(loaded);
     Equal(true, state.IsMinimized);
-    state.ObserveExpanded();
+    Equal<Vector2?>(new Vector2(1120f, 56f), state.ConsumeSizeRequest());
+    state.Expand();
     Equal(false, state.IsMinimized);
-    Equal<bool?>(null, state.ConsumeCollapseRequest());
+    Equal<Vector2?>(new Vector2(1120f, 860f), state.ConsumeSizeRequest());
+    Equal<bool?>(false, state.ConsumeNativeExpansionRequest());
+    Equal<bool?>(null, state.ConsumeNativeExpansionRequest());
+    Equal<Vector2?>(null, state.ConsumeSizeRequest());
+    state.SaveTo(saved);
+    Equal(false, saved.Minimized);
 
-    state.Minimize();
-    state.ConsumeCollapseRequest();
-    state.Expand(); // /shud or Dalamud's Open Config while minimized.
-    Equal(false, state.IsMinimized);
-    Equal<bool?>(false, state.ConsumeCollapseRequest());
-    Equal<bool?>(null, state.ConsumeCollapseRequest());
-
-    state.Minimize();
-    state.Expand(); // Reopen/Classic theme change overrides a queued minimize.
-    Equal<bool?>(false, state.ConsumeCollapseRequest());
-    Equal(false, state.IsMinimized);
-
-    // Repeated cycles must not retain a stale forced collapse or restore request.
     for (var cycle = 0; cycle < 20; cycle++)
     {
-        state.Minimize();
-        Equal<bool?>(true, state.ConsumeCollapseRequest());
-        Equal<bool?>(null, state.ConsumeCollapseRequest());
-        state.ObserveExpanded();
+        state.Minimize(56f);
+        state.Expand(); // A queued minimize is superseded by /shud/Open Config.
+        Equal<Vector2?>(new Vector2(1120f, 860f), state.ConsumeSizeRequest());
+        Equal<Vector2?>(null, state.ConsumeSizeRequest());
         Equal(false, state.IsMinimized);
     }
+    state.ObserveFrame(new Vector2(float.NaN, 720f));
+    Equal(new Vector2(1120f, 860f), state.ExpandedSize);
+    Throws<ArgumentOutOfRangeException>(() => state.Minimize(float.NaN));
+}
+
+static void TestVersionElevenWindowMigration()
+{
+    var source = HudConfigurationMigrator.Normalize(new HudConfigurationData());
+    source.Player.Width = 537f;
+    source.Player.Layout.AnchorY = 0.39f;
+    source.Player.BarHeight = 27f;
+    source.Appearance.ConfigurationTheme = ConfigurationWindowTheme.Classic;
+    source.Camera.Enabled = true;
+    source.Camera.MaximumZoomDistance = 83f;
+    source.Convenience.SkipCutscenes = true;
+    source.Version = 11;
+    var old = JsonSerializer.SerializeToNode(source)!.AsObject();
+    old["Appearance"]!.AsObject().Remove("ModernWindow");
+    var before = old.DeepClone().AsObject();
+    before.Remove("Version");
+    var loaded = JsonSerializer.Deserialize<HudConfigurationData>(old.ToJsonString())!;
+    HudConfigurationMigrator.Normalize(loaded);
+    Equal(12, loaded.Version);
+    Equal(false, loaded.Appearance.ModernWindow.Minimized);
+    Equal(920f, loaded.Appearance.ModernWindow.ExpandedWidth);
+    Equal(720f, loaded.Appearance.ModernWindow.ExpandedHeight);
+    var after = JsonSerializer.SerializeToNode(loaded)!.AsObject();
+    after.Remove("Version");
+    after["Appearance"]!.AsObject().Remove("ModernWindow");
+    Equal(true, JsonNode.DeepEquals(before, after));
+    var once = JsonSerializer.Serialize(loaded);
+    HudConfigurationMigrator.Normalize(loaded);
+    Equal(once, JsonSerializer.Serialize(loaded));
+    loaded.Appearance.ModernWindow.ExpandedWidth = float.NaN;
+    loaded.Appearance.ModernWindow.ExpandedHeight = 1f;
+    HudConfigurationMigrator.Normalize(loaded);
+    Equal(920f, loaded.Appearance.ModernWindow.ExpandedWidth);
+    Equal(560f, loaded.Appearance.ModernWindow.ExpandedHeight);
 }
 
 static void TestMigration()

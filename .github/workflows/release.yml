@@ -87,6 +87,9 @@ jobs:
         shell: pwsh
         run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '${{ steps.version.outputs.value }}'
 
+      - name: Test native ImGui Modern minimize and restore
+        run: dotnet run --project tests/SentinelHUD.UI.Tests/SentinelHUD.UI.Tests.csproj -c Release
+
       - name: Prepare release asset
         shell: pwsh
         run: Copy-Item -LiteralPath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -Destination "$env:RUNNER_TEMP\SentinelHUD.zip" -Force
@@ -101,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Fixes the Sentinel Modern header's minimize button. Collapse is queued once through Dalamud's top-level Window before Begin, using the existing native title strip only while minimized. Restore with its triangle, double-click its title, use /shud, or reopen through Dalamud Open Config. The expanded shell returns to its single Core Modern header with the same size, position and selected page; minimized dragging and closing remain available. Includes repeated minimize/restore and queued-request regression coverage. Core remains pinned to 0.3.1 and configuration schema remains 11, with no new configuration fields or HUD/gameplay service changes. Build, tests, configuration preservation, public ZIP validation and immediate central catalog reconciliation are verified before release completion."
+            --notes "Keeps minimize in Sentinel Modern, matching S Rank Sentinel: the same pinned Core header remains visible with icon, title, status, context, drag region and Expand/Close controls. Settings, secondary categories and the action dock are hidden while minimized. The header, /shud and Dalamud Open Config restore the prior full size and current position. Schema 12 adds only minimized state and expanded logical dimensions and preserves all existing settings through the established backed-up migration. Window constraints use Dalamud UI scale once. Native ImGui mouse/keyboard/controller, geometry, drag, reload and Classic checks run before publication. Core stays exactly pinned to 0.3.1 / v0.3.1.0. Public ZIP and immediate central catalog reconciliation are verified before completion."
 
       - name: Verify public release asset
         shell: pwsh
