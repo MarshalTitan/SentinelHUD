@@ -123,37 +123,10 @@ jobs:
           }
           ./.github/scripts/Validate-Package.ps1 -PackagePath $download -ExpectedVersion '${{ steps.version.outputs.value }}'
 
-      - name: Trigger central Sentinel catalog reconciliation
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.DALAMUD_CATALOG_TOKEN }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
-            throw 'DALAMUD_CATALOG_TOKEN is required to publish a Sentinel HUD release to the central Sentinel catalog.'
-          }
-
-          $payload = @{
-            event_type = 'plugin-released'
-            client_payload = @{
-              source_repository = '${{ github.repository }}'
-              source_commit = '${{ github.sha }}'
-              internal_name = 'SentinelHUD'
-              version = '${{ steps.version.outputs.value }}'
-              tag = '${{ steps.version.outputs.tag }}'
-            }
-          } | ConvertTo-Json -Depth 5
-
-          $payload | gh api `
-            --method POST `
-            'repos/MarshalTitan/Sentinel/dispatches' `
-            --input -
-          if ($LASTEXITCODE -ne 0) {
-            throw 'Failed to dispatch the central Sentinel catalog reconciliation.'
-          }
-
-      - name: Verify public central Sentinel catalog
-        shell: pwsh
-        run: |
-          ./.github/scripts/Wait-ForCatalog.ps1 `
-            -ExpectedVersion '${{ steps.version.outputs.value }}' `
-            -ExpectedAsset "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/SentinelHUD.zip"
+      - name: Publish authoritative child manifest and verify central catalog
+        uses: MarshalTitan/Sentinel/.github/actions/distribute@4bbc5ce50837b37c8cfaee5c39a075c4f68858ed
+        with:
+          internal-name: SentinelHUD
+          version: ${{ steps.version.outputs.value }}
+          tag: ${{ steps.version.outputs.tag }}
+          notification-token: ${{ secrets.DALAMUD_CATALOG_TOKEN }}

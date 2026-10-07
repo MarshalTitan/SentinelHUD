@@ -2,103 +2,19 @@ name: Reconcile Central Catalog
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/catalog-sync.yml
 
 permissions:
   contents: read
-
-concurrency:
-  group: sentinel-hud-catalog-sync
-  cancel-in-progress: false
 
 jobs:
   reconcile:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out authoritative Sentinel HUD manifest
-        uses: actions/checkout@v7
-
-      - name: Read and validate Sentinel HUD release metadata
-        id: release
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="$(jq -er 'map(select(.InternalName == "SentinelHUD")) | if length == 1 then .[0].AssemblyVersion else error("SentinelHUD entry missing or duplicated") end' repo.json)"
-          testing_version="$(jq -er 'map(select(.InternalName == "SentinelHUD"))[0].TestingAssemblyVersion' repo.json)"
-          asset="$(jq -er 'map(select(.InternalName == "SentinelHUD"))[0].DownloadLinkInstall' repo.json)"
-          update_asset="$(jq -er 'map(select(.InternalName == "SentinelHUD"))[0].DownloadLinkUpdate' repo.json)"
-          testing_asset="$(jq -er 'map(select(.InternalName == "SentinelHUD"))[0].DownloadLinkTesting' repo.json)"
-          expected_asset="https://github.com/${{ github.repository }}/releases/download/v${version}/SentinelHUD.zip"
-
-          test "$testing_version" = "$version"
-          test "$asset" = "$expected_asset"
-          test "$update_asset" = "$expected_asset"
-          test "$testing_asset" = "$expected_asset"
-
-          curl --fail --location --retry 6 --retry-delay 5 \
-            "$asset?catalog-sync=${{ github.run_id }}" \
-            --output "$RUNNER_TEMP/SentinelHUD.zip"
-          unzip -p "$RUNNER_TEMP/SentinelHUD.zip" SentinelHUD.json \
-            | jq -e --arg version "$version" '.InternalName == "SentinelHUD" and .AssemblyVersion == $version' >/dev/null
-
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "asset=$asset" >> "$GITHUB_OUTPUT"
-
-      - name: Dispatch central reconciliation
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.DALAMUD_CATALOG_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ -z "${GH_TOKEN:-}" ]]; then
-            echo '::error::DALAMUD_CATALOG_TOKEN is required to reconcile the central Sentinel catalog.'
-            exit 1
-          fi
-
-          jq -n \
-            --arg repository '${{ github.repository }}' \
-            --arg commit '${{ github.sha }}' \
-            --arg version '${{ steps.release.outputs.version }}' \
-            '{
-              event_type: "plugin-released",
-              client_payload: {
-                source_repository: $repository,
-                source_commit: $commit,
-                internal_name: "SentinelHUD",
-                version: $version,
-                tag: ("v" + $version)
-              }
-            }' \
-            | gh api --method POST repos/MarshalTitan/Sentinel/dispatches --input -
-
-      - name: Verify public central Sentinel catalog
-        shell: bash
-        run: |
-          set -euo pipefail
-          catalog="$RUNNER_TEMP/central-repo.json"
-          for attempt in $(seq 1 60); do
-            if curl --fail --location \
-                "https://raw.githubusercontent.com/MarshalTitan/Sentinel/main/repo.json?catalog-sync=${{ github.run_id }}-$attempt" \
-                --output "$catalog" \
-              && jq -e \
-                --arg version '${{ steps.release.outputs.version }}' \
-                --arg asset '${{ steps.release.outputs.asset }}' \
-                'map(select(.InternalName == "SentinelHUD"))
-                  | length == 1
-                    and .[0].AssemblyVersion == $version
-                    and .[0].TestingAssemblyVersion == $version
-                    and .[0].DownloadLinkInstall == $asset
-                    and .[0].DownloadLinkUpdate == $asset
-                    and .[0].DownloadLinkTesting == $asset' \
-                "$catalog" >/dev/null; then
-              echo "Verified Sentinel HUD ${{ steps.release.outputs.version }} in the public central catalog."
-              exit 0
-            fi
-            sleep 5
-          done
-
-          echo '::error::The public central Sentinel catalog did not reach the authoritative Sentinel HUD manifest within five minutes.'
-          exit 1
+      - uses: actions/checkout@v7
+      - name: Verify current public distribution
+        uses: MarshalTitan/Sentinel/.github/actions/distribute@4bbc5ce50837b37c8cfaee5c39a075c4f68858ed
+        with:
+          internal-name: SentinelHUD
+          publish-child: 'false'
+          source-token: ''
+          notification-token: ${{ secrets.DALAMUD_CATALOG_TOKEN }}
