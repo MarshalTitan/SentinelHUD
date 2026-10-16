@@ -7,6 +7,7 @@ using System.Globalization;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Anti-AFK optional Hub ownership handoff", TestAntiAfkHubLease),
     ("configuration defaults", TestDefaults),
     ("configuration migration and repair", TestMigration),
     ("version-one settings survive migration", TestVersionOneMigration),
@@ -1622,4 +1623,33 @@ static void Throws<TException>(Action action)
     }
 
     throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
+}
+
+static void TestAntiAfkHubLease()
+{
+    var a = Guid.NewGuid().ToString("N"); var b = Guid.NewGuid().ToString("N");
+    var lease = new AntiAfkLease();
+    False(lease.IsClaimed(0));
+    False(lease.TryClaim(a, 0, false));
+    False(lease.TryClaim("bad", 0, true));
+    True(lease.TryClaim(a, 0, true));
+    False(lease.TryClaim(b, 1, true));
+    False(lease.Release(b));
+    True(lease.TryClaim(a, 1000, true));
+    True(lease.IsClaimed(3999));
+    False(lease.IsClaimed(4000));
+    True(lease.TryClaim(b, 4000, true));
+    False(lease.Release(a)); // retired Hub cannot release a replacement.
+    True(lease.Release(b));
+    False(AntiAfkLease.ShouldYield(false, false, null, null));
+    False(AntiAfkLease.ShouldYield(false, true, "0.1.0.0", null));
+    False(AntiAfkLease.ShouldYield(false, true, "0.2.0.0", false));
+    True(AntiAfkLease.ShouldYield(false, true, "0.2.0.0", true)); // yield before first claim / HUD hot reload.
+    True(AntiAfkLease.ShouldYield(false, true, "0.2.0.0", null)); // unknown status fails closed.
+    True(AntiAfkLease.ShouldYield(true, false, null, false)); // bounded expiry protects abrupt unload.
+    lease.Clear(); False(lease.IsClaimed(5000));
+    var config = new HudConfigurationData(); config.Convenience.PreventAfkDisconnect = true;
+    var before = JsonSerializer.Serialize(config);
+    lease.TryClaim(a, 0, true); lease.Release(a);
+    Equal(before, JsonSerializer.Serialize(config)); // preference/schema are never migrated destructively.
 }

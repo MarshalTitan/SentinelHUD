@@ -999,6 +999,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawToggle("Prevent AFK Disconnect", convenience.PreventAfkDisconnect,
             value => Update(c => c.Convenience.PreventAfkDisconnect = value));
         ImGui.TextWrapped("Default Off. When enabled, Sentinel periodically resets the client's inactivity timers directly. It does not move your character, send chat, synthesize keys, or alter controller input. Disabling resumes ordinary timer accumulation.");
+        ImGui.TextWrapped("Hub migration: this preference is retained. A compatible Sentinel Hub can take exclusive ownership; disabling or removing Hub resumes this HUD preference.");
         DrawMutedText($"Runtime state: {renderer.AntiAfkState}");
     }
 

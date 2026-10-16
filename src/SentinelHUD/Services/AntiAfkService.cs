@@ -13,6 +13,8 @@ public sealed unsafe class AntiAfkService
     private const float ResetThresholdSeconds = 30f;
     private long nextResetTick;
 
+    public Func<bool>? ExternalOwner { get; set; }
+
     public bool IsActive { get; private set; }
     public string State { get; private set; } = "Off";
     public long ResetCount { get; private set; }
@@ -24,6 +26,11 @@ public sealed unsafe class AntiAfkService
             IsActive = false;
             State = "Off";
             nextResetTick = 0;
+            return;
+        }
+        if (ExternalOwner?.Invoke() == true)
+        {
+            SuspendForHub();
             return;
         }
         if (!isLoggedIn)
@@ -56,6 +63,13 @@ public sealed unsafe class AntiAfkService
         ResetCount++;
         IsActive = true;
         State = $"Active; inactivity timers reset safely ({ResetCount} cycle(s))";
+    }
+
+    public void SuspendForHub()
+    {
+        IsActive = false;
+        State = "Managed by Sentinel Hub; HUD preference retained";
+        nextResetTick = 0;
     }
 
     public void Disable()

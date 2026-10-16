@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Keeps minimize in Sentinel Modern, matching S Rank Sentinel: the same pinned Core header remains visible with icon, title, status, context, drag region and Expand/Close controls. Settings, secondary categories and the action dock are hidden while minimized. The header, /shud and Dalamud Open Config restore the prior full size and current position. Schema 12 adds only minimized state and expanded logical dimensions and preserves all existing settings through the established backed-up migration. Window constraints use Dalamud UI scale once. Native ImGui mouse/keyboard/controller, geometry, drag, reload and Classic checks run before publication. Core stays exactly pinned to 0.3.1 / v0.3.1.0. Public ZIP and immediate central catalog reconciliation are verified before completion."
+            --notes "Adds an optional Anti-AFK handoff contract for Sentinel Hub 0.2. HUD retains its existing native timer implementation and saved preference. A token-scoped short lease and Hub-request guard suspend HUD before a compatible Hub engine can act. Disabling/unloading Hub resumes the retained HUD preference. Old Hub 0.1 does not change HUD behavior. No cutscene, reward, camera, visual HUD or other gameplay behavior changes. Supervised migration acceptance remains pending."
 
       - name: Verify public release asset
         shell: pwsh

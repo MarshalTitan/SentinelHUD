@@ -80,6 +80,9 @@ public sealed class Plugin : IDalamudPlugin
             ObjectTable, DataManager, PluginInterface));
         var antiAfk = new AntiAfkService();
         lifetime.Add(antiAfk.Disable);
+        var antiAfkHubBridge = lifetime.Add(new AntiAfkHubBridge(
+            PluginInterface, () => configuration.Current.Convenience.PreventAfkDisconnect, antiAfk.SuspendForHub));
+        antiAfk.ExternalOwner = antiAfkHubBridge.ShouldYield;
         var pvpThreatTracker = new PvPThreatTracker(
             ClientState, Condition, ObjectTable, PartyList, DataManager);
         var threatCounterGlyphs = FontAtlasBuildToolkitUtilities.ToGlyphRange(
