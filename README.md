@@ -2,9 +2,9 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.5.0** · Dalamud API **15** · .NET **10**
+Current release: **0.8.5.1** · Dalamud API **15** · .NET **10**
 
-## Utility ownership cleanup — 0.8.5.0
+## Utility ownership cleanup — 0.8.5.0 / metadata correction 0.8.5.1
 
 Anti-AFK and Quest Convenience now run in **Sentinel Hub**. Update Hub to **0.3.1.0** for current guidance, open `/shub` → Utilities and keep your chosen opt-ins. Existing Hub settings are unchanged; import saved HUD preferences only if needed.
 

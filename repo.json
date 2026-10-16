@@ -3,7 +3,7 @@
     "Author": "MTitan",
     "Name": "Sentinel HUD",
     "Punchline": "Modular HUD panels, PvP threat awareness, and camera controls.",
-    "Description": "Adds independently configurable actor panels and bars, the polished Sentinel Modern 2 configuration shell, an independent PvP Targeting Me Counter, native target/context interactions, a full drag/resize editor, resilient configuration migration, exact-position encounter danger awareness, optional Splatoon IPC, extended camera zoom, Anti-AFK, and opt-in quest convenience automation.",
+    "Description": "Adds configurable actor panels, PvP targeting-me awareness, HP/MP/shield/cast bars, native actor interactions, exact-position awareness, optional encounter danger providers, and extended camera zoom. Anti-AFK and Quest Convenience settings are available in Sentinel Hub.",
     "InternalName": "SentinelHUD",
     "AssemblyVersion": "0.8.5.0",
     "TestingAssemblyVersion": "0.8.5.0",

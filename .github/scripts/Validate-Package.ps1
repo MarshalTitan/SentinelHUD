@@ -75,6 +75,16 @@ try {
         throw "Unexpected RepoUrl '$($manifest.RepoUrl)'."
     }
 
+    # Keep project, installed template, catalog and public ZIP wording consistent.
+    $repositoryRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    [xml]$project = Get-Content -LiteralPath (Join-Path $repositoryRoot 'src/SentinelHUD/SentinelHUD.csproj') -Raw
+    $expectedDescription = [string]$project.Project.PropertyGroup.Description
+    $template = Get-Content -LiteralPath (Join-Path $repositoryRoot 'src/SentinelHUD/SentinelHUD.json') -Raw | ConvertFrom-Json
+    $catalog = @(Get-Content -LiteralPath (Join-Path $repositoryRoot 'repo.json') -Raw | ConvertFrom-Json)[0]
+    if ([string]::IsNullOrWhiteSpace($expectedDescription) -or $manifest.Description -cne $expectedDescription -or $template.Description -cne $expectedDescription -or $catalog.Description -cne $expectedDescription) {
+        throw 'Project, installed template, catalog and packaged descriptions must agree.'
+    }
+
     $icon = $entries | Where-Object { $_.FullName.Replace('\', '/') -eq 'assets/icon.png' } | Select-Object -First 1
     $iconStream = $icon.Open()
     try {
