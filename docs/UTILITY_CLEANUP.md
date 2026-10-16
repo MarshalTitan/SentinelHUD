@@ -1,6 +1,6 @@
 # Utility cleanup acceptance
 
-Builds: [Hub 0.3.1.0](https://github.com/MarshalTitan/SentinelHub/releases/tag/v0.3.1.0) and [HUD 0.8.5.0](https://github.com/MarshalTitan/SentinelHUD/releases/tag/v0.8.5.0). Update Hub first, then HUD through Dalamud; confirm both versions. Open `/shub` → Utilities and `/shud` → Systems → Questing / Convenience (Classic: Convenience).
+Builds: [Hub 0.3.1.0](https://github.com/MarshalTitan/SentinelHub/releases/tag/v0.3.1.0) and [HUD 0.8.5.1](https://github.com/MarshalTitan/SentinelHUD/releases/tag/v0.8.5.1). Update Hub first, then HUD through Dalamud; confirm both versions. Open `/shub` → Utilities and `/shud` → Systems → Questing / Convenience (Classic: Convenience).
 
 1. Confirm your Hub Anti-AFK/Quest options and HUD camera/layout are retained. HUD's Convenience page must show the migration notice and saved preferences, with no utility switches.
 2. With your chosen Hub utilities enabled, expect Hub Active. Exercise one ordinary dialogue and a choice: text advances; the response stays yours. No repeat of the previous full idle/cutscene/reward checklist is required for this structural cleanup.
