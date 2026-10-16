@@ -1,5 +1,7 @@
 # Quest Convenience ownership — HUD 0.8.4.7 / Hub 0.3
 
+> Historical replacement procedure for HUD 0.8.4.6/0.8.4.7. With HUD 0.8.5.0, utility engines have moved to Hub and disabling Hub leaves their actions off. Use [current cleanup acceptance and rollback](UTILITY_CLEANUP.md). Scoped replacement acceptance is recorded in the ecosystem test matrix.
+
 The user reported Anti-AFK PASS on 2026-10-16 America/Toronto for Hub Active/HUD Managed, returning to the saved HUD setting, Hub reload and idle beyond the configured automatic-away interval. Anti-AFK is unchanged here; unreported scenarios are not newly certified.
 
 HUD retains its Quest Convenience engine, schema and three saved preferences. Public primitive v1 IPC: SentinelHUD.Quest.ProtocolVersion (int=1), Preference (int: dialogue bit 0, cutscenes bit 1, reward mode bits 2–3), TryClaim(string)->bool and Release(string)->bool. Hub publishes SentinelHub.Quest.Enabled (bool). The existing lease implementation is reused as an independent instance, without altering Anti-AFK's lease.
