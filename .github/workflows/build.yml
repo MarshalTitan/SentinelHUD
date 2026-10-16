@@ -75,7 +75,7 @@ jobs:
 
       - name: Validate installable package
         shell: pwsh
-        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '0.8.4.6'
+        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '0.8.4.7'
 
       - name: Test native ImGui Modern minimize and restore
         run: dotnet run --project tests/SentinelHUD.UI.Tests/SentinelHUD.UI.Tests.csproj -c Release
@@ -83,6 +83,6 @@ jobs:
       - name: Upload installable package
         uses: actions/upload-artifact@v7
         with:
-          name: SentinelHUD-0.8.4.6
+          name: SentinelHUD-0.8.4.7
           path: src/SentinelHUD/bin/Release/SentinelHUD/latest.zip
           if-no-files-found: error

@@ -8,6 +8,7 @@ using System.Globalization;
 var tests = new (string Name, Action Run)[]
 {
     ("Anti-AFK optional Hub ownership handoff", TestAntiAfkHubLease),
+    ("Quest Convenience independent Hub ownership and preference contract", TestQuestHubHandoff),
     ("configuration defaults", TestDefaults),
     ("configuration migration and repair", TestMigration),
     ("version-one settings survive migration", TestVersionOneMigration),
@@ -1652,4 +1653,32 @@ static void TestAntiAfkHubLease()
     var before = JsonSerializer.Serialize(config);
     lease.TryClaim(a, 0, true); lease.Release(a);
     Equal(before, JsonSerializer.Serialize(config)); // preference/schema are never migrated destructively.
+}
+
+static void TestQuestHubHandoff()
+{
+    var seen = new HashSet<int>();
+    foreach(var dialogue in new[]{false,true})
+    foreach(var cutscenes in new[]{false,true})
+    for(var mode=0;mode<4;mode++) True(seen.Add(QuestConvenienceHandoff.Encode(dialogue,cutscenes,mode)));
+    Equal(16, seen.Count);
+    Equal(0, QuestConvenienceHandoff.Encode(false,false,999));
+    True(!QuestConvenienceHandoff.ShouldYield(false,false,null,null));
+    True(!QuestConvenienceHandoff.ShouldYield(false,true,"0.2.0.0",null));
+    True(QuestConvenienceHandoff.ShouldYield(false,true,"0.3.0.0",true));
+    True(QuestConvenienceHandoff.ShouldYield(false,true,"unknown",null));
+    True(!QuestConvenienceHandoff.ShouldYield(false,true,"0.3.0.0",false));
+    var quest = new AntiAfkLease(); var anti = new AntiAfkLease();
+    var token = Guid.NewGuid().ToString("N");
+    True(quest.TryClaim(token,0,true));
+    True(!anti.IsClaimed(0));
+    True(QuestConvenienceHandoff.ShouldYield(quest.IsClaimed(0),true,"0.3.0.0",false));
+    True(!quest.Release(Guid.NewGuid().ToString("N")));
+    True(!quest.IsClaimed(3000));
+    True(!QuestConvenienceHandoff.ShouldYield(quest.IsClaimed(3000),false,null,false));
+    var config = new ConvenienceConfiguration { PreventAfkDisconnect=true, SkipDialogue=true, SkipCutscenes=true,
+        QuestRewardSelection=QuestRewardSelectionMode.CurrentJobReward };
+    var before=JsonSerializer.Serialize(config);
+    Equal(11,QuestConvenienceHandoff.Encode(config.SkipDialogue,config.SkipCutscenes,(int)config.QuestRewardSelection));
+    Equal(before,JsonSerializer.Serialize(config));
 }

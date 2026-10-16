@@ -80,6 +80,8 @@ public sealed unsafe class QuestConvenienceService : IDisposable
         this.diagnostics = diagnostics;
     }
 
+    public Func<bool>? ExternalOwner { get; set; }
+
     public string DialogueState { get; private set; } = "Disabled";
     public string CutsceneState { get; private set; } = "Disabled";
     public string CutsceneDetectedAddon { get; private set; } = "None";
@@ -95,6 +97,7 @@ public sealed unsafe class QuestConvenienceService : IDisposable
     public void Update(ConvenienceConfiguration configuration, bool isLoggedIn, uint territoryId)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+        if (ExternalOwner?.Invoke() == true) { SuspendForHub(); return; }
         var now = Environment.TickCount64;
         if (lastTerritoryId is not null && lastTerritoryId != territoryId)
         {
@@ -118,6 +121,16 @@ public sealed unsafe class QuestConvenienceService : IDisposable
         CutsceneState = "Disabled";
         RewardState = "Manual";
         lastTerritoryId = null;
+    }
+
+    public void SuspendForHub()
+    {
+        Dispose(); // Clear pending confirmations/rewards before acknowledging a new owner.
+        DialogueState = "Managed by Sentinel Hub; HUD preferences retained";
+        CutsceneState = "Managed by Sentinel Hub; pending confirmation cleared";
+        RewardState = "Managed by Sentinel Hub; pending selection cleared";
+        CutsceneDetectedAddon = "None";
+        CutsceneLastResult = "Ownership handed to Sentinel Hub";
     }
 
     private void UpdateDialogue(bool enabled, bool isLoggedIn, long now)

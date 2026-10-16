@@ -92,6 +92,12 @@ public sealed class Plugin : IDalamudPlugin
                 toolkit.AddDalamudDefaultFont(128f, threatCounterGlyphs))));
         questConvenience = lifetime.Add(new QuestConvenienceService(
             GameGui, Condition, ObjectTable, DataManager, diagnostics));
+        var questHubBridge = lifetime.Add(new QuestConvenienceHubBridge(
+            PluginInterface,
+            () => QuestConvenienceHandoff.Encode(configuration.Current.Convenience.SkipDialogue,
+                configuration.Current.Convenience.SkipCutscenes, (int)configuration.Current.Convenience.QuestRewardSelection),
+            questConvenience.SuspendForHub));
+        questConvenience.ExternalOwner = questHubBridge.ShouldYield;
         ecosystemStatus = lifetime.Add(new SentinelEcosystemStatusService(
             PluginInterface, diagnostics));
         var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
