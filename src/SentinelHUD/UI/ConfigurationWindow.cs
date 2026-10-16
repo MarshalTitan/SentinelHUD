@@ -29,7 +29,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static readonly string[] NumberFormats = ["Full", "Compact"];
     private static readonly string[] NativeOverlayModes = ["Off", "Always", "Combat Only"];
     private static readonly string[] NativeOverlayFormats = ["Current / Maximum", "Percentage", "Current / Maximum + Percentage"];
-    private static readonly string[] QuestRewardModes = ["Manual", "First Reward", "Current Job Reward", "Allagan Piece"];
     private static readonly string[] PvPThreatVisibilityModes = ["All PvP Duties", "Frontline Only"];
     private static readonly SentinelModernNavItem[] ModernPrimaryNavigation =
     [
@@ -66,7 +65,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static readonly Vector2 ClassicMinimumWindowSize = new(720f, 560f);
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer renderer;
-    private readonly QuestConvenienceService questConvenience;
     private readonly SentinelEcosystemStatusService ecosystemStatus;
     private readonly DiagnosticBuffer diagnostics;
     private readonly ResilientConfigurationStore configurationStore;
@@ -98,7 +96,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
     public ConfigurationWindow(
         ConfigurationCoordinator<Configuration> configuration,
         HudRenderer renderer,
-        QuestConvenienceService questConvenience,
         SentinelEcosystemStatusService ecosystemStatus,
         DiagnosticBuffer diagnostics,
         ResilientConfigurationStore configurationStore,
@@ -109,7 +106,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
         modernWindowState = new SentinelHudModernWindowState(configuration.Current.Appearance.ModernWindow,
             SentinelModernAppLayoutOptions.Default.HeaderHeight);
         this.renderer = renderer;
-        this.questConvenience = questConvenience;
         this.ecosystemStatus = ecosystemStatus;
         this.diagnostics = diagnostics;
         this.configurationStore = configurationStore;
@@ -962,46 +958,17 @@ public sealed class ConfigurationWindow : Window, IDisposable
 
     private void DrawConvenience()
     {
-        var convenience = configuration.Current.Convenience;
-        DrawSectionHeader("Questing / Convenience");
-        DrawToggle("Skip Dialogue", convenience.SkipDialogue,
-            value => Update(c => c.Convenience.SkipDialogue = value));
-        ImGui.TextWrapped("Advances only the ordinary Talk text box. Sentinel pauses whenever a response list or Yes/No prompt is visible and never chooses a dialogue response.");
-        DrawMutedText($"Dialogue runtime: {questConvenience.DialogueState}");
-
-        DrawToggle("Skip Cutscenes", convenience.SkipCutscenes,
-            value => Update(c => c.Convenience.SkipCutscenes = value));
-        ImGui.TextWrapped("Requests FFXIV's normal skip dialog only when the client exposes a skippable cutscene, then confirms that dedicated dialog. Protected and unskippable cutscenes are left alone.");
-        DrawMutedText($"Cutscene runtime: {questConvenience.CutsceneState}");
-        if (questConvenience.AwaitingCutsceneSkipConfirmation)
-            DrawMutedText("Confirmation state: Awaiting the game-provided cutscene skip prompt");
-
+        var saved = configuration.Current.Convenience;
+        DrawSectionHeader("Utilities moved to Sentinel Hub");
+        ImGui.TextWrapped("Anti-AFK, dialogue, cutscene skipping and quest rewards are now configured in Sentinel Hub. Open /shub and select Utilities.");
+        ImGui.TextWrapped("Your saved HUD preferences are retained. In Hub, use Import saved HUD preference and Import HUD quest preferences to copy them when needed. Existing Hub settings stay as you set them.");
+        ImGui.TextWrapped("HUD no longer runs these utilities. Turning off a utility or disabling Hub turns its actions off. Camera and HUD visuals remain available here.");
         ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-        DrawSectionHeader("Quest Reward Selection");
-        var rewardMode = (int)convenience.QuestRewardSelection;
-        if (DrawComboSetting(
-                "Convenience.RewardSelection",
-                "Reward selection",
-                "Manual never chooses a reward; automatic modes use only positively identified choose-one entries.",
-                ref rewardMode,
-                QuestRewardModes))
-            Update(c => c.Convenience.QuestRewardSelection = (QuestRewardSelectionMode)rewardMode);
-        ImGui.TextWrapped("Manual never touches rewards. Automatic modes act only on positively identified choose-one entries in JournalResult; guaranteed gil, EXP, items and unlocks are not selected or altered.");
-        ImGui.TextWrapped("Hub migration: your quest preferences are retained. Enabling Quest Convenience in Hub pauses these HUD actions; disabling or removing Hub restores these preferences.");
-        DrawMutedText($"Reward runtime: {questConvenience.RewardState}");
-        DrawMutedText($"Current job: {questConvenience.CurrentJob}");
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-        DrawSectionHeader("Prevent AFK Disconnect");
-        DrawToggle("Prevent AFK Disconnect", convenience.PreventAfkDisconnect,
-            value => Update(c => c.Convenience.PreventAfkDisconnect = value));
-        ImGui.TextWrapped("Default Off. When enabled, Sentinel periodically resets the client's inactivity timers directly. It does not move your character, send chat, synthesize keys, or alter controller input. Disabling resumes ordinary timer accumulation.");
-        ImGui.TextWrapped("Hub migration: this preference is retained. A compatible Sentinel Hub can take exclusive ownership; disabling or removing Hub resumes this HUD preference.");
-        DrawMutedText($"Runtime state: {renderer.AntiAfkState}");
+        DrawSectionHeader("Saved preferences for import");
+        DrawMutedText($"Anti-AFK: {(saved.PreventAfkDisconnect ? "On" : "Off")}");
+        DrawMutedText($"Dialogue: {(saved.SkipDialogue ? "On" : "Off")}");
+        DrawMutedText($"Cutscenes: {(saved.SkipCutscenes ? "On" : "Off")}");
+        DrawMutedText($"Quest rewards: {saved.QuestRewardSelection}");
     }
 
     private void DrawCamera()
@@ -1150,21 +1117,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
         }
         ImGui.TextWrapped($"Extended zoom enabled / active: {config.Camera.Enabled} / {renderer.CameraZoomActive}");
         ImGui.TextWrapped($"Extended zoom state: {renderer.CameraZoomState}");
-        ImGui.TextWrapped($"Prevent AFK Disconnect enabled / active: {config.Convenience.PreventAfkDisconnect} / {renderer.AntiAfkActive}");
-        ImGui.TextWrapped($"Anti-AFK state: {renderer.AntiAfkState}");
-        ImGui.TextWrapped($"Dialogue skipping enabled: {config.Convenience.SkipDialogue}");
-        ImGui.TextWrapped($"Dialogue skipping state: {questConvenience.DialogueState}");
-        ImGui.TextWrapped($"Cutscene skipping enabled: {config.Convenience.SkipCutscenes}");
-        ImGui.TextWrapped($"Cutscene skipping state: {questConvenience.CutsceneState}");
-        ImGui.TextWrapped($"Awaiting cutscene confirmation: {questConvenience.AwaitingCutsceneSkipConfirmation}");
-        ImGui.TextWrapped($"Detected cutscene addon: {questConvenience.CutsceneDetectedAddon}");
-        ImGui.TextWrapped($"Last cutscene result: {questConvenience.CutsceneLastResult}");
-        ImGui.TextWrapped($"Quest reward mode: {config.Convenience.QuestRewardSelection}");
-        ImGui.TextWrapped($"Current job: {questConvenience.CurrentJob}");
-        ImGui.TextWrapped($"Reward window detected: {questConvenience.RewardWindowDetected}");
-        ImGui.TextWrapped($"Reward runtime: {questConvenience.RewardState}");
-        ImGui.TextWrapped($"Last selected reward: {questConvenience.LastSelectedRewardName} ({questConvenience.LastSelectedRewardId})");
-        ImGui.TextWrapped($"Last selection reason: {questConvenience.LastSelectionReason}");
+        ImGui.TextWrapped("Utility actions: owned by Sentinel Hub; no HUD utility engine.");
+        ImGui.TextWrapped($"Saved preferences for import: Anti-AFK={config.Convenience.PreventAfkDisconnect}, dialogue={config.Convenience.SkipDialogue}, cutscenes={config.Convenience.SkipCutscenes}, rewards={config.Convenience.QuestRewardSelection}");
         ImGui.Separator();
         ImGui.TextWrapped($"Targeting Me Counter visible / active: {renderer.TargetingMeCounterVisible} / {renderer.PvPThreat.Active}");
         ImGui.TextWrapped($"PvP mode: {renderer.PvPThreat.PvPMode}");

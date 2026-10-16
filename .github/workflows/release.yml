@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Adds an optional Quest Convenience ownership bridge for Hub 0.3. HUD retains dialogue/cutscene/reward preferences, engine and schema. A requesting compatible Hub suspends HUD and clears pending cutscene/reward state before acknowledgment. Old/absent Hub preserves existing behavior. Native dialogue, contextual submarine cutscene handling and reward policies are unchanged. Anti-AFK acceptance is recorded; its implementation is unchanged. Quest migration acceptance remains pending."
+            --notes "Moves Anti-AFK and Quest Convenience fully to Sentinel Hub after scoped user acceptance. HUD no longer runs either engine or offers their toggles. Saved preferences, schema 12 and v1 import/claim IPC remain compatible with existing Hub. Use Hub Utilities; update Hub to 0.3.1.0 for current guidance. Turning Hub off now turns utility actions off. HUD visuals, camera and Core/UI 0.3.1 remain unchanged. Separate cleanup regression acceptance is pending; see docs/UTILITY_CLEANUP.md."
 
       - name: Verify public release asset
         shell: pwsh
