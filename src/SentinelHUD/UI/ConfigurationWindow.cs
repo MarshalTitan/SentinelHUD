@@ -989,6 +989,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 QuestRewardModes))
             Update(c => c.Convenience.QuestRewardSelection = (QuestRewardSelectionMode)rewardMode);
         ImGui.TextWrapped("Manual never touches rewards. Automatic modes act only on positively identified choose-one entries in JournalResult; guaranteed gil, EXP, items and unlocks are not selected or altered.");
+        ImGui.TextWrapped("Hub migration: your quest preferences are retained. Enabling Quest Convenience in Hub pauses these HUD actions; disabling or removing Hub restores these preferences.");
         DrawMutedText($"Reward runtime: {questConvenience.RewardState}");
         DrawMutedText($"Current job: {questConvenience.CurrentJob}");
 
