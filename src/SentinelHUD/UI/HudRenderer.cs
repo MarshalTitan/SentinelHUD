@@ -26,7 +26,6 @@ public sealed class HudRenderer
     private readonly HudEditorInteractionRenderer hudEditor;
     private readonly IExtendedCameraZoomService cameraZoom;
     private readonly EncounterAwarenessService encounterAwareness;
-    private readonly AntiAfkService antiAfk;
     private readonly PvPThreatTracker pvpThreatTracker;
     private readonly IFontHandle threatCounterFont;
     private readonly IGameGui gameGui;
@@ -53,7 +52,6 @@ public sealed class HudRenderer
         HudEditorInteractionRenderer hudEditor,
         IExtendedCameraZoomService cameraZoom,
         EncounterAwarenessService encounterAwareness,
-        AntiAfkService antiAfk,
         PvPThreatTracker pvpThreatTracker,
         IFontHandle threatCounterFont,
         IGameGui gameGui,
@@ -70,7 +68,6 @@ public sealed class HudRenderer
         this.hudEditor = hudEditor;
         this.cameraZoom = cameraZoom;
         this.encounterAwareness = encounterAwareness;
-        this.antiAfk = antiAfk;
         this.pvpThreatTracker = pvpThreatTracker;
         this.threatCounterFont = threatCounterFont;
         this.gameGui = gameGui;
@@ -127,8 +124,6 @@ public sealed class HudRenderer
     public bool SplatoonInstalled => encounterAwareness.SplatoonInstalled;
     public bool SplatoonConnected => encounterAwareness.SplatoonConnected;
     public string ActiveEncounter => encounterAwareness.ActiveEncounter;
-    public bool AntiAfkActive => antiAfk.IsActive;
-    public string AntiAfkState => antiAfk.State;
     public bool TargetingMeCounterVisible { get; private set; }
     public PvPThreatSnapshot PvPThreat => pvpThreatTracker.Current;
 
@@ -141,7 +136,6 @@ public sealed class HudRenderer
         selfHighlight.Update(config.SelfHighlight, config.Enabled);
         encounterAwareness.Update(config.EncounterAwareness, config.Enabled,
             clientState.IsLoggedIn, clientState.TerritoryType, localPlayer);
-        antiAfk.Update(config.Convenience.PreventAfkDisconnect, clientState.IsLoggedIn);
         pvpThreatTracker.Update(config.TargetingMeCounter, config.Enabled);
     }
 

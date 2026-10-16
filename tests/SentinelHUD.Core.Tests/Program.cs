@@ -9,6 +9,7 @@ var tests = new (string Name, Action Run)[]
 {
     ("Anti-AFK optional Hub ownership handoff", TestAntiAfkHubLease),
     ("Quest Convenience independent Hub ownership and preference contract", TestQuestHubHandoff),
+    ("utility cleanup preserves all saved preferences and visual settings", TestUtilityCleanupPersistence),
     ("configuration defaults", TestDefaults),
     ("configuration migration and repair", TestMigration),
     ("version-one settings survive migration", TestVersionOneMigration),
@@ -1681,4 +1682,39 @@ static void TestQuestHubHandoff()
     var before=JsonSerializer.Serialize(config);
     Equal(11,QuestConvenienceHandoff.Encode(config.SkipDialogue,config.SkipCutscenes,(int)config.QuestRewardSelection));
     Equal(before,JsonSerializer.Serialize(config));
+}
+
+static void TestUtilityCleanupPersistence()
+{
+    foreach (var anti in new[] { false, true })
+    foreach (var dialogue in new[] { false, true })
+    foreach (var cutscenes in new[] { false, true })
+    foreach (var reward in Enum.GetValues<QuestRewardSelectionMode>())
+    {
+        var source = new HudConfigurationData();
+        source.Convenience = new ConvenienceConfiguration
+        {
+            PreventAfkDisconnect = anti, SkipDialogue = dialogue, SkipCutscenes = cutscenes,
+            QuestRewardSelection = reward,
+        };
+        source.Camera.Enabled = true;
+        source.Player.Width = 333f;
+        source.Appearance.ModernWindow.Minimized = true;
+        var before = JsonSerializer.Serialize(source);
+        var restored = HudConfigurationMigrator.Normalize(JsonSerializer.Deserialize<HudConfigurationData>(before)!);
+        Equal(before, JsonSerializer.Serialize(restored));
+        Equal(HudConfigurationData.CurrentVersion, restored.Version);
+        Equal(anti, restored.Convenience.PreventAfkDisconnect);
+        Equal(dialogue, restored.Convenience.SkipDialogue);
+        Equal(cutscenes, restored.Convenience.SkipCutscenes);
+        Equal(reward, restored.Convenience.QuestRewardSelection);
+        var token = Guid.NewGuid().ToString("N");
+        var antiLease = new AntiAfkLease(); var questLease = new AntiAfkLease();
+        True(antiLease.TryClaim(token, 0, true)); True(questLease.TryClaim(token, 0, true));
+        Equal((dialogue ? 1 : 0) | (cutscenes ? 2 : 0) | ((int)reward << 2),
+            QuestConvenienceHandoff.Encode(restored.Convenience.SkipDialogue,
+                restored.Convenience.SkipCutscenes, (int)restored.Convenience.QuestRewardSelection));
+        True(antiLease.Release(token)); False(questLease.IsClaimed(3000));
+        Equal(before, JsonSerializer.Serialize(restored)); // import/claim never mutates saved values.
+    }
 }

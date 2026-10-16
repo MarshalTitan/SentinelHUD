@@ -2,7 +2,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Ipc;
 using SentinelHUD.Core;
 namespace SentinelHUD.Services;
-/// <summary>Optional v1 primitive IPC contract; all native actions remain guarded in AntiAfkService.</summary>
+/// <summary>v1 compatibility and preference IPC retained after utility engines moved to Hub. No game access.</summary>
 public sealed class AntiAfkHubBridge : IDisposable
 {
     private readonly IDalamudPluginInterface pi;
@@ -12,7 +12,7 @@ public sealed class AntiAfkHubBridge : IDisposable
     private readonly ICallGateProvider<string, bool> claim;
     private readonly ICallGateProvider<string, bool> release;
     private bool disposed;
-    public AntiAfkHubBridge(IDalamudPluginInterface pi, Func<bool> savedPreference, Action suspend)
+    public AntiAfkHubBridge(IDalamudPluginInterface pi, Func<bool> savedPreference)
     {
         this.pi = pi;
         version = pi.GetIpcProvider<int>("SentinelHUD.AntiAfk.ProtocolVersion");
@@ -26,7 +26,6 @@ public sealed class AntiAfkHubBridge : IDisposable
             var peer = ObserveHub();
             var accepted = !disposed && peer.Loaded && peer.Requested == true
                 && lease.TryClaim(token, Environment.TickCount64, true);
-            if (accepted) suspend();
             return accepted;
         });
         release.RegisterFunc(token => lease.Release(token));
@@ -43,11 +42,6 @@ public sealed class AntiAfkHubBridge : IDisposable
             return (true, hub.Manifest.AssemblyVersion.ToString(), requested);
         }
         catch { return (true, null, null); } // Unknown discovery must not create a second owner.
-    }
-    public bool ShouldYield()
-    {
-        var peer = ObserveHub();
-        return AntiAfkLease.ShouldYield(lease.IsClaimed(Environment.TickCount64), peer.Loaded, peer.Version, peer.Requested);
     }
     public void Dispose()
     {

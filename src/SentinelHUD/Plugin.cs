@@ -41,7 +41,6 @@ public sealed class Plugin : IDalamudPlugin
     private readonly DiagnosticTracker diagnosticTracker = new();
     private readonly ConfigurationCoordinator<Configuration> configuration;
     private readonly HudRenderer hudRenderer;
-    private readonly QuestConvenienceService questConvenience;
     private readonly SentinelEcosystemStatusService ecosystemStatus;
     private readonly ConfigurationWindow configurationWindow;
 
@@ -78,11 +77,8 @@ public sealed class Plugin : IDalamudPlugin
         var hudEditor = new HudEditorInteractionRenderer(configuration);
         var encounterAwareness = lifetime.Add(new EncounterAwarenessService(
             ObjectTable, DataManager, PluginInterface));
-        var antiAfk = new AntiAfkService();
-        lifetime.Add(antiAfk.Disable);
-        var antiAfkHubBridge = lifetime.Add(new AntiAfkHubBridge(
-            PluginInterface, () => configuration.Current.Convenience.PreventAfkDisconnect, antiAfk.SuspendForHub));
-        antiAfk.ExternalOwner = antiAfkHubBridge.ShouldYield;
+        lifetime.Add(new AntiAfkHubBridge(
+            PluginInterface, () => configuration.Current.Convenience.PreventAfkDisconnect));
         var pvpThreatTracker = new PvPThreatTracker(
             ClientState, Condition, ObjectTable, PartyList, DataManager);
         var threatCounterGlyphs = FontAtlasBuildToolkitUtilities.ToGlyphRange(
@@ -90,14 +86,10 @@ public sealed class Plugin : IDalamudPlugin
         var threatCounterFont = lifetime.Add(PluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(
             step => step.OnPreBuild(toolkit =>
                 toolkit.AddDalamudDefaultFont(128f, threatCounterGlyphs))));
-        questConvenience = lifetime.Add(new QuestConvenienceService(
-            GameGui, Condition, ObjectTable, DataManager, diagnostics));
-        var questHubBridge = lifetime.Add(new QuestConvenienceHubBridge(
+        lifetime.Add(new QuestConvenienceHubBridge(
             PluginInterface,
             () => QuestConvenienceHandoff.Encode(configuration.Current.Convenience.SkipDialogue,
-                configuration.Current.Convenience.SkipCutscenes, (int)configuration.Current.Convenience.QuestRewardSelection),
-            questConvenience.SuspendForHub));
-        questConvenience.ExternalOwner = questHubBridge.ShouldYield;
+                configuration.Current.Convenience.SkipCutscenes, (int)configuration.Current.Convenience.QuestRewardSelection)));
         ecosystemStatus = lifetime.Add(new SentinelEcosystemStatusService(
             PluginInterface, diagnostics));
         var cameraZoom = lifetime.Add<IExtendedCameraZoomService>(
@@ -112,7 +104,6 @@ public sealed class Plugin : IDalamudPlugin
             hudEditor,
             cameraZoom,
             encounterAwareness,
-            antiAfk,
             pvpThreatTracker,
             threatCounterFont,
             GameGui,
@@ -120,7 +111,7 @@ public sealed class Plugin : IDalamudPlugin
             Condition,
             diagnostics);
         configurationWindow = lifetime.Add(new ConfigurationWindow(
-            configuration, hudRenderer, questConvenience, ecosystemStatus,
+            configuration, hudRenderer, ecosystemStatus,
             diagnostics, store, PluginInterface));
         windows.AddWindow(configurationWindow);
         lifetime.Add(() => windows.RemoveAllWindows());
@@ -187,21 +178,6 @@ public sealed class Plugin : IDalamudPlugin
             }
         }
 
-        try
-        {
-            questConvenience.Update(
-                configuration.Current.Convenience,
-                ClientState.IsLoggedIn,
-                ClientState.TerritoryType);
-        }
-        catch (Exception exception)
-        {
-            if (diagnosticTracker.Throttled("quest-convenience-update-failure", TimeSpan.FromSeconds(15)))
-            {
-                diagnostics.Error("A quest convenience update failed; automation paused for this frame.", exception);
-                logger.Error("Sentinel HUD quest convenience update failed; retrying safely.", exception);
-            }
-        }
     }
 
     private void OnCommand(string _, string arguments)

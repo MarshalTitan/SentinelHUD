@@ -2,7 +2,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Ipc;
 using SentinelHUD.Core;
 namespace SentinelHUD.Services;
-/// <summary>Optional v1 primitive IPC contract; all native actions remain guarded in QuestConvenienceService.</summary>
+/// <summary>v1 compatibility and preference IPC retained after utility engines moved to Hub. No game access.</summary>
 public sealed class QuestConvenienceHubBridge : IDisposable
 {
     private readonly IDalamudPluginInterface pi;
@@ -12,7 +12,7 @@ public sealed class QuestConvenienceHubBridge : IDisposable
     private readonly ICallGateProvider<string, bool> claim;
     private readonly ICallGateProvider<string, bool> release;
     private bool disposed;
-    public QuestConvenienceHubBridge(IDalamudPluginInterface pi, Func<int> savedPreference, Action suspend)
+    public QuestConvenienceHubBridge(IDalamudPluginInterface pi, Func<int> savedPreference)
     {
         this.pi = pi;
         version = pi.GetIpcProvider<int>("SentinelHUD.Quest.ProtocolVersion");
@@ -27,7 +27,6 @@ public sealed class QuestConvenienceHubBridge : IDisposable
             var accepted = !disposed && peer.Loaded && peer.Requested == true
                 && Version.TryParse(peer.Version, out var hubVersion) && hubVersion >= new Version(0,3,0,0)
                 && lease.TryClaim(token, Environment.TickCount64, true);
-            if (accepted) suspend();
             return accepted;
         });
         release.RegisterFunc(token => lease.Release(token));
@@ -44,11 +43,6 @@ public sealed class QuestConvenienceHubBridge : IDisposable
             return (true, hub.Manifest.AssemblyVersion.ToString(), requested);
         }
         catch { return (true, null, null); } // Unknown discovery must not create a second owner.
-    }
-    public bool ShouldYield()
-    {
-        var peer = ObserveHub();
-        return QuestConvenienceHandoff.ShouldYield(lease.IsClaimed(Environment.TickCount64), peer.Loaded, peer.Version, peer.Requested);
     }
     public void Dispose()
     {
