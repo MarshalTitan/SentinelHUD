@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Corrects installed and catalog descriptions after the 0.8.5.0 utility move. Native cleanup and settings are unchanged. Anti-AFK and Quest Convenience run in Sentinel Hub after scoped user acceptance. HUD no longer runs either engine or offers their toggles. Saved preferences, schema 12 and v1 import/claim IPC remain compatible with existing Hub. Use Hub Utilities; update Hub to 0.3.1.0 for current guidance. Turning Hub off now turns utility actions off. HUD visuals, camera and Core/UI 0.3.1 remain unchanged. Separate cleanup regression acceptance is pending; see docs/UTILITY_CLEANUP.md."
+            --notes "Removes the retired Questing / Convenience page and migration notices from Modern and Classic after both users copied settings to Sentinel Hub. Existing HUD layouts, camera, saved configuration and compatibility IPC are preserved. Utility actions remain in Hub."
 
       - name: Verify public release asset
         shell: pwsh
