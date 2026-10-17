@@ -192,7 +192,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
             DrawTab("Awareness", DrawAwareness);
             DrawTab("Encounter Awareness", DrawEncounterAwareness);
             DrawTab("Camera", DrawCamera);
-            DrawTab("Questing / Convenience", DrawConvenience);
             DrawTab("Appearance", DrawAppearance);
             DrawTab("Layout", DrawLayout);
             DrawTab("Diagnostics", DrawDiagnostics);
@@ -262,7 +261,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             case SentinelHudModernContentPage.Awareness: DrawAwareness(); break;
             case SentinelHudModernContentPage.EncounterAwareness: DrawEncounterAwareness(); break;
             case SentinelHudModernContentPage.Camera: DrawCamera(); break;
-            case SentinelHudModernContentPage.Convenience: DrawConvenience(); break;
+            case SentinelHudModernContentPage.Convenience: DrawCamera(); break;
             case SentinelHudModernContentPage.Appearance: DrawAppearance(); break;
             case SentinelHudModernContentPage.Diagnostics: DrawDiagnostics(); break;
             case SentinelHudModernContentPage.Plugins: DrawPlugins(); break;
@@ -297,11 +296,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
             case SentinelHudModernPrimaryPage.Systems:
                 SentinelModernSecondaryNavigation.GroupLabel("Systems");
                 DrawModernSecondaryItem(SentinelHudModernContentPage.Camera, "Camera");
-                ImGui.Spacing();
-                SentinelModernSecondaryNavigation.GroupLabel("Convenience");
-                DrawModernSecondaryItem(
-                    SentinelHudModernContentPage.Convenience,
-                    "Questing / Convenience");
                 break;
         }
     }
@@ -485,7 +479,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             SentinelHudModernContentPage.Awareness => ("Awareness", "Self visibility, true-position marker and incoming PvP attention."),
             SentinelHudModernContentPage.EncounterAwareness => ("Encounter Awareness", "Trusted hazard providers and exact-position danger feedback."),
             SentinelHudModernContentPage.Camera => ("Camera", "Optional extended third-person zoom with conflict-safe restoration."),
-            SentinelHudModernContentPage.Convenience => ("Questing / Convenience", "Independent opt-in dialogue, cutscene, reward and AFK helpers."),
+            SentinelHudModernContentPage.Convenience => ("Camera", "Extended camera zoom."),
             SentinelHudModernContentPage.Appearance => ("Appearance", "Sentinel presentation and shared bar-colour choices."),
             SentinelHudModernContentPage.Diagnostics => ("Diagnostics", "Live state and compact evidence for troubleshooting."),
             _ => ("Plugins", "Optional Sentinel companions detected through Dalamud's supported plugin interface."),
@@ -956,21 +950,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
         ImGui.TextWrapped($"Current trusted hazards: {renderer.EncounterHazardCount}");
     }
 
-    private void DrawConvenience()
-    {
-        var saved = configuration.Current.Convenience;
-        DrawSectionHeader("Utilities moved to Sentinel Hub");
-        ImGui.TextWrapped("Anti-AFK, dialogue, cutscene skipping and quest rewards are now configured in Sentinel Hub. Open /shub and select Utilities.");
-        ImGui.TextWrapped("Your saved HUD preferences are retained. In Hub, use Import saved HUD preference and Import HUD quest preferences to copy them when needed. Existing Hub settings stay as you set them.");
-        ImGui.TextWrapped("HUD no longer runs these utilities. Turning off a utility or disabling Hub turns its actions off. Camera and HUD visuals remain available here.");
-        ImGui.Spacing();
-        DrawSectionHeader("Saved preferences for import");
-        DrawMutedText($"Anti-AFK: {(saved.PreventAfkDisconnect ? "On" : "Off")}");
-        DrawMutedText($"Dialogue: {(saved.SkipDialogue ? "On" : "Off")}");
-        DrawMutedText($"Cutscenes: {(saved.SkipCutscenes ? "On" : "Off")}");
-        DrawMutedText($"Quest rewards: {saved.QuestRewardSelection}");
-    }
-
     private void DrawCamera()
     {
         DrawSectionHeader("Extended Zoom");
@@ -1118,7 +1097,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
         ImGui.TextWrapped($"Extended zoom enabled / active: {config.Camera.Enabled} / {renderer.CameraZoomActive}");
         ImGui.TextWrapped($"Extended zoom state: {renderer.CameraZoomState}");
         ImGui.TextWrapped("Utility actions: owned by Sentinel Hub; no HUD utility engine.");
-        ImGui.TextWrapped($"Saved preferences for import: Anti-AFK={config.Convenience.PreventAfkDisconnect}, dialogue={config.Convenience.SkipDialogue}, cutscenes={config.Convenience.SkipCutscenes}, rewards={config.Convenience.QuestRewardSelection}");
         ImGui.Separator();
         ImGui.TextWrapped($"Targeting Me Counter visible / active: {renderer.TargetingMeCounterVisible} / {renderer.PvPThreat.Active}");
         ImGui.TextWrapped($"PvP mode: {renderer.PvPThreat.PvPMode}");
