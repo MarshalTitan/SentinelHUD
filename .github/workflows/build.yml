@@ -73,6 +73,28 @@ jobs:
       - name: Build installable plugin
         run: dotnet build src/SentinelHUD/SentinelHUD.csproj -c Release --no-restore -m:1
 
+      - name: Read project version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content -LiteralPath 'src/SentinelHUD/SentinelHUD.csproj' -Raw
+          $version = [string]$project.Project.PropertyGroup.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+\.\d+
+        shell: pwsh
+        run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '${{ steps.version.outputs.value }}'
+
+      - name: Test native ImGui Modern minimize and restore
+        run: dotnet run --project tests/SentinelHUD.UI.Tests/SentinelHUD.UI.Tests.csproj -c Release
+
+      - name: Upload installable package
+        uses: actions/upload-artifact@v7
+        with:
+          name: SentinelHUD-${{ steps.version.outputs.value }}
+          path: src/SentinelHUD/bin/Release/SentinelHUD/latest.zip
+          if-no-files-found: error
+) { throw 'Four-part version required' }
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - name: Validate installable package
         shell: pwsh
         run: ./.github/scripts/Validate-Package.ps1 -PackagePath 'src/SentinelHUD/bin/Release/SentinelHUD/latest.zip' -ExpectedVersion '0.8.5.1'
