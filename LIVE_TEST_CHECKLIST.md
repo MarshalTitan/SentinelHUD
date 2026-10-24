@@ -1,4 +1,19 @@
-# Sentinel HUD 0.8.4.5 - Live Test
+# Sentinel HUD 0.8.6.0 - Live Test
+
+## 0.8.6.0 arcs and independent casts
+
+- [ ] Update from 0.8.5.2 without deleting config. Confirm schema 13, the schema-v12 backup and all existing module positions, sizes, colours, interactions, awareness/camera settings and Modern minimize state. Standard remains selected; separate casts remain disabled.
+- [ ] Player and Target Standard: verify the same HP/MP/shields, casts and clicks as before.
+- [ ] Enable Curved / Arc on Player, then Target. Check mirrored Auto and explicit Left/Right, readable names/levels/HP/HP%/MP, Full/Compact values and long-name wrapping. Focus/ToT stay Standard.
+- [ ] Verify friendly/hostile/custom colours, health-state gradient, MP modes, integrated blue shields and shield text, target distance and visibility conditions. Check zero/full HP, overflow shields and a non-character target.
+- [ ] Unlock: drag each arc, resize width horizontally and height vertically/from corners, adjust thickness/scale numerically. Verify previews without a target. Lock/unlock repeatedly without drift; locked mode has no editor chrome.
+- [ ] Confirm left-click targeting, header-only targeting and right-click native menus; input remains suspended while editing or over a native menu.
+- [ ] Enable Separate Player cast bar. Move it beneath the character, resize it independently and test cast name/progress/percentage/remaining time. Moving/resizing either HP arc must not move this bar.
+- [ ] Repeat with Separate Target cast bar; test interruption, completion and target changes. Idle gameplay hides casts; edit mode shows previews. Separate bars work with parent HP modules disabled.
+- [ ] Return either actor to Standard. A separate cast replaces its attached cast without duplication; disabling the separate bar restores its saved Standard cast options.
+- [ ] Set independent cast visibility/opacity/scale and confirm the bar remains readable near screen centre. Move both casts without overlapping each other.
+- [ ] Test Player/Target pages in Modern and Classic at wide, medium and minimum useful widths. Restore/collapse the themed configuration header.
+- [ ] Reload, then fully restart. Verify chosen styles, mirror overrides, arc dimensions, HP positions, independent cast positions/sizes/fields and all older settings persist. Change back to Standard and confirm it is still usable.
 
 ## 0.8.4.5 focused checks
 

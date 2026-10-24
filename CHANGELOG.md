@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.6.0 - Optional arcs and independent cast modules
+
+- Add opt-in mirrored Player/Target HP/MP arcs using existing formatting, HP colour/gradient, integrated shield and interaction policies. Keep Standard as the default and preserve saved positions when switching.
+- Add independent Player Cast and Target Cast modules using the existing live cast renderer, with their own visibility, display fields, position, width, height, scale and opacity. Arcs omit attached casts; Standard avoids duplicates when the separate bar is enabled.
+- Extend the existing editor with arc-height resizing and independent cast previews. Cache bow geometry; do not rebuild paths for HP/MP changes.
+- Migrate schema 12 to 13 without replacing old settings. Core remains pinned to 0.3.1. Add configuration, geometry, cast policy and native ImGui coverage; in-game acceptance remains required.
+
 ## 0.8.4.5 - Keep minimized HUD in Sentinel Modern
 
 - Replaced 0.8.4.4's native minimized title strip with S Rank Sentinel's Core-header presentation. The same Modern header stays visible at its 56-logical-pixel height with icon, title, status, context, drag region and Core Expand/Close controls.

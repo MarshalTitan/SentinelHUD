@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/SentinelHUD.Core/SentinelHUD.Core.csproj" />
     <Compile Include="../../src/SentinelHUD/UI/ModernWindowPresentation.cs" Link="Consumer/ModernWindowPresentation.cs" />
+    <Compile Include="../../src/SentinelHUD/UI/ArcHudRenderer.cs" Link="Consumer/ArcHudRenderer.cs" />
     <Reference Include="SentinelCore" HintPath="$(PluginOutput)SentinelCore.dll" Private="true" />
     <Reference Include="SentinelCore.UI" HintPath="$(PluginOutput)SentinelCore.UI.dll" Private="true" />
     <Reference Include="Dalamud" HintPath="$(DalamudLibPath)Dalamud.dll" Private="true" />

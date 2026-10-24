@@ -7,6 +7,11 @@ using System.Globalization;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("schema twelve upgrade preserves every existing field", ArcTests.Migration),
+    ("arc and independent cast settings round trip", ArcTests.Persistence),
+    ("mirrored arc geometry bounds and cache", ArcTests.Geometry),
+    ("arc editor resizing and boundaries", ArcTests.Resize),
+    ("cast ownership visibility and parent independence", ArcTests.Casts),
     ("Anti-AFK optional Hub ownership handoff", TestAntiAfkHubLease),
     ("Quest Convenience independent Hub ownership and preference contract", TestQuestHubHandoff),
     ("utility cleanup preserves all saved preferences and visual settings", TestUtilityCleanupPersistence),
@@ -416,7 +421,7 @@ static void TestVersionElevenWindowMigration()
     before.Remove("Version");
     var loaded = JsonSerializer.Deserialize<HudConfigurationData>(old.ToJsonString())!;
     HudConfigurationMigrator.Normalize(loaded);
-    Equal(12, loaded.Version);
+    Equal(HudConfigurationData.CurrentVersion, loaded.Version);
     Equal(false, loaded.Appearance.ModernWindow.Minimized);
     Equal(920f, loaded.Appearance.ModernWindow.ExpandedWidth);
     Equal(720f, loaded.Appearance.ModernWindow.ExpandedHeight);
@@ -1718,3 +1723,4 @@ static void TestUtilityCleanupPersistence()
         Equal(before, JsonSerializer.Serialize(restored)); // import/claim never mutates saved values.
     }
 }
+

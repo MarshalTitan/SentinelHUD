@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.5.1** · Dalamud API **15** · .NET **10**
+Current release: **0.8.6.0** · Dalamud API **15** · .NET **10**
 
 ## Utility ownership cleanup — 0.8.5.0 / metadata correction 0.8.5.1
 
@@ -13,6 +13,8 @@ HUD no longer contains either game-facing utility engine. Its Convenience page s
 Scoped Anti-AFK and Quest Convenience user PASS reports authorized this separate cleanup. The Quest reward mode was not named and submarine was not separately confirmed; unreported cases remain unverified. Cleanup runtime acceptance remains pending; see [procedure and rollback](docs/UTILITY_CLEANUP.md).
 
 ## Features
+
+- Optional mirrored **Curved / Arc** Player and Target HP/MP layouts with existing HP, level, shield, colour and gradient options. Standard rectangular modules remain the default. Independent Player and Target cast bars can be positioned below the character in either style. See [arc and cast layout](docs/ARC_LAYOUT.md).
 
 - Sentinel Modern 2 configuration shell from Sentinel Core 0.3.1: one compact draggable application header, a unified full-bleed surface, crisp Font Awesome navigation, text-only category sidebars where needed, responsive settings rows, independently scrolling page content, strengthened animated ambience and reduced-motion-safe transitions. Classic remains fully available and unchanged.
 - Informational Sentinel ecosystem Plugins page: distinguishes Enabled, Installed/Disabled and Not Installed companions, shows installed versions where available, and refreshes through Dalamud's public plugin-state event with a bounded fallback. Every companion remains optional.
@@ -187,3 +189,4 @@ Screenshots will be added after the first in-game layout and colour pass.
 - The native target supplement supports current combined and split stock target layouts and falls back to read-only root bounds if the expected gauge node is unavailable. A future FFXIV node-ID change may require maintenance; diagnostics exposes exactly which lookup failed.
 - Focus Target's Target can only resolve actors currently exposed in the client object table. The row clears immediately when resolution fails, and click-to-target refuses actors that have vanished or are not currently targetable.
 - Live native rendering, terrain collision, camera behavior, controller safety and full restart persistence require in-game testing because automated CI cannot launch FFXIV.
+
