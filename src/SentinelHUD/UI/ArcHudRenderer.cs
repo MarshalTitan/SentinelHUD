@@ -181,15 +181,18 @@ public sealed class ArcHudRenderer
            | ((uint)Math.Min(255f, ((colour >> 8) & 255) * factor) << 8)
            | ((uint)Math.Min(255f, ((colour >> 16) & 255) * factor) << 16);
 
-    private static void Band(ImDrawListPtr draw, Vector2 bottom, Vector2 top, float left, float right, uint a, uint b)
+    private static unsafe void Band(ImDrawListPtr draw, Vector2 bottom, Vector2 top, float left, float right, uint a, uint b)
     {
         if (((a | b) & 0xFF000000) == 0) return;
         var index = draw.VtxBuffer.Size;
         draw.AddQuadFilled(bottom + new Vector2(left, 0f), bottom + new Vector2(right, 0f),
             top + new Vector2(right, 0f), top + new Vector2(left, 0f), a | 0xFF000000);
-        draw.VtxBuffer[index].Col = a;
-        draw.VtxBuffer[index + 1].Col = b;
-        draw.VtxBuffer[index + 2].Col = b;
-        draw.VtxBuffer[index + 3].Col = a;
+        if (draw.VtxBuffer.Size != index + 4) return;
+        // AddQuadFilled may grow the native buffer, so obtain its pointer only after adding the quad.
+        var vertices = (ImDrawVert*)draw.VtxBuffer.Data;
+        vertices[index].Col = a;
+        vertices[index + 1].Col = b;
+        vertices[index + 2].Col = b;
+        vertices[index + 3].Col = a;
     }
 }
