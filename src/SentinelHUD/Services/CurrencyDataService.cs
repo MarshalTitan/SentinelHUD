@@ -22,18 +22,19 @@ public sealed class CurrencyDataService(IDataManager data)
         nextCatalogAttempt = Environment.TickCount64 + 10000;
         try
         {
-            var tomes = new HashSet<uint>();
+            var tomes = new Dictionary<uint, uint>();
             foreach (var row in data.GetExcelSheet<TomestonesItem>())
-                if (row.Item.RowId != 0) tomes.Add(row.Item.RowId);
+                if (row.Item.RowId != 0) tomes[row.Item.RowId] = row.Tomestones.RowId;
             var loaded = new List<CurrencyDefinition>();
             foreach (var item in data.GetExcelSheet<Item>())
             {
-                if (!CurrencyPolicy.IsCurrency(item.RowId, item.ItemUICategory.RowId, item.FilterGroup, item.StackSize)
-                    && !tomes.Contains(item.RowId)) continue;
+                var isTome = tomes.TryGetValue(item.RowId, out var tomeType);
+                if ((!CurrencyPolicy.IsCurrency(item.RowId, item.ItemUICategory.RowId, item.FilterGroup, item.StackSize)
+                    && !isTome) || !CurrencyPolicy.IsAvailable(item.Icon, isTome, tomeType)) continue;
                 var name = item.Name.ToString();
                 if (string.IsNullOrWhiteSpace(name) || item.Icon == 0) continue;
                 loaded.Add(new CurrencyDefinition(item.RowId, name, item.Icon,
-                    item.RowId != 1 && item.StackSize > 1 ? item.StackSize : null, tomes.Contains(item.RowId)));
+                    item.RowId != 1 && item.StackSize > 1 ? item.StackSize : null, isTome));
             }
             loaded.Sort(static (a, b) => a.ItemId.CompareTo(b.ItemId));
             foreach (var entry in loaded) { definitions[entry.ItemId] = entry; catalog.Add(entry); }

@@ -295,6 +295,8 @@ public sealed class HudRenderer
             new Vector2(module.Width, float.MaxValue));
         ImGui.SetNextWindowBgAlpha(module.Opacity * root.GlobalOpacity);
         var arc = kind is HudModuleKind.Player or HudModuleKind.Target && module.BarStyle == HudBarStyle.Arc;
+        var currency = kind == HudModuleKind.CurrencyTracker;
+        if (currency) ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, module.BorderEnabled && !arc ? 1f : 0f);
         ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha
             * (arc || module is CastModuleConfiguration ? module.Opacity * root.GlobalOpacity : 1f));
@@ -390,7 +392,7 @@ public sealed class HudRenderer
         finally
         {
             ImGui.PopStyleColor();
-            ImGui.PopStyleVar(2);
+            ImGui.PopStyleVar(currency ? 3 : 2);
         }
     }
 

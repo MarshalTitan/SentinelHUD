@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Adds an optional Currency Tracker with selected game-data currencies, live amounts, icons, holding caps, ordering and compact/full horizontal or vertical layouts. Refines mirrored arcs with side readouts, Current Only/Current-Total modes, HP/MP percentage controls, smooth edge fringes, shaded liquid fill and subtle tube gloss. Preserves tight arc input, independent casts, existing settings and Core 0.3.1; schema 14 adds defaults only."
+            --notes "Makes Currency Tracker search immediately visible with a filtered scrolling checklist. Excludes retired/exchange-only tomestones and Chocobo Training Manuals. Adds right alignment with aligned vertical icons, zero window padding, a right-edge placement action and a 64 px minimum currency width in settings and the editor. Preserves existing settings, currency order, curved bars, separate casts, schema 14 and Core 0.3.1."
 
       - name: Verify public release asset
         shell: pwsh

@@ -125,7 +125,8 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
                     resizeEdges, delta, dragStartPosition, dragStartSize, viewport.WorkPos, viewport.WorkSize)
                 : LayoutPolicy.ResizeFromEdges(dragStartWidth, dragStartBarHeight,
                     dragStartBarCount, resizeEdges, delta, dragStartPosition, dragStartSize,
-                    viewport.WorkPos, viewport.WorkSize);
+                    viewport.WorkPos, viewport.WorkSize, region.Kind == HudModuleKind.CurrencyTracker
+                        ? HudSizingPolicy.CurrencyMinimumWidth : HudSizingPolicy.MinimumWidth);
             configuration.Update(config =>
             {
                 var module = GetModule(config, region.Kind);

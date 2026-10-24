@@ -9,57 +9,96 @@ namespace SentinelHUD.UI;
 public sealed class CurrencyTrackerRenderer(ITextureProvider? textures)
 {
     private readonly Dictionary<uint, ISharedImmediateTexture> icons = new();
+    private readonly List<DisplayEntry> entries = new(CurrencyPolicy.MaximumSelected);
     public int RowCount { get; private set; }
     public int EntryCount { get; private set; }
 
     public void Draw(CurrencyTrackerConfiguration config, IReadOnlyList<CurrencyBalance> balances,
         float scale, float opacity, bool editing)
     {
-        RowCount = 1; EntryCount = 0;
-        var width = ImGui.GetContentRegionAvail().X;
-        var iconSize = Math.Max(ImGui.GetTextLineHeight(), config.BarHeight * scale);
-        var startX = ImGui.GetCursorPosX();
-        var used = 0f;
+        RowCount = 1; EntryCount = 0; entries.Clear();
+        var width = Math.Max(1f, ImGui.GetContentRegionAvail().X);
+        var iconSize = Math.Min(width, Math.Max(ImGui.GetTextLineHeight(), config.BarHeight * scale));
+        var iconWidth = config.ShowIcons ? iconSize + Math.Min(4f * scale, width * 0.1f) : 0f;
+        var textWidth = Math.Max(1f, width - iconWidth);
+        var start = ImGui.GetCursorPos();
         var gap = 16f * scale;
+        var rowGap = ImGui.GetStyle().ItemSpacing.Y;
+        var widest = 0f;
+        foreach (var balance in balances)
+        {
+            var value = CurrencyPolicy.Format(balance.Amount, balance.Definition.ItemId == 1 ? null : balance.Cap,
+                config.ShowCaps, config.NumberFormat);
+            var text = config.ShowNames ? balance.Definition.Name + "  " + value : value;
+            var naturalSize = ImGui.CalcTextSize(text);
+            var singleLine = naturalSize.X <= textWidth;
+            var size = singleLine ? naturalSize : ImGui.CalcTextSize(text, false, textWidth);
+            size.X = Math.Min(textWidth, size.X);
+            var desired = Math.Min(width, iconWidth + size.X);
+            entries.Add(new DisplayEntry(balance.Definition.IconId, text, size, desired,
+                Math.Max(config.ShowIcons ? iconSize : 0f, size.Y), singleLine));
+            widest = Math.Max(widest, desired);
+        }
+
         ImGui.PushStyleVar(ImGuiStyleVar.Alpha, opacity);
         try
         {
-            foreach (var balance in balances)
+            var y = start.Y;
+            for (var first = 0; first < entries.Count;)
             {
-                var value = CurrencyPolicy.Format(balance.Amount, balance.Definition.ItemId == 1 ? null : balance.Cap,
-                    config.ShowCaps, config.NumberFormat);
-                var text = config.ShowNames ? balance.Definition.Name + "  " + value : value;
-                var iconWidth = config.ShowIcons ? iconSize + ImGui.GetStyle().ItemSpacing.X : 0f;
-                var desired = Math.Min(width, ImGui.CalcTextSize(text).X + iconWidth);
-                if (EntryCount > 0)
-                {
-                    if (config.Orientation == CurrencyOrientation.Horizontal && used + gap + desired <= width)
-                    { ImGui.SameLine(startX + used + gap); used += gap; }
-                    else { used = 0f; RowCount++; }
-                }
-                ImGui.BeginGroup();
-                if (config.ShowIcons)
-                {
-                    if (textures != null)
+                var last = first + 1;
+                var rowWidth = entries[first].Width;
+                var rowHeight = entries[first].Height;
+                if (config.Orientation == CurrencyOrientation.Horizontal)
+                    while (last < entries.Count && rowWidth + gap + entries[last].Width <= width)
                     {
-                        if (!icons.TryGetValue(balance.Definition.IconId, out var shared))
-                            icons[balance.Definition.IconId] = shared = textures.GetFromGameIcon(new GameIconLookup(balance.Definition.IconId));
-                        var wrap = shared.GetWrapOrEmpty();
-                        ImGui.Image(wrap.Handle, new Vector2(iconSize));
+                        rowWidth += gap + entries[last].Width;
+                        rowHeight = Math.Max(rowHeight, entries[last].Height);
+                        last++;
                     }
-                    else ImGui.Dummy(new Vector2(iconSize));
-                    ImGui.SameLine();
+                var right = config.Alignment == CurrencyAlignment.Right;
+                var blockWidth = config.Orientation == CurrencyOrientation.Vertical ? widest : rowWidth;
+                var x = start.X + (right ? Math.Max(0f, width - blockWidth) : 0f);
+                for (var i = first; i < last; i++)
+                {
+                    var entry = entries[i];
+                    if (config.ShowIcons)
+                    {
+                        ImGui.SetCursorPos(new Vector2(x, y));
+                        if (textures != null)
+                        {
+                            if (!icons.TryGetValue(entry.IconId, out var shared))
+                                icons[entry.IconId] = shared = textures.GetFromGameIcon(new GameIconLookup(entry.IconId));
+                            var wrap = shared.GetWrapOrEmpty();
+                            ImGui.Image(wrap.Handle, new Vector2(iconSize));
+                        }
+                        else ImGui.Dummy(new Vector2(iconSize));
+                    }
+                    var textX = right && config.Orientation == CurrencyOrientation.Vertical
+                        ? start.X + width - entry.TextSize.X : x + iconWidth;
+                    ImGui.SetCursorPos(new Vector2(textX, y));
+                    // A fitting readout must not enter ImGui's fractional-size word-wrap path.
+                    ImGui.PushTextWrapPos(entry.SingleLine ? -1f : start.X + width + 1f);
+                    try { ImGui.TextUnformatted(entry.Text); }
+                    finally { ImGui.PopTextWrapPos(); }
+                    rowHeight = Math.Max(rowHeight, ImGui.GetItemRectSize().Y);
+                    x += entry.Width + gap;
+                    EntryCount++;
                 }
-                ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + Math.Max(16f, desired - iconWidth));
-                try { ImGui.TextUnformatted(text); }
-                finally { ImGui.PopTextWrapPos(); }
-                ImGui.EndGroup();
-                used += ImGui.GetItemRectSize().X;
-                EntryCount++;
+                y += rowHeight + rowGap;
+                first = last;
+                if (first < entries.Count) RowCount++;
             }
-            if (EntryCount == 0 && editing) ImGui.TextWrapped(config.SelectedCurrencies.Count == 0
+            if (entries.Count > 0)
+            {
+                ImGui.SetCursorPos(start);
+                ImGui.Dummy(new Vector2(width, Math.Max(1f, y - start.Y - rowGap)));
+            }
+            else if (editing) ImGui.TextWrapped(config.SelectedCurrencies.Count == 0
                 ? "Currency Tracker: select currencies in settings." : "Currency Tracker: waiting for selected currency data.");
         }
         finally { ImGui.PopStyleVar(); }
     }
+
+    private readonly record struct DisplayEntry(uint IconId, string Text, Vector2 TextSize, float Width, float Height, bool SingleLine);
 }

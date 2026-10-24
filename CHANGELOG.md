@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.7.1 - Currency search, catalog cleanup and right alignment
+
+- Put search and its filtered scrolling checklist at the top of Currency Tracker. Add clear-search/no-results feedback and an action to remove saved unavailable selections.
+- Use the game's active tomestone types (Poetics, Mnemonics and Mathematics) and exclude retired/exchange-only tomestones plus the shared Chocobo Training Manual icon group in every client language. Other existing currency choices remain available.
+- Add Left/Right alignment. Right-aligned vertical entries share an icon column and right value edge; horizontal rows align to the right without reversing saved order. Remove currency window padding and add Move to right edge.
+- Allow currency widths down to 64 px through both settings and editor resizing; ordinary actor modules retain their 180 px minimum. Wrapped full labels remain supported.
+- Preserve schema 14 and all existing positions, selections, order, arc/cast and other preferences. New alignment defaults Left; Core stays 0.3.1.
+
 ## 0.8.7.0 - Polished side arcs and Currency Tracker
 
 - Move HP/MP values to the outer side and percentages to the inner side, mirrored for Player/Target. Add Current Only/Current-Total and resource-percentage options without changing Standard settings or adding HP/MP labels.
