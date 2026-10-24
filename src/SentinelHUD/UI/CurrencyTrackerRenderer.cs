@@ -30,11 +30,13 @@ public sealed class CurrencyTrackerRenderer(ITextureProvider? textures)
             var value = CurrencyPolicy.Format(balance.Amount, balance.Definition.ItemId == 1 ? null : balance.Cap,
                 config.ShowCaps, config.NumberFormat);
             var text = config.ShowNames ? balance.Definition.Name + "  " + value : value;
-            var size = ImGui.CalcTextSize(text, false, textWidth);
+            var naturalSize = ImGui.CalcTextSize(text);
+            var singleLine = naturalSize.X <= textWidth;
+            var size = singleLine ? naturalSize : ImGui.CalcTextSize(text, false, textWidth);
             size.X = Math.Min(textWidth, size.X);
             var desired = Math.Min(width, iconWidth + size.X);
             entries.Add(new DisplayEntry(balance.Definition.IconId, text, size, desired,
-                Math.Max(config.ShowIcons ? iconSize : 0f, size.Y)));
+                Math.Max(config.ShowIcons ? iconSize : 0f, size.Y), singleLine));
             widest = Math.Max(widest, desired);
         }
 
@@ -75,9 +77,8 @@ public sealed class CurrencyTrackerRenderer(ITextureProvider? textures)
                     var textX = right && config.Orientation == CurrencyOrientation.Vertical
                         ? start.X + width - entry.TextSize.X : x + iconWidth;
                     ImGui.SetCursorPos(new Vector2(textX, y));
-                    // ImGui's word-wrap boundary is exclusive at some fractional font sizes.
-                    // Keep a measured single line from wrapping its last word at the exact edge.
-                    ImGui.PushTextWrapPos(start.X + width + 1f);
+                    // A fitting readout must not enter ImGui's fractional-size word-wrap path.
+                    ImGui.PushTextWrapPos(entry.SingleLine ? -1f : start.X + width + 1f);
                     try { ImGui.TextUnformatted(entry.Text); }
                     finally { ImGui.PopTextWrapPos(); }
                     rowHeight = Math.Max(rowHeight, ImGui.GetItemRectSize().Y);
@@ -99,5 +100,5 @@ public sealed class CurrencyTrackerRenderer(ITextureProvider? textures)
         finally { ImGui.PopStyleVar(); }
     }
 
-    private readonly record struct DisplayEntry(uint IconId, string Text, Vector2 TextSize, float Width, float Height);
+    private readonly record struct DisplayEntry(uint IconId, string Text, Vector2 TextSize, float Width, float Height, bool SingleLine);
 }
