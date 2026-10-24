@@ -6,6 +6,7 @@
 - [ ] Lock Player Arc and Target Arc. Hover/click directly on the visible HP/MP tracks: left-click still targets the represented actor; right-click still opens its native menu. No large rectangular hover outline appears.
 - [ ] Click actors/objects through the empty middle, unused outer rectangle, names, HP/MP values and percentages. These areas must not intercept game input. Disable an MP bar and confirm its old track is also click-through.
 - [ ] Repeat while moving the mouse directly from a bar into empty space. Check both arc sides, explicit orientation overrides and different sizes/scales.
+- [ ] Change from a combatant to a non-character target such as Market Board. With no visible arc tracks, the previous target's track input regions must disappear.
 - [ ] Unlock: full-module grab/edit regions return; move, horizontal/vertical resize and corner resize remain usable. Editing takes priority over actor clicks; locking removes editor chrome without drift.
 - [ ] Player and Target HP values sit at the bottom outside; HP percentage sits at the bottom inside. Both sides mirror sensibly, wrap legibly and avoid bar geometry/each other.
 - [ ] MP values sit below HP values. No literal HP or MP resource labels remain. Check current/max/percentage visibility switches and Full/Compact formatting, including unresolved-target previews.

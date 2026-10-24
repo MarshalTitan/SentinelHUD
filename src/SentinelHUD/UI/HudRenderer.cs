@@ -354,9 +354,13 @@ public sealed class HudRenderer
                 else if (actor is not null && (module.ClickToTarget || module.RightClickContextMenu))
                 {
                     if (arc)
-                        actorInteractions.RegisterArc(kind == HudModuleKind.Player ? playerArc : targetArc,
-                            actor.GameObjectId, module.ClickToTarget, module.RightClickContextMenu,
-                            actualPosition, maximum);
+                    {
+                        // Non-character targets have no arcs; never reuse the previous actor's track regions.
+                        if (began && actor is ICharacter)
+                            actorInteractions.RegisterArc(kind == HudModuleKind.Player ? playerArc : targetArc,
+                                actor.GameObjectId, module.ClickToTarget, module.RightClickContextMenu,
+                                actualPosition, maximum);
+                    }
                     else if (module.ClickableArea == ModuleClickableArea.WholeModule)
                         actorInteractions.Register(actualPosition, maximum, actor.GameObjectId,
                             module.ClickToTarget, module.RightClickContextMenu);
