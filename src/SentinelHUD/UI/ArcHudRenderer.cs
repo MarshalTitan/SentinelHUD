@@ -150,7 +150,7 @@ public sealed class ArcHudRenderer
         {
             if (value.Length == 0) return default;
             var naturalWidth = ImGui.CalcTextSize(value).X;
-            var textWidth = Math.Min(available, naturalWidth);
+            var textWidth = Math.Min(available, ImGui.CalcTextSize(value, false, available + 1f).X);
             ImGui.SetCursorScreenPos(new Vector2(origin.X + x + (alignRight ? available - textWidth : 0f), y));
             ImGui.PushTextWrapPos(naturalWidth <= available ? -1f : ImGui.GetCursorPosX() + available + 1f);
             try { ImGui.TextColored(colour, value); }
