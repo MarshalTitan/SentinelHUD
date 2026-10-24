@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Makes Currency Tracker search immediately visible with a filtered scrolling checklist. Excludes retired/exchange-only tomestones and Chocobo Training Manuals. Adds right alignment with aligned vertical icons, zero window padding, a right-edge placement action and a 64 px minimum currency width in settings and the editor. Preserves existing settings, currency order, curved bars, separate casts, schema 14 and Core 0.3.1."
+            --notes "Lowers curved resource readouts, separates upper outer total HP from lower outer current HP and lower inner percentage, and adds independent Curved bar text scale. Reads frame-local cast snapshots from native Character cast data; self-targeting shares the Player cast snapshot while Player/Target cast modules keep independent enable, visibility and positions. Arc pages show the actual separate cast controls near Bar style. Preserves smooth tube rendering, flat caps, track-only input, Standard, currency settings, schema 14 and Core 0.3.1."
 
       - name: Verify public release asset
         shell: pwsh

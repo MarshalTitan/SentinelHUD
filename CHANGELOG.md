@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.7.2 - Lower arc text, split HP and target cast data
+
+- Place resource rows near the lower end of each arc. Total HP is a separate upper outer readout; current HP is lower outer and HP percentage lower inner. Target mirrors Player. Current Only/maximum visibility omits the upper number; MP retains its existing number format.
+- Add Curved bar text scale (0.5-2x) for HP/MP values and percentages without changing tube dimensions, names or levels. Text bounds grow/wrap as needed; standard text and cast scales remain independent.
+- Use frame-local native Character cast snapshots through the existing cast formatter. Targeting self shares Player's snapshot, so independently enabled Player/Target cast modules can show the same cast. Other targets use their own valid cast data, including character wrappers without IBattleChara; null/invalid/cancelled casts clear safely.
+- Arc pages expose their actual separate cast controls immediately after Bar style and hide unused attached-cast switches. Preserve each cast module's enable, visibility, fields, dimensions and position.
+- Preserve liquid shading, smooth contours, flat caps, track-only input, Standard, currency changes and existing preferences. Schema stays 14; new text scale defaults 1x. Core remains 0.3.1.
+
 ## 0.8.7.1 - Currency search, catalog cleanup and right alignment
 
 - Put search and its filtered scrolling checklist at the top of Currency Tracker. Add clear-search/no-results feedback and an action to remove saved unavailable selections.

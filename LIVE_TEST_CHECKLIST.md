@@ -1,4 +1,16 @@
-# Sentinel HUD 0.8.7.1 - Live Test
+# Sentinel HUD 0.8.7.2 - Live Test
+
+## 0.8.7.2 lower arc text and target casts
+
+- [ ] Update from 0.8.7.1 with existing configuration. Schema stays 14 and Curved bar text scale defaults 1x. Player/Target/cast/currency positions, dimensions, enabled states, colours and other options remain saved.
+- [ ] Player: total HP upper outer-left, current HP lower outer-left, HP % lower inner-right. Target mirrors this on the right. MP values/percentages sit lower too. Test Auto and explicit orientations, narrow/wide modules, long values and shield/distance modes without overlaps.
+- [ ] Hide maximum HP or choose Current Only: the upper total disappears, current HP remains lower, and MP respects its existing current/total option. No literal HP/MP labels appear. Confirm existing HP/MP colours and health gradients.
+- [ ] Change Curved bar text scale between 0.5x, 1x and 2x on Player and Target independently. Current/total HP, HP %, MP values and MP % resize; arc height/thickness, names/levels and cast modules retain their own scales.
+- [ ] Enable Separate Player cast bar AND Separate Target cast bar on their actor pages; leave visibility Always for the test. Unlock and place them apart. Target yourself and cast a heal with a cast time. Both modules show the same name/progress/percentage/remaining time, then disappear together on completion/cancel.
+- [ ] Target another casting player, enemy and a casting NPC with valid game cast data. Target Cast shows that actor's cast rather than your own. Change targets, stop casting, clear target, and select a non-character object: stale casts must not remain.
+- [ ] Independently disable either cast module, change visibility/fields, move/resize each, and test with its parent HP module disabled. Standard attached casts keep their saved behavior. Arc mode never attaches casts.
+- [ ] Confirm smooth tubes, flat ends, shields, transparent empty/text space and direct-track targeting still work. Unlock/drag/resize and lock without drift.
+- [ ] Reload and fully restart. Text scale, total visibility, arc/cast positions and all prior currency/settings changes persist.
 
 ## 0.8.7.1 currency search and right-edge layout
 

@@ -33,9 +33,10 @@ internal static class Program
             Test("minimized Core header dragging retains expanded size", TestDragging);
             Test("Classic native collapse and theme switching retain geometry", TestClassic);
             Test("arc paths, shields and wrapped text render at three widths/scales", TestArcRendering);
+            Test("arc upper totals, lower values and independent text scaling", TestArcResourceText);
             Test("arc islands pass empty space through and preserve bar clicks", TestArcInputs);
             Test("currency compact/full layouts wrap at narrow widths", TestCurrencyLayouts);
-            Console.WriteLine($"{passed}/10 native ImGui UI test groups passed.");
+            Console.WriteLine($"{passed}/11 native ImGui UI test groups passed.");
             return 0;
         }
         catch (Exception exception)
@@ -113,12 +114,14 @@ internal static class Program
                 renderer.Draw(module, HudModuleKind.Player, scale, 0.8f,
                     frame == 0 ? 0f : frame == 1 ? 0.75f : 1f, 0.3f, 0.6f, true,
                     new ArcReadout("A long combatant name for wrapping", "Lv.100",
-                        "120,000 / 150,000", "8,000 / 10,000", "Shield 30%", "10.0y", "80.0%", "80.0%"),
+                        "120,000", "8,000 / 10,000", "Shield 30%", "10.0y", "80.0%", "80.0%", "150,000"),
                     new Vector4(0.2f, 0.8f, 0.3f, 1f), new Vector4(0.2f, 0.4f, 1f, 1f),
                     new Vector4(0.2f, 0.6f, 1f, 1f));
                 Check(ImGui.GetCursorScreenPos().Y >= start.Y + 240f * scale,
                     "Arc rendering did not reserve its full height.");
                 Check(renderer.HeaderBounds.Visible, "Integrated name/level header disappeared.");
+                Check(renderer.HpMaximumBounds.Visible && renderer.HpMaximumBounds.Maximum.Y < renderer.HpTextBounds.Minimum.Y,
+                    "Total HP must be above current HP.");
                 Check(renderer.HeaderBounds.Maximum.Y <= renderer.HpTextBounds.Minimum.Y,
                     "Header overlaps the HP readout.");
                 var centre = ImGui.GetWindowPos().X + ImGui.GetWindowSize().X * 0.5f;
@@ -149,6 +152,67 @@ internal static class Program
                 if (frame > 0) Check(ImGui.GetDrawData().TotalVtxCount > 0, "Arc paths produced no render data.");
             }
         });
+    }
+
+    private static void TestArcResourceText()
+    {
+        foreach (var kind in new[] { HudModuleKind.Player, HudModuleKind.Target })
+        {
+            var heights = new Dictionary<float, float>();
+            Vector2? bandSize = null;
+            foreach (var textScale in new[] { 0.5f, 1f, 2f })
+            InContext(() =>
+            {
+                const float scale = 1.25f;
+                var renderer = new ArcHudRenderer();
+                var module = new PlayerModuleConfiguration
+                { BarStyle = HudBarStyle.Arc, ArcHeight = 300f, BarHeight = 20f, ArcTextScale = textScale };
+                for (var frame = 0; frame < 3; frame++)
+                {
+                    ImGui.NewFrame(); ImGui.SetNextWindowPos(new Vector2(40f, 40f));
+                    ImGui.SetNextWindowSize(new Vector2(640f, 1200f));
+                    ImGui.Begin("Arc resource text", ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoInputs);
+                    ImGui.SetWindowFontScale(scale);
+                    var baseFontSize = ImGui.GetFontSize();
+                    var start = ImGui.GetCursorScreenPos();
+                    var readout = new ArcReadout("Combatant", "Lv.100", "120,000", "8,000 / 10,000",
+                        "", "", "80.0%", "80.0%", frame == 2 ? "" : "150,000");
+                    renderer.Draw(module, kind, scale, 0.8f, 0.8f, 0f, 0.8f, true, readout,
+                        new Vector4(0.2f, 0.8f, 0.3f, 1f), new Vector4(0.2f, 0.4f, 1f, 1f), Vector4.One);
+                    Check(Math.Abs(ImGui.GetFontSize() - baseFontSize) < 0.01f, "Resource scale leaked into other text.");
+                    Check(module.ArcHeight == 300f && module.BarHeight == 20f, "Text scaling changed bar dimensions.");
+                    Check(renderer.HpTextBounds.Minimum.Y >= start.Y + module.ArcHeight * scale * 0.65f,
+                        "Current HP remains too high on the arc.");
+                    Check(Math.Abs(renderer.HpTextBounds.Minimum.Y - renderer.HpPercentageBounds.Minimum.Y) < 1f,
+                        "Lower HP percentage no longer aligns with current HP.");
+                    Check(renderer.HpTextBounds.Maximum.Y < renderer.MpTextBounds.Minimum.Y, "Lower resource rows overlap.");
+                    var centre = ImGui.GetWindowPos().X + ImGui.GetWindowSize().X * 0.5f;
+                    Check(kind == HudModuleKind.Player
+                        ? renderer.HpTextBounds.Maximum.X < centre && renderer.HpPercentageBounds.Minimum.X > centre
+                        : renderer.HpTextBounds.Minimum.X > centre && renderer.HpPercentageBounds.Maximum.X < centre,
+                        "Default Player/Target side mirroring changed.");
+                    if (frame == 2) Check(!renderer.HpMaximumBounds.Visible, "Disabled total HP retained its old readout.");
+                    else
+                    {
+                        Check(renderer.HpMaximumBounds.Visible && renderer.HpMaximumBounds.Maximum.Y < renderer.HpTextBounds.Minimum.Y,
+                            "Total HP is not on the upper side.");
+                        Check(kind == HudModuleKind.Player ? renderer.HpMaximumBounds.Maximum.X < centre
+                            : renderer.HpMaximumBounds.Minimum.X > centre, "Total HP is not on the outer side.");
+                    }
+                    if (frame == 1)
+                    {
+                        heights[textScale] = renderer.HpTextBounds.Maximum.Y - renderer.HpTextBounds.Minimum.Y;
+                        var band = renderer.GetHitBand(12); var currentBand = band.Maximum - band.Minimum;
+                        if (bandSize is { } previous) Check(Vector2.Distance(previous, currentBand) < 0.01f,
+                            "Text scaling changed the visible track hit region.");
+                        bandSize = currentBand;
+                        AssertTextColour(renderer.HpMaximumBounds, new Vector4(0.2f, 0.8f, 0.3f, 0.8f));
+                    }
+                    ImGui.End(); ImGui.Render();
+                }
+            });
+            Check(heights[2f] > heights[0.5f] * 2f, "Independent resource text scale has no effect.");
+        }
     }
 
     private static void TestArcInputs()

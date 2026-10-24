@@ -153,6 +153,7 @@ public abstract class HudModuleConfiguration
     public HudBarStyle BarStyle { get; set; } = HudBarStyle.Standard;
     public ArcOrientation ArcOrientation { get; set; } = ArcOrientation.Auto;
     public float ArcHeight { get; set; } = 240f;
+    public float ArcTextScale { get; set; } = 1f;
     public ArcValueFormat ArcValueFormat { get; set; } = ArcValueFormat.CurrentAndTotal;
     public bool ArcShowPercentages { get; set; } = true;
     public HudTextAlignment HpTextAlignment { get; set; } = HudTextAlignment.Center;
@@ -703,6 +704,7 @@ public static class HudConfigurationMigrator
             ? HudSizingPolicy.CurrencyMinimumWidth : HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth, 285f);
         module.BarHeight = ClampFinite(module.BarHeight, HudSizingPolicy.MinimumBarHeight, HudSizingPolicy.MaximumBarHeight, HudSizingPolicy.DefaultBarHeight);
         module.ArcHeight = ClampFinite(module.ArcHeight, ArcBarGeometry.MinimumHeight, ArcBarGeometry.MaximumHeight, 240f);
+        module.ArcTextScale = ClampFinite(module.ArcTextScale, 0.5f, 2f, 1f);
         if (!Enum.IsDefined(module.BarStyle)) module.BarStyle = HudBarStyle.Standard;
         if (!Enum.IsDefined(module.ArcOrientation)) module.ArcOrientation = ArcOrientation.Auto;
         if (!Enum.IsDefined(module.ArcValueFormat)) module.ArcValueFormat = ArcValueFormat.CurrentAndTotal;
