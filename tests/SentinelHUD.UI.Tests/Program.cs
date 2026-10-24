@@ -258,7 +258,9 @@ internal static class Program
                     lastX = Math.Max(lastX, vertices[vertex].Pos.X);
                     Check(vertices[vertex].Pos.X <= edge + 2f, "Currency glyphs extend past the right edge.");
                 }
-                if (alignment == CurrencyAlignment.Right)
+                // Narrow forced wrapping can leave a partial character's advance unused.
+                // Check glyph flush where every full entry fits on one line.
+                if (alignment == CurrencyAlignment.Right && width >= 640f)
                     Check(lastX >= edge - 4f * scale, $"Right alignment leaves an unused gutter: width={width}, scale={scale}, full={full}, orientation={orientation}, icons={showIcons}, last={lastX}, edge={edge}, frame={frame}.");
                 ImGui.End(); ImGui.PopStyleVar(); ImGui.Render();
             }

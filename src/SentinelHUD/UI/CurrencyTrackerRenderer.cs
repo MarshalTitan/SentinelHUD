@@ -78,6 +78,7 @@ public sealed class CurrencyTrackerRenderer(ITextureProvider? textures)
                     ImGui.PushTextWrapPos(start.X + width);
                     try { ImGui.TextUnformatted(entry.Text); }
                     finally { ImGui.PopTextWrapPos(); }
+                    rowHeight = Math.Max(rowHeight, ImGui.GetItemRectSize().Y);
                     x += entry.Width + gap;
                     EntryCount++;
                 }
