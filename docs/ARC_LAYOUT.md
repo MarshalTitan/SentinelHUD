@@ -8,7 +8,7 @@ In **HUD Elements > Player** or **Target**, open **Bar style**, then choose **Cu
 |---|---|
 | Module width | Overall horizontal footprint including the text area; fonts do not stretch |
 | Module scale / global scale | Scale arc height, stroke thickness and text |
-| Bar height | HP stroke thickness, capped at 6.5% of available width so small modules remain legible |
+| Bar height | HP stroke thickness, capped at 10% of available width so small modules remain legible |
 | Arc height | Vertical bow height before scale, 100–600 px |
 | Opacity / border | Apply to the arc tracks, fills, text and optional subtle outline |
 | HP text alignment | Standard/cast-bar alignment; arc details wrap in the inner text area |

@@ -285,6 +285,8 @@ public sealed class HudRenderer
         ImGui.SetNextWindowBgAlpha(module.Opacity * root.GlobalOpacity);
         var arc = kind is HudModuleKind.Player or HudModuleKind.Target && module.BarStyle == HudBarStyle.Arc;
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, module.BorderEnabled && !arc ? 1f : 0f);
+        ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha
+            * (arc || module is CastModuleConfiguration ? module.Opacity * root.GlobalOpacity : 1f));
         var borderColour = SentinelPalette.HeaderGold;
         borderColour.W = module.BorderOpacity * root.GlobalOpacity;
         ImGui.PushStyleColor(ImGuiCol.Border, borderColour);
@@ -368,7 +370,7 @@ public sealed class HudRenderer
         finally
         {
             ImGui.PopStyleColor();
-            ImGui.PopStyleVar();
+            ImGui.PopStyleVar(2);
         }
     }
 

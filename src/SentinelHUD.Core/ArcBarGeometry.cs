@@ -25,7 +25,7 @@ public sealed class ArcBarGeometry
     {
         width = float.IsFinite(width) ? Math.Max(80f, width) : 180f;
         height = float.IsFinite(height) ? Math.Max(40f, height) : 240f;
-        thickness = float.IsFinite(thickness) ? Math.Clamp(thickness, 2f, width * 0.065f) : 8f;
+        thickness = float.IsFinite(thickness) ? Math.Clamp(thickness, 2f, width * 0.1f) : 8f;
         var next = (width, height, thickness, right);
         if (next == key) return;
         key = next;
