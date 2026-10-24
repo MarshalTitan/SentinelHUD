@@ -10,13 +10,25 @@ public readonly record struct ArcTextBounds(Vector2 Minimum, Vector2 Maximum)
     public bool Visible => Maximum.X > Minimum.X && Maximum.Y > Minimum.Y;
 }
 
-/// <summary>Flat strip slices share cached bows; readouts follow their resource colours.</summary>
+/// <summary>Only the narrow visible tracks accept gameplay input; readouts remain click-through.</summary>
 public sealed class ArcHudRenderer
 {
     private readonly ArcBarGeometry geometry = new();
+    private bool mpVisible;
     public ArcTextBounds HeaderBounds { get; private set; }
     public ArcTextBounds HpTextBounds { get; private set; }
+    public ArcTextBounds HpPercentageBounds { get; private set; }
     public ArcTextBounds MpTextBounds { get; private set; }
+    public Vector2 ArcOrigin { get; private set; }
+    public int HitBandCount => ArcHitRegions.BandsPerTrack * (mpVisible ? 2 : 1);
+
+    public ArcHitBand GetHitBand(int index)
+    {
+        var mp = index >= ArcHitRegions.BandsPerTrack;
+        return ArcHitRegions.Band(mp ? geometry.Mp : geometry.Hp,
+            index % ArcHitRegions.BandsPerTrack,
+            (mp ? geometry.Thickness * 0.5f : geometry.Thickness) + 2f, ArcOrigin);
+    }
 
     public void Draw(HudModuleConfiguration module, HudModuleKind kind, float scale, float opacity,
         float hp, float shield, float mp, bool showMp, ArcReadout text,
@@ -27,80 +39,92 @@ public sealed class ArcHudRenderer
         var right = ArcBarGeometry.IsRight(module.ArcOrientation, kind);
         var arcHeight = module.ArcHeight * scale;
         geometry.Update(width, arcHeight, module.BarHeight * scale, right);
+        mpVisible = showMp;
+        var half = width * 0.5f;
+        var gap = Math.Clamp(6f * scale, 3f, width * 0.05f);
+        var columnWidth = half - gap;
+        var outsideX = right ? half + gap : 0f;
+        var insideX = right ? 0f : half + gap;
         var spacing = ImGui.GetStyle().ItemSpacing.Y;
-        var groupGap = 5f * scale;
-        var height = Measure(text.Name) + Measure(text.Metadata) + Measure(text.Hp)
-            + Measure(text.Mp) + Measure(text.Shield) + Measure(text.Distance);
-        if (text.Hp.Length > 0 && (text.Name.Length > 0 || text.Metadata.Length > 0)) height += groupGap;
-        if (text.Mp.Length > 0) height += groupGap;
-        var size = new Vector2(width, Math.Max(arcHeight, height));
+        var innerBarEdge = showMp ? geometry.Thickness + 5f + geometry.Thickness * 0.25f
+            : geometry.Thickness * 0.5f;
+        var headerWidth = Math.Max(12f, half - innerBarEdge - gap - 1f);
+        var headerX = right ? 0f : width - headerWidth;
+        var headerHeight = Measure(text.Name, headerWidth) + Measure(text.Metadata, headerWidth);
+        var bodyHeight = Math.Max(arcHeight, headerHeight);
+        var outsideHeight = Measure(text.Hp, columnWidth) + Measure(text.Mp, columnWidth)
+            + Measure(text.Shield, columnWidth);
+        var insideHeight = Measure(text.HpPercentage, columnWidth) + Measure(text.Distance, columnWidth);
+        var footerHeight = Math.Max(outsideHeight, insideHeight);
+        var footerY = bodyHeight + (footerHeight > 0f ? gap : 0f);
+        var size = new Vector2(width, footerY + footerHeight);
         ImGui.Dummy(size);
         var after = ImGui.GetCursorScreenPos();
-        var arcOrigin = origin + new Vector2(0f, (size.Y - arcHeight) * 0.5f);
+        // The lower HP endpoint is centred between the outer values and inner percentage.
+        ArcOrigin = origin + new Vector2(half - geometry.Hp[0].X, bodyHeight - arcHeight);
         var draw = ImGui.GetWindowDrawList();
+        var savedFlags = draw.Flags;
         var background = new Vector4(0.045f, 0.05f, 0.065f, 0.92f);
         var border = new Vector4(0.76f, 0.64f, 0.38f, module.BorderOpacity);
-        var savedFlags = draw.Flags;
-        // Neighbouring slices share exact edges. Per-quad AA would leave interior seams.
         draw.Flags &= ~ImDrawListFlags.AntiAliasedFill;
         try
         {
             if (module.BorderEnabled)
             {
-                Fill(draw, arcOrigin, geometry.Hp, 0f, 1f, Colour(border, opacity), geometry.Thickness + 2f);
-                if (showMp) Fill(draw, arcOrigin, geometry.Mp, 0f, 1f,
+                Fill(draw, ArcOrigin, geometry.Hp, 0f, 1f, Colour(border, opacity), geometry.Thickness + 2f);
+                if (showMp) Fill(draw, ArcOrigin, geometry.Mp, 0f, 1f,
                     Colour(border, opacity), geometry.Thickness * 0.5f + 2f);
             }
-            Fill(draw, arcOrigin, geometry.Hp, 0f, 1f, Colour(background, opacity), geometry.Thickness);
+            Fill(draw, ArcOrigin, geometry.Hp, 0f, 1f, Colour(background, opacity), geometry.Thickness);
             var fill = ShieldBarPolicy.Calculate(hp, shield);
-            Fill(draw, arcOrigin, geometry.Hp, 0f, fill.HealthEnd, Colour(hpColour, opacity), geometry.Thickness);
-            if (fill.HasOverlay) Fill(draw, arcOrigin, geometry.Hp, fill.ShieldOverlayStart,
+            Fill(draw, ArcOrigin, geometry.Hp, 0f, fill.HealthEnd, Colour(hpColour, opacity), geometry.Thickness);
+            if (fill.HasOverlay) Fill(draw, ArcOrigin, geometry.Hp, fill.ShieldOverlayStart,
                 fill.HealthEnd, Colour(shieldColour, opacity), geometry.Thickness);
-            if (fill.HasExtension) Fill(draw, arcOrigin, geometry.Hp, fill.HealthEnd,
+            if (fill.HasExtension) Fill(draw, ArcOrigin, geometry.Hp, fill.HealthEnd,
                 fill.ShieldExtensionEnd, Colour(shieldColour, opacity), geometry.Thickness);
             if (showMp)
             {
-                Fill(draw, arcOrigin, geometry.Mp, 0f, 1f, Colour(background, opacity), geometry.Thickness * 0.5f);
-                Fill(draw, arcOrigin, geometry.Mp, 0f, Math.Clamp(mp, 0f, 1f),
+                Fill(draw, ArcOrigin, geometry.Mp, 0f, 1f, Colour(background, opacity), geometry.Thickness * 0.5f);
+                Fill(draw, ArcOrigin, geometry.Mp, 0f, Math.Clamp(mp, 0f, 1f),
                     Colour(mpColour, opacity), geometry.Thickness * 0.5f);
             }
         }
         finally { draw.Flags = savedFlags; }
 
-        HeaderBounds = default;
-        var y = origin.Y + (size.Y - height) * 0.5f;
         ImGui.PushStyleVar(ImGuiStyleVar.Alpha, opacity);
         try
         {
-            var name = Line(text.Name, SentinelPalette.HeaderGold);
-            var metadata = Line(text.Metadata, new Vector4(0.72f, 0.74f, 0.79f, 1f));
-            if (name.Visible || metadata.Visible)
-                HeaderBounds = new ArcTextBounds(
-                    name.Visible && metadata.Visible ? Vector2.Min(name.Minimum, metadata.Minimum)
-                        : name.Visible ? name.Minimum : metadata.Minimum,
-                    new Vector2(origin.X + geometry.TextLeft + geometry.TextWidth,
-                        metadata.Visible ? metadata.Maximum.Y : name.Maximum.Y));
-            if (text.Hp.Length > 0 && HeaderBounds.Visible) y += groupGap;
-            HpTextBounds = Line(text.Hp, hpColour);
-            if (text.Mp.Length > 0) y += groupGap;
-            MpTextBounds = Line(text.Mp, mpColour);
-            Line(text.Shield, shieldColour);
-            Line(text.Distance, new Vector4(0.72f, 0.74f, 0.79f, 1f));
+            var y = origin.Y + bodyHeight - headerHeight;
+            var name = Line(text.Name, SentinelPalette.HeaderGold, headerX, headerWidth, right, ref y);
+            var metadata = Line(text.Metadata, new Vector4(0.72f, 0.74f, 0.79f, 1f),
+                headerX, headerWidth, right, ref y);
+            HeaderBounds = name.Visible || metadata.Visible ? new ArcTextBounds(
+                name.Visible && metadata.Visible ? Vector2.Min(name.Minimum, metadata.Minimum)
+                    : name.Visible ? name.Minimum : metadata.Minimum,
+                new Vector2(origin.X + headerX + headerWidth,
+                    metadata.Visible ? metadata.Maximum.Y : name.Maximum.Y)) : default;
+            y = origin.Y + footerY;
+            HpTextBounds = Line(text.Hp, hpColour, outsideX, columnWidth, !right, ref y);
+            MpTextBounds = Line(text.Mp, mpColour, outsideX, columnWidth, !right, ref y);
+            Line(text.Shield, shieldColour, outsideX, columnWidth, !right, ref y);
+            y = origin.Y + footerY;
+            HpPercentageBounds = Line(text.HpPercentage, hpColour, insideX, columnWidth, right, ref y);
+            Line(text.Distance, new Vector4(0.72f, 0.74f, 0.79f, 1f),
+                insideX, columnWidth, right, ref y);
         }
         finally { ImGui.PopStyleVar(); }
-        ImGui.SetCursorScreenPos(new Vector2(after.X, Math.Max(after.Y, y)));
+        ImGui.SetCursorScreenPos(after);
         ImGui.Dummy(Vector2.Zero);
 
-        float Measure(string value) => value.Length == 0 ? 0f
-            : ImGui.CalcTextSize(value, false, geometry.TextWidth).Y + spacing;
+        float Measure(string value, float available) => value.Length == 0 ? 0f
+            : ImGui.CalcTextSize(value, false, available).Y + spacing;
 
-        ArcTextBounds Line(string value, Vector4 colour)
+        ArcTextBounds Line(string value, Vector4 colour, float x, float available, bool alignRight, ref float y)
         {
             if (value.Length == 0) return default;
-            var textWidth = Math.Min(geometry.TextWidth, ImGui.CalcTextSize(value, false, geometry.TextWidth).X);
-            var x = origin.X + geometry.TextLeft + (right ? geometry.TextWidth - textWidth : 0f);
-            ImGui.SetCursorScreenPos(new Vector2(x, y));
-            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + geometry.TextWidth);
+            var textWidth = Math.Min(available, ImGui.CalcTextSize(value, false, available).X);
+            ImGui.SetCursorScreenPos(new Vector2(origin.X + x + (alignRight ? available - textWidth : 0f), y));
+            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + available);
             try { ImGui.TextColored(colour, value); }
             finally { ImGui.PopTextWrapPos(); }
             var bounds = new ArcTextBounds(ImGui.GetItemRectMin(), ImGui.GetItemRectMax());

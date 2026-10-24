@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.6.2 - Tight arc interactions and lower resource readouts
+
+- Limit locked Player/Target Arc input to narrow bands along each visible HP/MP track. Text, empty interiors and unused module space stay click-through. Hide the rectangular hover outline for arcs; keep the full edit frame when unlocked.
+- Mirror HP values at the bottom outside and HP percentage at the bottom inside. Put MP values below HP values, without literal HP/MP labels. Preserve resource colours, health gradients, flat ends and visible name/level metadata.
+- Keep Standard clickable-area choices and rendering, independent cast modules, schema 13, saved positions and the Core 0.3.1 pin unchanged.
+- Add native mouse-capture/click tests for bar regions versus empty space, mirrored text placement checks and bounded input-band coverage tests. Live actor/world clicks and restart acceptance remain in LIVE_TEST_CHECKLIST.md.
+
 ## 0.8.6.1 - Flat arc strips and resource-coloured readouts
 
 - Replace stroked arc tubes with continuous flat-cut strip slices, including MP, partial HP fills and integrated shield segments. Retain cached bow geometry and mirrored orientation.

@@ -3,7 +3,7 @@ using System.Numerics;
 namespace SentinelHUD.Core;
 
 public readonly record struct ArcReadout(string Name, string Metadata, string Hp,
-    string Mp, string Shield, string Distance);
+    string Mp, string Shield, string Distance, string HpPercentage);
 
 /// <summary>Horizontal cross-sections keep every track and partial-fill termination flat.</summary>
 public readonly record struct ArcStripQuad(Vector2 A, Vector2 B, Vector2 C, Vector2 D);
@@ -14,6 +14,28 @@ public static class ArcStripGeometry
     {
         var half = new Vector2(thickness * 0.5f, 0f);
         return new ArcStripQuad(bottom - half, bottom + half, top + half, top - half);
+    }
+}
+
+public readonly record struct ArcHitBand(Vector2 Minimum, Vector2 Maximum)
+{
+    public bool Contains(Vector2 point) => point.X >= Minimum.X && point.X < Maximum.X
+        && point.Y >= Minimum.Y && point.Y < Maximum.Y;
+}
+
+public static class ArcHitRegions
+{
+    public const int BandsPerTrack = ArcBarGeometry.Segments / 2;
+    public static ArcHitBand Band(ReadOnlySpan<Vector2> points, int band, float thickness, Vector2 origin)
+    {
+        var i = band * 2;
+        var minimumX = Math.Min(points[i].X, Math.Min(points[i + 1].X, points[i + 2].X));
+        var maximumX = Math.Max(points[i].X, Math.Max(points[i + 1].X, points[i + 2].X));
+        var half = thickness * 0.5f;
+        var minimum = origin + new Vector2(minimumX - half, points[i + 2].Y);
+        var maximum = origin + new Vector2(maximumX + half, points[i].Y);
+        return new ArcHitBand(new Vector2(MathF.Floor(minimum.X), MathF.Floor(minimum.Y)),
+            new Vector2(MathF.Ceiling(maximum.X), MathF.Ceiling(maximum.Y)));
     }
 }
 

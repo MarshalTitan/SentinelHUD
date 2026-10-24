@@ -1,6 +1,10 @@
-# Optional arcs and separate casts (0.8.6.1)
+# Optional arcs and separate casts (0.8.6.2)
 
-Arc tracks and HP/MP/shield fills now use flat horizontal terminations. Wrapped names and level/job metadata sit in the same inner group as the resource readouts. HP values and percentage use the resolved HP colour, including hostile red and health gradients. MP values use the configured MP colour; shields use Shield colour. The group mirrors its text alignment so both sides face the combat area. Target distance stays with that group. No new settings or migration are needed for this refinement.
+In locked Arc mode, only tight regions along visible HP/MP tracks accept actor clicks. Names, numeric text, percentages and unused space remain click-through to the game. A hidden MP track has no input region. No large rectangular hover outline is drawn. Unlocking retains the full module edit frame. Standard keeps its existing Whole module/Header-only choice and saved preference; Arc uses visible tracks automatically without adding a setting or changing the schema.
+
+The lower HP endpoint separates two readouts: HP values on the bottom outside and HP percentage on the bottom inside. Player/Target mirror this placement. MP values sit below HP values, and literal HP/MP labels are omitted. Colours identify each resource. Name/level metadata remains beside the lower inner bar region; text wraps inside the module footprint. Existing scale/width/height settings apply, and the full editor frame includes the footer.
+
+Arc tracks and HP/MP/shield fills retain flat horizontal terminations. HP values and percentage use the resolved HP colour, including hostile red and health gradients. MP values use the configured MP colour; shields use Shield colour. Target distance sits under the inner percentage. No new settings or migration are needed for this refinement.
 
 In **HUD Elements > Player** or **Target**, open **Bar style**, then choose **Curved / Arc**. In Classic use the Player or Target tab. Standard remains the default; changing style never moves the saved module. **Place arc near centre** is an explicit optional positioning action. Unlock the HUD to position the two arcs around your character.
 
@@ -13,8 +17,8 @@ In **HUD Elements > Player** or **Target**, open **Bar style**, then choose **Cu
 | Bar height | HP stroke thickness, capped at 10% of available width so small modules remain legible |
 | Arc height | Vertical bow height before scale, 100–600 px |
 | Opacity / border | Apply to the arc tracks, fills, text and optional subtle outline |
-| HP text alignment | Standard/cast-bar alignment; arc details wrap toward the inner edge beside their bars |
-| Visibility / targeting | Existing conditions and whole-module/header targeting regions |
+| HP text alignment | Standard/cast-bar alignment; Arc uses mirrored lower outside values and lower inside percentage |
+| Visibility / targeting | Existing conditions; locked Arc targets through visible track regions, Standard retains its saved area choice |
 
 In edit mode, drag the body to move, horizontal edges to change width, vertical edges to change arc height, and corners to change both. Adjust thickness numerically. The editor uses the same origin in locked and unlocked modes. An unresolved actor gets an arc preview; this preview never appears in gameplay.
 

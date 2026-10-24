@@ -1,6 +1,5 @@
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
-using SentinelCore.UI;
 using SentinelHUD.Core;
 using SentinelHUD.Services;
 
@@ -13,7 +12,7 @@ public sealed class ActorInteractionRenderer(
     ActorTargetingService targeting,
     ActorContextMenuService contextMenus)
 {
-    private const int MaximumInteractions = 24;
+    private const int MaximumInteractions = 112;
     private static readonly string[] WindowNames = Enumerable.Range(0, MaximumInteractions)
         .Select(index => $"Actor link {index}##SentinelHUD-ActorInteraction-{index}")
         .ToArray();
@@ -93,66 +92,29 @@ public sealed class ActorInteractionRenderer(
         }
     }
 
+    public void RegisterArc(ArcHudRenderer renderer, ulong gameObjectId, bool allowTargeting,
+        bool allowContextMenu, Vector2 placementMinimum, Vector2 placementMaximum)
+    {
+        if (!ActorReference.Direct(gameObjectId).IsWellFormed || (!allowTargeting && !allowContextMenu)) return;
+        for (var i = 0; i < renderer.HitBandCount && interactions.Count < MaximumInteractions; i++)
+        {
+            var band = renderer.GetHitBand(i);
+            interactions.Add(new ActorInteraction(band.Minimum, band.Maximum, placementMinimum, placementMaximum,
+                ActorReference.Direct(gameObjectId), allowTargeting, allowContextMenu, 0, false));
+        }
+    }
+
     private void Draw(ActorInteraction interaction, int index)
     {
-        var size = interaction.Maximum - interaction.Minimum;
-        ImGui.SetNextWindowPos(interaction.Minimum, ImGuiCond.Always);
-        ImGui.SetNextWindowSize(size, ImGuiCond.Always);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, Vector2.One);
-        try
+        var click = ActorInputRegionRenderer.Draw(WindowNames[index], interaction.Minimum,
+            interaction.Maximum, interaction.AllowTargeting, interaction.ShowOutline);
+        if (interaction.AllowTargeting && click.Left) targeting.TryTarget(interaction.Reference);
+        if (interaction.AllowContextMenu && click.Right)
         {
-            const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
-                                           | ImGuiWindowFlags.NoMove
-                                           | ImGuiWindowFlags.NoSavedSettings
-                                           | ImGuiWindowFlags.NoDocking
-                                           | ImGuiWindowFlags.NoNav
-                                           | ImGuiWindowFlags.NoFocusOnAppearing
-                                           | ImGuiWindowFlags.NoBringToFrontOnFocus
-                                           | ImGuiWindowFlags.NoBackground;
-            var began = ImGui.Begin(WindowNames[index], flags);
-            try
-            {
-                if (!began)
-                    return;
-                ImGui.InvisibleButton("##TargetActor", size,
-                    ImGuiButtonFlags.MouseButtonLeft | ImGuiButtonFlags.MouseButtonRight);
-                if (ImGui.IsItemHovered())
-                {
-                    if (interaction.AllowTargeting)
-                        ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-                    ImGui.GetForegroundDrawList().AddRect(
-                        interaction.Minimum,
-                        interaction.Maximum,
-                        ImGui.ColorConvertFloat4ToU32(SentinelPalette.HeaderGold),
-                        2f,
-                        ImDrawFlags.None,
-                        1f);
-                }
-                if (interaction.AllowTargeting && ImGui.IsItemClicked(ImGuiMouseButton.Left))
-                    targeting.TryTarget(interaction.Reference);
-                if (interaction.AllowContextMenu && ImGui.IsItemClicked(ImGuiMouseButton.Right))
-                {
-                    var viewport = ImGui.GetMainViewport();
-                    contextMenus.TryOpen(
-                        interaction.Reference,
-                        new ScreenRectangle(
-                            interaction.PlacementMinimum.X,
-                            interaction.PlacementMinimum.Y,
-                            interaction.PlacementMaximum.X,
-                            interaction.PlacementMaximum.Y),
-                        ScreenRectangle.FromPositionSize(viewport.WorkPos, viewport.WorkSize));
-                }
-            }
-            finally
-            {
-                ImGui.End();
-            }
-        }
-        finally
-        {
-            ImGui.PopStyleVar(3);
+            var viewport = ImGui.GetMainViewport();
+            contextMenus.TryOpen(interaction.Reference, new ScreenRectangle(interaction.PlacementMinimum.X,
+                interaction.PlacementMinimum.Y, interaction.PlacementMaximum.X, interaction.PlacementMaximum.Y),
+                ScreenRectangle.FromPositionSize(viewport.WorkPos, viewport.WorkSize));
         }
     }
 
@@ -164,10 +126,12 @@ public sealed class ActorInteractionRenderer(
         ActorReference Reference,
         bool AllowTargeting,
         bool AllowContextMenu,
-        int Priority)
+        int Priority,
+        bool ShowOutline = true)
     {
         public bool Contains(Vector2 point)
             => point.X >= Minimum.X && point.X <= Maximum.X
                && point.Y >= Minimum.Y && point.Y <= Maximum.Y;
     }
 }
+

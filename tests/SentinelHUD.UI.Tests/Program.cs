@@ -33,7 +33,8 @@ internal static class Program
             Test("minimized Core header dragging retains expanded size", TestDragging);
             Test("Classic native collapse and theme switching retain geometry", TestClassic);
             Test("arc paths, shields and wrapped text render at three widths/scales", TestArcRendering);
-            Console.WriteLine($"{passed}/8 native ImGui UI test groups passed.");
+            Test("arc islands pass empty space through and preserve bar clicks", TestArcInputs);
+            Console.WriteLine($"{passed}/9 native ImGui UI test groups passed.");
             return 0;
         }
         catch (Exception exception)
@@ -104,14 +105,14 @@ internal static class Program
             {
                 ImGui.NewFrame();
                 ImGui.SetNextWindowPos(new Vector2(40f, 40f));
-                ImGui.SetNextWindowSize(new Vector2(width, 240f * scale + 200f));
+                ImGui.SetNextWindowSize(new Vector2(width, 1200f * scale));
                 ImGui.Begin("Arc rendering test", ImGuiWindowFlags.NoSavedSettings);
                 ImGui.SetWindowFontScale(scale);
                 var start = ImGui.GetCursorScreenPos();
                 renderer.Draw(module, HudModuleKind.Player, scale, 0.8f,
                     frame == 0 ? 0f : frame == 1 ? 0.75f : 1f, 0.3f, 0.6f, true,
                     new ArcReadout("A long combatant name for wrapping", "Lv.100",
-                        "HP 120,000 / 150,000 - 80.0%", "MP 8,000 / 10,000", "Shield 30%", "10.0y"),
+                        "120,000 / 150,000", "8,000 / 10,000", "Shield 30%", "10.0y", "80.0%"),
                     new Vector4(0.2f, 0.8f, 0.3f, 1f), new Vector4(0.2f, 0.4f, 1f, 1f),
                     new Vector4(0.2f, 0.6f, 1f, 1f));
                 Check(ImGui.GetCursorScreenPos().Y >= start.Y + 240f * scale,
@@ -119,6 +120,11 @@ internal static class Program
                 Check(renderer.HeaderBounds.Visible, "Integrated name/level header disappeared.");
                 Check(renderer.HeaderBounds.Maximum.Y <= renderer.HpTextBounds.Minimum.Y,
                     "Header overlaps the HP readout.");
+                var centre = ImGui.GetWindowPos().X + ImGui.GetWindowSize().X * 0.5f;
+                Check(orientation == ArcOrientation.Left
+                    ? renderer.HpTextBounds.Maximum.X < centre && renderer.HpPercentageBounds.Minimum.X > centre
+                    : renderer.HpPercentageBounds.Maximum.X < centre && renderer.HpTextBounds.Minimum.X > centre,
+                    "Bottom outer values and inner percentage are not mirrored correctly.");
                 Check(renderer.HpTextBounds.Maximum.Y < renderer.MpTextBounds.Minimum.Y,
                     "HP and MP readouts overlap.");
                 var rightEdge = ImGui.GetWindowPos().X + ImGui.GetWindowSize().X - ImGui.GetStyle().WindowPadding.X;
@@ -127,11 +133,76 @@ internal static class Program
                 if (frame > 0)
                 {
                     AssertTextColour(renderer.HpTextBounds, new Vector4(0.2f, 0.8f, 0.3f, 0.8f));
+                    AssertTextColour(renderer.HpPercentageBounds, new Vector4(0.2f, 0.8f, 0.3f, 0.8f));
                     AssertTextColour(renderer.MpTextBounds, new Vector4(0.2f, 0.4f, 1f, 0.8f));
                 }
                 ImGui.End();
                 ImGui.Render();
                 if (frame > 0) Check(ImGui.GetDrawData().TotalVtxCount > 0, "Arc paths produced no render data.");
+            }
+        });
+    }
+
+    private static void TestArcInputs()
+    {
+        foreach (var side in new[] { ArcOrientation.Left, ArcOrientation.Right })
+        InContext(() =>
+        {
+            var renderer = new ArcHudRenderer();
+            var module = new PlayerModuleConfiguration { BarStyle = HudBarStyle.Arc, ArcOrientation = side };
+            var io = ImGui.GetIO();
+            var leftClicks = 0;
+            var rightClicks = 0;
+            var fullRectangle = false;
+            var mp = true;
+            for (var i = 0; i < 4; i++) Frame(new Vector2(-100f, -100f));
+            var hpBand = renderer.GetHitBand(12);
+            var hpPoint = (hpBand.Minimum + hpBand.Maximum) * 0.5f;
+            Settle(hpPoint);
+            Check(io.WantCaptureMouse, "Visible HP bar is not interactive.");
+            io.AddMouseButtonEvent(0, true); Frame(hpPoint);
+            io.AddMouseButtonEvent(0, false); Frame(hpPoint);
+            Check(leftClicks == 1, "Visible HP bar did not deliver exactly one left click.");
+            io.AddMouseButtonEvent(1, true); Frame(hpPoint);
+            io.AddMouseButtonEvent(1, false); Frame(hpPoint);
+            Check(rightClicks == 1, "Visible HP bar did not deliver exactly one right click.");
+            var mpBand = renderer.GetHitBand(ArcHitRegions.BandsPerTrack + 12);
+            var mpPoint = (mpBand.Minimum + mpBand.Maximum) * 0.5f;
+            Settle(mpPoint); Check(io.WantCaptureMouse, "Visible MP bar is not interactive.");
+            mp = false; Settle(mpPoint);
+            Check(!io.WantCaptureMouse, "Hidden MP bar retained an input region.");
+            var empty = side == ArcOrientation.Left ? new Vector2(310f, 120f) : new Vector2(50f, 120f);
+            Settle(empty); Check(!io.WantCaptureMouse, "Empty module interior blocks world mouse input.");
+            var footer = (renderer.HpTextBounds.Minimum + renderer.HpTextBounds.Maximum) * 0.5f;
+            Settle(footer); Check(!io.WantCaptureMouse, "Resource text blocks world mouse input.");
+            var percentage = (renderer.HpPercentageBounds.Minimum + renderer.HpPercentageBounds.Maximum) * 0.5f;
+            Settle(percentage); Check(!io.WantCaptureMouse, "Percentage blocks world mouse input.");
+            fullRectangle = true; Settle(empty);
+            Check(io.WantCaptureMouse, "Full rectangle selection for Standard/edit regions changed.");
+
+            void Settle(Vector2 point) { for (var i = 0; i < 4; i++) Frame(point); }
+            void Frame(Vector2 mouse)
+            {
+                io.AddMousePosEvent(mouse.X, mouse.Y);
+                ImGui.NewFrame();
+                ImGui.SetNextWindowPos(new Vector2(40f, 40f));
+                ImGui.SetNextWindowSize(new Vector2(320f, 600f));
+                ImGui.Begin("Arc input visual", ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoDecoration
+                    | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoBackground);
+                renderer.Draw(module, HudModuleKind.Player, 1f, 1f, 0.8f, 0.2f, 0.5f, mp,
+                    new ArcReadout("Player", "Lv.100", "58,500 / 58,500", mp ? "10,000 / 10,000" : "", "", "", "100.0%"),
+                    Vector4.One, Vector4.One, Vector4.One);
+                ImGui.End();
+                var count = fullRectangle ? 1 : renderer.HitBandCount;
+                for (var i = 0; i < count; i++)
+                {
+                    var band = fullRectangle ? new ArcHitBand(new Vector2(40f, 40f), new Vector2(360f, 640f))
+                        : renderer.GetHitBand(i);
+                    var clicked = ActorInputRegionRenderer.Draw("Arc input band " + i, band.Minimum, band.Maximum, true, false);
+                    if (clicked.Left) leftClicks++;
+                    if (clicked.Right) rightClicks++;
+                }
+                ImGui.Render();
             }
         });
     }

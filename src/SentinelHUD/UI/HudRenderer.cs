@@ -353,7 +353,11 @@ public sealed class HudRenderer
                 }
                 else if (actor is not null && (module.ClickToTarget || module.RightClickContextMenu))
                 {
-                    if (module.ClickableArea == ModuleClickableArea.WholeModule)
+                    if (arc)
+                        actorInteractions.RegisterArc(kind == HudModuleKind.Player ? playerArc : targetArc,
+                            actor.GameObjectId, module.ClickToTarget, module.RightClickContextMenu,
+                            actualPosition, maximum);
+                    else if (module.ClickableArea == ModuleClickableArea.WholeModule)
                         actorInteractions.Register(actualPosition, maximum, actor.GameObjectId,
                             module.ClickToTarget, module.RightClickContextMenu);
                     else if (hasHeaderBounds)
@@ -448,16 +452,17 @@ public sealed class HudRenderer
             metadata = AppendHeaderPart(metadata, data.GetRoleName(actor));
         var (current, maximum, percentage) = GetHpVisibility(module);
         var hpText = HudFormatting.HitPoints(character.CurrentHp, character.MaxHp,
-            current, maximum, percentage, module.NumberFormat);
+            current, maximum, false, module.NumberFormat);
         var mpText = character.MaxMp > 0 && mpMode is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText
-            ? $"MP {HudFormatting.Number(character.CurrentMp, module.NumberFormat)} / "
+            ? $"{HudFormatting.Number(character.CurrentMp, module.NumberFormat)} / "
                 + HudFormatting.Number(character.MaxMp, module.NumberFormat) : string.Empty;
         var shieldText = character.ShieldPercentage > 0 && shieldMode is ShieldDisplayMode.TextOnly or ShieldDisplayMode.BarAndText
             ? $"Shield {HudFormatting.Shield(character.MaxHp, character.ShieldPercentage)}" : string.Empty;
         var text = new ArcReadout(showName ? actor.Name.TextValue : string.Empty, metadata,
-            hpText.Length > 0 ? "HP " + hpText : string.Empty, mpText, shieldText,
+            hpText, mpText, shieldText,
             kind == HudModuleKind.Target && configuration.Current.Target.ShowDistance
-                ? HudFormatting.Distance(data.GetDistance(actor)) : string.Empty);
+                ? HudFormatting.Distance(data.GetDistance(actor)) : string.Empty,
+            percentage ? HudFormatting.Percentage(character.CurrentHp, character.MaxHp) : string.Empty);
         var fraction = character.MaxHp == 0 ? 0f : Math.Clamp((float)character.CurrentHp / character.MaxHp, 0f, 1f);
         var shield = shieldMode is ShieldDisplayMode.BarOnly or ShieldDisplayMode.BarAndText
             ? character.ShieldPercentage / 100f : 0f;
@@ -490,13 +495,13 @@ public sealed class HudRenderer
         var mp = isPlayer ? root.Player.MpDisplay : root.Target.MpDisplay;
         var shield = isPlayer ? root.Player.ShieldDisplay : root.Target.ShieldDisplay;
         var (current, maximum, percentage) = GetHpVisibility(module);
-        var hpText = HudFormatting.HitPoints(120000, 150000, current, maximum, percentage, module.NumberFormat);
+        var hpText = HudFormatting.HitPoints(120000, 150000, current, maximum, false, module.NumberFormat);
         var text = new ArcReadout(showName ? (isPlayer ? "Player preview" : "Target preview") : string.Empty,
-            showLevel ? "Lv.100" : string.Empty, hpText.Length > 0 ? "HP " + hpText : string.Empty,
+            showLevel ? "Lv.100" : string.Empty, hpText,
             mp is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText
-                ? $"MP {HudFormatting.Number(8000, module.NumberFormat)} / {HudFormatting.Number(10000, module.NumberFormat)}" : string.Empty,
+                ? $"{HudFormatting.Number(8000, module.NumberFormat)} / {HudFormatting.Number(10000, module.NumberFormat)}" : string.Empty,
             shield is ShieldDisplayMode.TextOnly or ShieldDisplayMode.BarAndText ? "Shield 20%" : string.Empty,
-            !isPlayer && root.Target.ShowDistance ? "10.0y" : string.Empty);
+            !isPlayer && root.Target.ShowDistance ? "10.0y" : string.Empty, percentage ? "80.0%" : string.Empty);
         var colour = isPlayer ? root.Appearance.PlayerHealth.ToVector4() : root.Appearance.HostileHealth.ToVector4();
         colour = HpColourPolicy.Resolve(isPlayer ? root.Appearance.PlayerHpColourMode : root.Appearance.TargetHpColourMode, 0.8f, colour);
         DrawArc(kind, module, 0.8f, shield is ShieldDisplayMode.BarOnly or ShieldDisplayMode.BarAndText ? 0.2f : 0f,

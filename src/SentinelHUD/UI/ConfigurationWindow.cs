@@ -665,7 +665,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (DrawSliderSetting($"{kind}.ArcHeight", "Arc height", "Vertical editor edges also change this height.",
                 ref height, ArcBarGeometry.MinimumHeight, ArcBarGeometry.MaximumHeight, "%.0f px"))
             Update(c => GetModule(c, kind).ArcHeight = height);
-        DrawMutedText("Module width controls the horizontal footprint; Bar height controls arc thickness, capped to fit narrow modules. Scale changes arc height, thickness and text. HP text wraps beside the arc; rectangular text alignment applies to Standard and cast bars.");
+        DrawMutedText("Module width controls the footprint; Bar height controls arc thickness. HP values wrap at the bottom outside, with HP percentage at the bottom inside. MP values sit below HP values. Standard and cast bars retain their text alignment setting.");
         DrawMutedText("Arc mode never attaches casts. Enable the separate cast bar below to place it independently.");
         if (DrawActionButton("Place arc near centre"))
         {
@@ -1209,7 +1209,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
             value => Update(c => GetModule(c, kind).ClickToTarget = value));
         DrawToggle("Right-click native context menu", module.RightClickContextMenu,
             value => Update(c => GetModule(c, kind).RightClickContextMenu = value));
-        if (module.ClickToTarget || module.RightClickContextMenu)
+        if (module.BarStyle == HudBarStyle.Arc && kind is HudModuleKind.Player or HudModuleKind.Target)
+            DrawMutedText("Arc style: only the visible bars accept gameplay clicks; text and empty space stay click-through. Unlock for full-module editing.");
+        else if (module.ClickToTarget || module.RightClickContextMenu)
         {
             var clickableArea = (int)module.ClickableArea;
             if (DrawComboSetting(
