@@ -259,7 +259,7 @@ internal static class Program
                     Check(vertices[vertex].Pos.X <= edge + 2f, "Currency glyphs extend past the right edge.");
                 }
                 if (alignment == CurrencyAlignment.Right)
-                    Check(lastX >= edge - 4f * scale, "Right alignment leaves an unused gutter.");
+                    Check(lastX >= edge - 4f * scale, $"Right alignment leaves an unused gutter: width={width}, scale={scale}, full={full}, orientation={orientation}, icons={showIcons}, last={lastX}, edge={edge}, frame={frame}.");
                 ImGui.End(); ImGui.PopStyleVar(); ImGui.Render();
             }
         });
