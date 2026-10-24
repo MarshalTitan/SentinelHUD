@@ -150,6 +150,29 @@ internal static class ArcTests
         }
     }
 
+    public static void InputBands()
+    {
+        foreach (var right in new[] { false, true })
+        foreach (var size in new[] { new Vector2(140f, 100f), new Vector2(285f, 240f), new Vector2(620f, 600f) })
+        {
+            var geometry = new ArcBarGeometry(); geometry.Update(size.X, size.Y, 20f, right);
+            var origin = new Vector2(71.3f, 52.7f);
+            foreach (var mp in new[] { false, true })
+            {
+                var points = mp ? geometry.Mp : geometry.Hp;
+                var thickness = geometry.Thickness * (mp ? 0.5f : 1f) + 2f;
+                for (var i = 0; i < ArcHitRegions.BandsPerTrack; i++)
+                {
+                    var band = ArcHitRegions.Band(points, i, thickness, origin);
+                    var midpoint = origin + points[i * 2 + 1];
+                    Check(band.Contains(midpoint));
+                    Check(band.Maximum.X - band.Minimum.X < size.X * 0.3f);
+                    Check(!band.Contains(origin + new Vector2(right ? 0f : size.X, size.Y * 0.5f)));
+                }
+            }
+        }
+    }
+
     public static void Resize()
     {
         var start = new Vector2(500f, 300f); var size = new Vector2(285f, 300f);

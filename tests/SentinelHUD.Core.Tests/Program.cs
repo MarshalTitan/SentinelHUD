@@ -7,6 +7,7 @@ using System.Globalization;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("arc input bands cover only the narrow tracks", ArcTests.InputBands),
     ("flat arc strip caps and fractional fill boundaries", ArcTests.FlatStrips),
     ("schema twelve upgrade preserves every existing field", ArcTests.Migration),
     ("arc and independent cast settings round trip", ArcTests.Persistence),

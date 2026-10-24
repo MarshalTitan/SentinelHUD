@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Refines optional Player/Target arcs with flat horizontal top/bottom terminations and integrated name/level/resource readouts. HP numbers follow HP colours and gradients; MP and shield numbers follow their resource colours. Standard defaults, independent cast modules, schema 13 settings and Core 0.3.1 remain unchanged. See LIVE_TEST_CHECKLIST.md for live acceptance."
+            --notes "Curved Player/Target gameplay input now follows only tight visible bar regions, leaving text and empty space click-through. HP values move to the bottom outside and HP percentage to the bottom inside, mirrored across Player/Target; MP values sit below HP values. Remove HP/MP labels while preserving resource colours, flat caps, full edit handles, separate casts, saved schema 13 settings and Core 0.3.1."
 
       - name: Verify public release asset
         shell: pwsh
