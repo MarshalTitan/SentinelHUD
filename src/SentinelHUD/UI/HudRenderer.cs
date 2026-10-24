@@ -320,7 +320,7 @@ public sealed class HudRenderer
                     if (actorRequired && actor is null && arc)
                         DrawArcPreview(kind, module);
                     else if (actorRequired && actor is null)
-                        SentinelUi.MutedText("No actor resolved - drag this module into place.");
+                        SentinelUi.MutedText("No actor resolved — drag this module into place.");
                     else
                         drawContent(actor, module);
                 }
@@ -755,9 +755,9 @@ public sealed class HudRenderer
         var remaining = showRemainingTime ? HudFormatting.RemainingCastTime(current, total) : string.Empty;
         var overlay = name;
         if (percentage.Length > 0)
-            overlay = overlay.Length == 0 ? percentage : $"{overlay} - {percentage}";
+            overlay = overlay.Length == 0 ? percentage : $"{overlay} — {percentage}";
         if (remaining.Length > 0)
-            overlay = overlay.Length == 0 ? remaining : $"{overlay} - {remaining}";
+            overlay = overlay.Length == 0 ? remaining : $"{overlay} — {remaining}";
         if (showBar)
         {
             DrawMeter(fraction, 0f, module.BarHeight, overlay, module.HpTextAlignment,
@@ -928,7 +928,7 @@ public sealed class HudRenderer
     private void AppendFocusTargetPart(string value)
     {
         if (focusTargetLineBuilder.Length > 0)
-            focusTargetLineBuilder.Append(" - ");
+            focusTargetLineBuilder.Append(" — ");
         focusTargetLineBuilder.Append(value);
     }
 

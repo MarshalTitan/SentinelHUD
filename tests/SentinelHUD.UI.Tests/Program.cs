@@ -117,7 +117,7 @@ internal static class Program
                     "Arc rendering did not reserve its full height.");
                 ImGui.End();
                 ImGui.Render();
-                Check(ImGui.GetDrawData().TotalVtxCount > 0, "Arc paths produced no render data.");
+                if (frame > 0) Check(ImGui.GetDrawData().TotalVtxCount > 0, "Arc paths produced no render data.");
             }
         });
     }

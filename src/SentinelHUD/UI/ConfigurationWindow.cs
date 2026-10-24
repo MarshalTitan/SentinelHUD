@@ -533,7 +533,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         => DrawPluginStatus("Enabled", SentinelModernPillTone.Enabled);
 
     private void DrawPluginDisabledStatus()
-        => DrawPluginStatus("Installed � Disabled", SentinelModernPillTone.Neutral);
+        => DrawPluginStatus("Installed · Disabled", SentinelModernPillTone.Neutral);
 
     private void DrawPluginNotInstalledStatus()
         => DrawPluginStatus("Not Installed", SentinelModernPillTone.Neutral);
@@ -541,7 +541,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static string PluginStatusText(SentinelCompanionState state) => state switch
     {
         SentinelCompanionState.Enabled => "Enabled",
-        SentinelCompanionState.InstalledDisabled => "Installed � Disabled",
+        SentinelCompanionState.InstalledDisabled => "Installed · Disabled",
         _ => "Not Installed",
     };
 
@@ -1132,7 +1132,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (renderer.NativeActorContextMenuVisible)
         {
             ImGui.TextWrapped($"Native menu position: {renderer.ActorContextMenuPosition.X:0}, {renderer.ActorContextMenuPosition.Y:0}");
-            ImGui.TextWrapped($"Native menu size: {renderer.ActorContextMenuSize.X:0} � {renderer.ActorContextMenuSize.Y:0}");
+            ImGui.TextWrapped($"Native menu size: {renderer.ActorContextMenuSize.X:0} × {renderer.ActorContextMenuSize.Y:0}");
         }
         ImGui.TextWrapped($"Target-of-target visible / resolved: {renderer.TargetOfTargetVisible} / {renderer.TargetOfTargetResolved}");
         ImGui.TextWrapped($"Self highlight mode / active: {config.SelfHighlight.Mode} / {renderer.SelfHighlightActive}");
@@ -1155,7 +1155,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (renderer.NativeTargetOverlayActive)
         {
             ImGui.TextWrapped($"Native target anchor: {renderer.NativeTargetOverlayAnchor.X:0.0}, {renderer.NativeTargetOverlayAnchor.Y:0.0}");
-            ImGui.TextWrapped($"Native target bounds: {renderer.NativeTargetOverlaySize.X:0.0} � {renderer.NativeTargetOverlaySize.Y:0.0}");
+            ImGui.TextWrapped($"Native target bounds: {renderer.NativeTargetOverlaySize.X:0.0} × {renderer.NativeTargetOverlaySize.Y:0.0}");
         }
         ImGui.TextWrapped($"Extended zoom enabled / active: {config.Camera.Enabled} / {renderer.CameraZoomActive}");
         ImGui.TextWrapped($"Extended zoom state: {renderer.CameraZoomState}");
@@ -1174,7 +1174,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             && ImGui.TreeNode($"Observed hard targeters ({renderer.PvPThreat.TargeterCount})"))
         {
             foreach (var targeter in renderer.PvPThreat.Targeters)
-                DrawWrappedBullet($"{targeter.JobAbbreviation} - {targeter.Name}, {targeter.Distance:0.0}y");
+                DrawWrappedBullet($"{targeter.JobAbbreviation} — {targeter.Name}, {targeter.Distance:0.0}y");
             ImGui.TreePop();
         }
         if (DrawActionButton("Clear diagnostic history"))

@@ -51,6 +51,7 @@ public sealed class ArcHudRenderer
         finally { ImGui.PopTextWrapPos(); ImGui.PopStyleVar(); }
         // Text may outgrow the requested arc at extreme font scales. Keep later rows reachable.
         ImGui.SetCursorScreenPos(new Vector2(after.X, Math.Max(after.Y, ImGui.GetCursorScreenPos().Y)));
+        ImGui.Dummy(Vector2.Zero);
     }
 
     private static uint Colour(Vector4 colour, float opacity)

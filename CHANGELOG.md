@@ -33,7 +33,7 @@
 - Hardened publication with explicit public-array parsing, uncached catalog requests, observed-version diagnostics, a bounded ten-minute verification deadline, and safe resume for a release already published by the same source commit.
 - Preserved configuration schema 11, the five-companion Plugins implementation, all HUD/gameplay services and exact Core 0.3.1 pin/packages. Sentinel Core itself was not changed.
 
-## 0.8.4.2 - Sentinel ecosystem status and responsive text
+## 0.8.4.2 — Sentinel ecosystem status and responsive text
 
 - Added a plug-icon **Plugins** destination to the Sentinel Modern primary rail for the five optional Dalamud companions: S Rank Sentinel, PvP Sentinel, Classy Sentinel, Sentinel Relay and Sentinel Profiles.
 - Added an extensible central companion registry and public Dalamud status adapter that distinguishes Enabled, Installed/Disabled and Not Installed states and shows exposed installed versions.
@@ -43,7 +43,7 @@
 - Added tests for the Plugins navigation state, exact registry membership, case-insensitive installed matching, all three status states, installed versions and summary counts.
 - Kept configuration schema 11, all saved settings/layouts and Classic rendering unchanged.
 
-## 0.8.4.1 - Sentinel Modern 2 shell polish
+## 0.8.4.1 — Sentinel Modern 2 shell polish
 
 - Hardened release publication so a verified release immediately dispatches the central Sentinel catalog generator and waits for the exact public catalog version and asset URLs; the hourly reconciliation remains a fallback.
 - Updated the exact Sentinel Core pin to `v0.3.1.0` / `MarshalTitan.SentinelCore.UI` `0.3.1` and verified the required package hash.
@@ -54,7 +54,7 @@
 - Added explicit reopen/expand handling for the custom collapse control while preserving window movement, resizing, close behavior and saved geometry.
 - Kept configuration schema 11 and all gameplay/HUD defaults unchanged; Classic, module layouts, targeting, awareness, camera and quest convenience behavior are preserved.
 
-## 0.8.4.0 - Sentinel Modern 2 reference release
+## 0.8.4.0 — Sentinel Modern 2 reference release
 
 - Replaced Sentinel HUD's local Modern preview renderer with the canonical `SentinelModernAppShell` from `MarshalTitan.SentinelCore.UI` 0.3.0.
 - Added a compact Core header, six-item primary icon rail, conditional secondary category sidebars, Core page transitions and animated ambient treatment with Dalamud reduced-motion support.

@@ -201,7 +201,7 @@ static void TestSentinelEcosystemRegistry()
     Equal(2, summary.Installed);
     Equal(1, summary.Enabled);
     Equal(1, summary.Disabled);
-    Equal("1 Sentinel plugin enabled � 1 installed but disabled � 3 not installed", summary.Description);
+    Equal("1 Sentinel plugin enabled · 1 installed but disabled · 3 not installed", summary.Description);
 
     var allEnabled = SentinelEcosystemRegistry.Resolve(
         SentinelEcosystemRegistry.Plugins.Select(plugin =>
@@ -219,9 +219,9 @@ static void TestResponsiveLabelWrapping()
     {
         "Target / Focus / ToT HP colour mode",
         "Treat unclassified visible Splatoon geometry as danger",
-        "Installed � Disabled",
+        "Installed · Disabled",
         "LongUnbrokenConfigurationIdentifier",
-        "A??e\u0301??Example",
+        "A😀e\u0301𐐀Example",
     };
     foreach (var label in labels)
     {
@@ -233,7 +233,7 @@ static void TestResponsiveLabelWrapping()
         }
     }
     Equal("First\n\nSecond", ConfigurationFlowPolicy.WrapLabel("First\n\nSecond", 200f, Measure));
-    Equal("??", ConfigurationFlowPolicy.WrapLabel("??", 1f, Measure));
+    Equal("😀", ConfigurationFlowPolicy.WrapLabel("😀", 1f, Measure));
     Throws<ArgumentOutOfRangeException>(() => ConfigurationFlowPolicy.WrapLabel("Label", 0f, Measure));
 }
 
@@ -855,7 +855,7 @@ static void TestVersionSixUpgradePersistence()
 
 static void TestHitPointFormatting()
 {
-    Equal("7,428,113 / 12,500,000 - 59.4%", HudFormatting.HitPoints(7_428_113, 12_500_000, true, true, true));
+    Equal("7,428,113 / 12,500,000 — 59.4%", HudFormatting.HitPoints(7_428_113, 12_500_000, true, true, true));
     Equal("7,428,113", HudFormatting.HitPoints(7_428_113, 12_500_000, true, false, false));
     Equal("Max 12,500,000", HudFormatting.HitPoints(7_428_113, 12_500_000, false, true, false));
     Equal("59.4%", HudFormatting.HitPoints(7_428_113, 12_500_000, false, false, true));
