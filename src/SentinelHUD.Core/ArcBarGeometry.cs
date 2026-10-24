@@ -2,6 +2,21 @@ using System.Numerics;
 
 namespace SentinelHUD.Core;
 
+public readonly record struct ArcReadout(string Name, string Metadata, string Hp,
+    string Mp, string Shield, string Distance);
+
+/// <summary>Horizontal cross-sections keep every track and partial-fill termination flat.</summary>
+public readonly record struct ArcStripQuad(Vector2 A, Vector2 B, Vector2 C, Vector2 D);
+
+public static class ArcStripGeometry
+{
+    public static ArcStripQuad Section(Vector2 bottom, Vector2 top, float thickness)
+    {
+        var half = new Vector2(thickness * 0.5f, 0f);
+        return new ArcStripQuad(bottom - half, bottom + half, top + half, top - half);
+    }
+}
+
 /// <summary>Cached, bounded vertical bows. Samples run from full-height bottom to top.</summary>
 public sealed class ArcBarGeometry
 {

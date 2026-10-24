@@ -118,6 +118,38 @@ internal static class ArcTests
         Check(float.IsFinite(invalid.Hp[0].X));
     }
 
+    public static void FlatStrips()
+    {
+        foreach (var right in new[] { false, true })
+        foreach (var width in new[] { 140f, 285f, 620f })
+        foreach (var height in new[] { 100f, 240f, 600f })
+        {
+            var geometry = new ArcBarGeometry();
+            geometry.Update(width, height, 20f, right);
+            foreach (var mp in new[] { false, true })
+            {
+                var points = mp ? geometry.Mp : geometry.Hp;
+                var thickness = geometry.Thickness * (mp ? 0.5f : 1f);
+                for (var i = 0; i < ArcBarGeometry.Segments; i++)
+                {
+                    var start = Vector2.Lerp(points[i], points[i + 1], 0.17f);
+                    var end = Vector2.Lerp(points[i], points[i + 1], 0.83f);
+                    var quad = ArcStripGeometry.Section(start, end, thickness);
+                    Near(quad.A.Y, quad.B.Y); Near(quad.C.Y, quad.D.Y);
+                    Near(start.Y, quad.A.Y); Near(end.Y, quad.C.Y);
+                    Near(thickness, quad.B.X - quad.A.X);
+                    Near(thickness, quad.C.X - quad.D.X);
+                    Check(quad.C.Y < quad.A.Y);
+                    Check(quad.A.X >= 0f && quad.B.X <= width && quad.C.X <= width && quad.D.X >= 0f);
+                }
+                var top = ArcStripGeometry.Section(points[^2], points[^1], thickness);
+                var bottom = ArcStripGeometry.Section(points[0], points[1], thickness);
+                Near(points[^1].Y, top.C.Y); Near(points[^1].Y, top.D.Y);
+                Near(points[0].Y, bottom.A.Y); Near(points[0].Y, bottom.B.Y);
+            }
+        }
+    }
+
     public static void Resize()
     {
         var start = new Vector2(500f, 300f); var size = new Vector2(285f, 300f);

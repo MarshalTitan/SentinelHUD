@@ -1,4 +1,19 @@
-# Sentinel HUD 0.8.6.0 - Live Test
+# Sentinel HUD 0.8.6.1 - Live Test
+
+## 0.8.6.1 arc refinement
+
+- [ ] Update from 0.8.6.0 without deleting config; schema stays 13. Confirm Standard/Arc selections, mirror overrides, all positions/dimensions, colours, visibility and separate cast preferences remain saved.
+- [ ] Player Standard and Target Standard retain their previous HP/MP/shield/cast presentation. Focus/ToT remain Standard.
+- [ ] Player Arc and Target Arc mirror correctly in Auto; explicit Left/Right still work. Both HP and MP have flat horizontal top/bottom cuts rather than rounded tube ends.
+- [ ] Check zero, partial and full HP/MP plus shield overlay/extension: fill boundaries also remain flat and tracks have no visible seams between slices.
+- [ ] HP current/max/percentage text uses the same HP colour as the fill. Check custom Player HP, hostile red, friendly/neutral targets and Health-State Gradient at different HP levels.
+- [ ] MP values use the configured MP colour; shield text/segments use Shield colour. Change each colour independently and check partial opacity.
+- [ ] Name and level/job metadata stay grouped beside HP/MP readouts; target distance remains in that group. Check long names, narrow modules, Full/Compact numbers and larger UI scales for wrapping without overlap.
+- [ ] Toggle individual HP, MP, name/level and shield fields; verify hidden readouts leave no awkward blank rows. Test an unresolved-target arc preview and a non-character target.
+- [ ] Unlock: move and resize each arc, including vertical height/corners; lock/unlock repeatedly without drift. Locked mode has no editor chrome.
+- [ ] Whole-module and header-only left-click targeting and right-click native menus still work with the integrated header. Editing keeps priority over actor actions.
+- [ ] Move/resize Player Cast and Target Cast independently beneath the character. Check cast name, progress, percentage and remaining time; arcs never attach them.
+- [ ] Reload and fully restart; styles, colours, arc/cast positions, dimensions and all other saved settings persist. Confirm Modern minimize/restore and Classic settings remain usable.
 
 ## 0.8.6.0 arcs and independent casts
 
