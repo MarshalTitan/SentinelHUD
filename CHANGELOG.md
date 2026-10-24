@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.6.1 - Flat arc strips and resource-coloured readouts
+
+- Replace stroked arc tubes with continuous flat-cut strip slices, including MP, partial HP fills and integrated shield segments. Retain cached bow geometry and mirrored orientation.
+- Group wrapped name/level metadata and resource readouts beside each arc. HP values and percentage follow the resolved health colour/gradient; MP and shield readouts use their configured colours. Target distance joins the same group.
+- Keep the header-only targeting region aligned with the integrated header. Arc previews use Full/Compact formatting and the configured health gradient.
+- Preserve Standard, independent casts, all saved positions, schema 13 and the exact Core 0.3.1 pin. Add flat-cap geometry tests and native checks of actual HP/MP glyph vertex colours, opacity and readable bounds.
+
 ## 0.8.6.0 - Optional arcs and independent cast modules
 
 - Add opt-in mirrored Player/Target HP/MP arcs using existing formatting, HP colour/gradient, integrated shield and interaction policies. Keep Standard as the default and preserve saved positions when switching.

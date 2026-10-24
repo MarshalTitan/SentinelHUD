@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Adds optional mirrored Curved / Arc Player and Target HP/MP layouts plus independently movable Player and Target cast bars. Standard remains the default. Schema 13 preserves existing settings, positions, colours and cast options. Sentinel Core remains pinned to 0.3.1. See LIVE_TEST_CHECKLIST.md for in-game acceptance."
+            --notes "Refines optional Player/Target arcs with flat horizontal top/bottom terminations and integrated name/level/resource readouts. HP numbers follow HP colours and gradients; MP and shield numbers follow their resource colours. Standard defaults, independent cast modules, schema 13 settings and Core 0.3.1 remain unchanged. See LIVE_TEST_CHECKLIST.md for live acceptance."
 
       - name: Verify public release asset
         shell: pwsh

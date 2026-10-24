@@ -110,16 +110,44 @@ internal static class Program
                 var start = ImGui.GetCursorScreenPos();
                 renderer.Draw(module, HudModuleKind.Player, scale, 0.8f,
                     frame == 0 ? 0f : frame == 1 ? 0.75f : 1f, 0.3f, 0.6f, true,
-                    "120,000 / 150,000 - 80.0%\nMP 8,000 / 10,000\nShield 30%",
+                    new ArcReadout("A long combatant name for wrapping", "Lv.100",
+                        "HP 120,000 / 150,000 - 80.0%", "MP 8,000 / 10,000", "Shield 30%", "10.0y"),
                     new Vector4(0.2f, 0.8f, 0.3f, 1f), new Vector4(0.2f, 0.4f, 1f, 1f),
                     new Vector4(0.2f, 0.6f, 1f, 1f));
                 Check(ImGui.GetCursorScreenPos().Y >= start.Y + 240f * scale,
                     "Arc rendering did not reserve its full height.");
+                Check(renderer.HeaderBounds.Visible, "Integrated name/level header disappeared.");
+                Check(renderer.HeaderBounds.Maximum.Y <= renderer.HpTextBounds.Minimum.Y,
+                    "Header overlaps the HP readout.");
+                Check(renderer.HpTextBounds.Maximum.Y < renderer.MpTextBounds.Minimum.Y,
+                    "HP and MP readouts overlap.");
+                var rightEdge = ImGui.GetWindowPos().X + ImGui.GetWindowSize().X - ImGui.GetStyle().WindowPadding.X;
+                Check(renderer.HpTextBounds.Maximum.X <= rightEdge + 1f
+                    && renderer.MpTextBounds.Maximum.X <= rightEdge + 1f, "Resource readout overflows the module.");
+                if (frame > 0)
+                {
+                    AssertTextColour(renderer.HpTextBounds, new Vector4(0.2f, 0.8f, 0.3f, 0.8f));
+                    AssertTextColour(renderer.MpTextBounds, new Vector4(0.2f, 0.4f, 1f, 0.8f));
+                }
                 ImGui.End();
                 ImGui.Render();
                 if (frame > 0) Check(ImGui.GetDrawData().TotalVtxCount > 0, "Arc paths produced no render data.");
             }
         });
+    }
+
+    private static void AssertTextColour(ArcTextBounds bounds, Vector4 expected)
+    {
+        var colour = ImGui.ColorConvertFloat4ToU32(expected);
+        var vertices = ImGui.GetWindowDrawList().VtxBuffer;
+        var count = 0;
+        for (var i = 0; i < vertices.Size; i++)
+        {
+            var vertex = vertices[i];
+            if (vertex.Col == colour && vertex.Pos.X >= bounds.Minimum.X && vertex.Pos.X <= bounds.Maximum.X
+                && vertex.Pos.Y >= bounds.Minimum.Y && vertex.Pos.Y <= bounds.Maximum.Y) count++;
+        }
+        Check(count >= 4, "Resource glyph vertices do not use the expected resource colour/opacity.");
     }
 
     private static unsafe void TestGeometry()
