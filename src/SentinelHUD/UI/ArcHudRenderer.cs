@@ -17,6 +17,7 @@ public sealed class ArcHudRenderer
     private bool mpVisible;
     public ArcTextBounds HeaderBounds { get; private set; }
     public ArcTextBounds HpTextBounds { get; private set; }
+    public ArcTextBounds HpMaximumBounds { get; private set; }
     public ArcTextBounds HpPercentageBounds { get; private set; }
     public ArcTextBounds MpTextBounds { get; private set; }
     public ArcTextBounds MpPercentageBounds { get; private set; }
@@ -53,12 +54,22 @@ public sealed class ArcHudRenderer
         var headerX = right ? 0f : width - headerWidth;
         var insideX = headerX;
         var headerHeight = Measure(text.Name, headerWidth) + Measure(text.Metadata, headerWidth);
-        var hpHeight = Math.Max(Measure(text.Hp, outsideWidth), Measure(text.HpPercentage, headerWidth));
-        var mpHeight = Math.Max(Measure(text.Mp, outsideWidth), Measure(text.MpPercentage, headerWidth));
-        var extraHeight = Math.Max(Measure(text.Shield, outsideWidth), Measure(text.Distance, headerWidth));
+        var distanceHeight = Measure(text.Distance, headerWidth);
+        float hpHeight, mpHeight, extraHeight, maximumHeight;
+        var resourceScale = scale * module.ArcTextScale;
+        ImGui.SetWindowFontScale(resourceScale);
+        try
+        {
+            maximumHeight = Measure(text.HpMaximum, outsideWidth);
+            hpHeight = Math.Max(Measure(text.Hp, outsideWidth), Measure(text.HpPercentage, headerWidth));
+            mpHeight = Math.Max(Measure(text.Mp, outsideWidth), Measure(text.MpPercentage, headerWidth));
+            extraHeight = Math.Max(Measure(text.Shield, outsideWidth), distanceHeight);
+        }
+        finally { ImGui.SetWindowFontScale(scale); }
         var resourcesHeight = hpHeight + mpHeight + extraHeight;
-        var bodyHeight = Math.Max(arcHeight, headerHeight + gap + resourcesHeight);
-        var resourcesY = Math.Max(headerHeight + gap, (bodyHeight - resourcesHeight) * 0.6f);
+        var bodyHeight = Math.Max(arcHeight,
+            Math.Max(headerHeight + gap, maximumHeight + gap) + resourcesHeight + gap);
+        var resourcesY = bodyHeight - resourcesHeight - gap;
         var size = new Vector2(width, bodyHeight);
         ImGui.Dummy(size);
         var after = ImGui.GetCursorScreenPos();
@@ -107,16 +118,23 @@ public sealed class ArcHudRenderer
                     : name.Visible ? name.Minimum : metadata.Minimum,
                 new Vector2(origin.X + headerX + headerWidth,
                     metadata.Visible ? metadata.Maximum.Y : name.Maximum.Y)) : default;
-            y = origin.Y + resourcesY;
-            HpTextBounds = Line(text.Hp, hpColour, outsideX, outsideWidth, !right, ref y);
-            y = origin.Y + resourcesY + hpHeight;
-            MpTextBounds = Line(text.Mp, mpColour, outsideX, outsideWidth, !right, ref y);
-            y = origin.Y + resourcesY + hpHeight + mpHeight;
-            Line(text.Shield, shieldColour, outsideX, outsideWidth, !right, ref y);
-            y = origin.Y + resourcesY + (hpHeight - Measure(text.HpPercentage, headerWidth)) * 0.5f;
-            HpPercentageBounds = Line(text.HpPercentage, hpColour, insideX, headerWidth, right, ref y);
-            y = origin.Y + resourcesY + hpHeight + (mpHeight - Measure(text.MpPercentage, headerWidth)) * 0.5f;
-            MpPercentageBounds = Line(text.MpPercentage, mpColour, insideX, headerWidth, right, ref y);
+            ImGui.SetWindowFontScale(resourceScale);
+            try
+            {
+                y = origin.Y + gap;
+                HpMaximumBounds = Line(text.HpMaximum, hpColour, outsideX, outsideWidth, !right, ref y);
+                y = origin.Y + resourcesY;
+                HpTextBounds = Line(text.Hp, hpColour, outsideX, outsideWidth, !right, ref y);
+                y = origin.Y + resourcesY + hpHeight;
+                MpTextBounds = Line(text.Mp, mpColour, outsideX, outsideWidth, !right, ref y);
+                y = origin.Y + resourcesY + hpHeight + mpHeight;
+                Line(text.Shield, shieldColour, outsideX, outsideWidth, !right, ref y);
+                y = origin.Y + resourcesY + (hpHeight - Measure(text.HpPercentage, headerWidth)) * 0.5f;
+                HpPercentageBounds = Line(text.HpPercentage, hpColour, insideX, headerWidth, right, ref y);
+                y = origin.Y + resourcesY + hpHeight + (mpHeight - Measure(text.MpPercentage, headerWidth)) * 0.5f;
+                MpPercentageBounds = Line(text.MpPercentage, mpColour, insideX, headerWidth, right, ref y);
+            }
+            finally { ImGui.SetWindowFontScale(scale); }
             y = origin.Y + resourcesY + hpHeight + mpHeight;
             Line(text.Distance, new Vector4(0.72f, 0.74f, 0.79f, 1f),
                 insideX, headerWidth, right, ref y);
@@ -126,14 +144,15 @@ public sealed class ArcHudRenderer
         ImGui.Dummy(Vector2.Zero);
 
         float Measure(string value, float available) => value.Length == 0 ? 0f
-            : ImGui.CalcTextSize(value, false, available).Y + spacing;
+            : ImGui.CalcTextSize(value, false, available + 1f).Y + spacing;
 
         ArcTextBounds Line(string value, Vector4 colour, float x, float available, bool alignRight, ref float y)
         {
             if (value.Length == 0) return default;
-            var textWidth = Math.Min(available, ImGui.CalcTextSize(value, false, available).X);
+            var naturalWidth = ImGui.CalcTextSize(value).X;
+            var textWidth = Math.Min(available, naturalWidth);
             ImGui.SetCursorScreenPos(new Vector2(origin.X + x + (alignRight ? available - textWidth : 0f), y));
-            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + available);
+            ImGui.PushTextWrapPos(naturalWidth <= available ? -1f : ImGui.GetCursorPosX() + available + 1f);
             try { ImGui.TextColored(colour, value); }
             finally { ImGui.PopTextWrapPos(); }
             var bounds = new ArcTextBounds(ImGui.GetItemRectMin(), ImGui.GetItemRectMax());

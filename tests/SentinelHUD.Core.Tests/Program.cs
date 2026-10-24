@@ -7,6 +7,8 @@ using System.Globalization;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("arc text scale, split HP and previous-setting preservation", ArcRefinementTests.Preferences),
+    ("shared self-target casts and independent actor cast routing", ArcRefinementTests.CastRouting),
     ("schema thirteen currency/arc upgrade preserves every existing field", CurrencyTests.Migration),
     ("currency selection and settings persist", CurrencyTests.Persistence),
     ("currency amounts caps and unavailable data", CurrencyTests.Formatting),

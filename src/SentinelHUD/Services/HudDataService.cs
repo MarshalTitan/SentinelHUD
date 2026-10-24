@@ -5,6 +5,8 @@ using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Plugin.Services;
 using Lumina.Excel.Sheets;
+using SentinelHUD.Core;
+using NativeCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 using SentinelCore.Dalamud.Jobs;
 using SentinelCore.Jobs;
 using LuminaAction = Lumina.Excel.Sheets.Action;
@@ -77,19 +79,34 @@ public sealed class HudDataService
         return Math.Max(0f, centreDistance - player.HitboxRadius - actor.HitboxRadius);
     }
 
-    public string GetCastName(IBattleChara actor)
+    public unsafe CastSnapshot GetCastSnapshot(IGameObject? actor)
     {
-        if (!actor.IsCasting || actor.CastActionId == 0)
+        if (!IsUsable(actor) || actor is not ICharacter) return default;
+        try
+        {
+            var native = (NativeCharacter*)actor.Address;
+            if (native == null || native->VirtualTable == null) return default;
+            // Character's virtual getter also supports characters without an IBattleChara wrapper.
+            var cast = native->GetCastInfo();
+            return cast == null ? default : CastSnapshot.Create(actor.GameObjectId, cast->IsCasting,
+                cast->ActionId, cast->ActionType, cast->CurrentCastTime, cast->TotalCastTime);
+        }
+        catch { return default; }
+    }
+
+    public string GetCastName(CastSnapshot cast)
+    {
+        if (!cast.IsCasting || cast.ActionId == 0)
             return string.Empty;
-        if (actionNames.TryGetValue(actor.CastActionId, out var cached))
+        if (actionNames.TryGetValue(cast.ActionId, out var cached))
             return cached;
 
-        var name = dataManager.GetExcelSheet<LuminaAction>().TryGetRow(actor.CastActionId, out var action)
+        var name = dataManager.GetExcelSheet<LuminaAction>().TryGetRow(cast.ActionId, out var action)
             ? action.Name.ToString()
             : string.Empty;
         if (string.IsNullOrWhiteSpace(name))
-            name = string.Create(CultureInfo.InvariantCulture, $"Action {actor.CastActionId}");
-        actionNames[actor.CastActionId] = name;
+            name = string.Create(CultureInfo.InvariantCulture, $"Action {cast.ActionId}");
+        actionNames[cast.ActionId] = name;
         return name;
     }
 
@@ -141,3 +158,4 @@ public sealed class HudDataService
         }
     }
 }
+

@@ -20,7 +20,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static readonly string[] DangerColours = ["Red", "Orange", "Yellow", "Custom"];
     private static readonly string[] MarkerStyles = ["Ground Projected", "Camera Facing"];
     private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target", "Targeting Me Counter", "Player Cast", "Target Cast", "Currency Tracker"];
-    private static readonly string[] ArcValueFormats = ["Current / Total", "Current Only"];
+    private static readonly string[] ArcValueFormats = ["Current + Total", "Current Only"];
     private static readonly string[] CurrencyOrientations = ["Horizontal / Wrap", "Vertical"];
     private static readonly string[] CurrencyAlignments = ["Left", "Right"];
     private static readonly string[] BarStyles = ["Standard", "Curved / Arc"];
@@ -598,6 +598,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
         var config = configuration.Current.Player;
         DrawModuleVisibility(HudModuleKind.Player, config);
         DrawBarStyle(HudModuleKind.Player, config);
+        if (config.BarStyle == HudBarStyle.Arc)
+            DrawSeparateCastSettings(HudModuleKind.PlayerCast, configuration.Current.PlayerCast);
         if (OpenSection("Information"))
         {
             DrawToggle("Show character name", config.ShowName, value => Update(c => c.Player.ShowName = value));
@@ -610,20 +612,24 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 value => Update(c => c.Player.ShowHpPercentage = value));
             DrawMpMode(config.MpDisplay, value => Update(c => c.Player.MpDisplay = value));
             DrawShieldMode(config.ShieldDisplay, value => Update(c => c.Player.ShieldDisplay = value));
-            DrawToggle("Show cast name", config.ShowCastName,
-                value => Update(c => c.Player.ShowCastName = value));
-            DrawToggle("Show cast bar", config.ShowCastBar,
-                value => Update(c => c.Player.ShowCastBar = value));
-            DrawToggle("Show cast percentage", config.ShowCastPercentage,
-                value => Update(c => c.Player.ShowCastPercentage = value));
-            DrawToggle("Show remaining cast time", config.ShowCastRemainingTime,
-                value => Update(c => c.Player.ShowCastRemainingTime = value));
+            if (config.BarStyle == HudBarStyle.Standard)
+            {
+                DrawToggle("Show cast name", config.ShowCastName,
+                    value => Update(c => c.Player.ShowCastName = value));
+                DrawToggle("Show cast bar", config.ShowCastBar,
+                    value => Update(c => c.Player.ShowCastBar = value));
+                DrawToggle("Show cast percentage", config.ShowCastPercentage,
+                    value => Update(c => c.Player.ShowCastPercentage = value));
+                DrawToggle("Show remaining cast time", config.ShowCastRemainingTime,
+                    value => Update(c => c.Player.ShowCastRemainingTime = value));
+            }
             DrawToggle("Show statuses (first five)", config.ShowStatuses,
                 value => Update(c => c.Player.ShowStatuses = value));
         }
         DrawModuleSizeLayout(HudModuleKind.Player, config);
         DrawModuleAppearance(HudModuleKind.Player, config);
-        DrawSeparateCastSettings(HudModuleKind.PlayerCast, configuration.Current.PlayerCast);
+        if (config.BarStyle == HudBarStyle.Standard)
+            DrawSeparateCastSettings(HudModuleKind.PlayerCast, configuration.Current.PlayerCast);
     }
 
     private void DrawTarget()
@@ -631,6 +637,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
         var config = configuration.Current.Target;
         DrawModuleVisibility(HudModuleKind.Target, config);
         DrawBarStyle(HudModuleKind.Target, config);
+        if (config.BarStyle == HudBarStyle.Arc)
+            DrawSeparateCastSettings(HudModuleKind.TargetCast, configuration.Current.TargetCast);
         if (OpenSection("Information"))
         {
             DrawToggle("Show target name", config.ShowName, value => Update(c => c.Target.ShowName = value));
@@ -644,17 +652,21 @@ public sealed class ConfigurationWindow : Window, IDisposable
             DrawMpMode(config.MpDisplay, value => Update(c => c.Target.MpDisplay = value));
             DrawToggle("Show distance", config.ShowDistance, value => Update(c => c.Target.ShowDistance = value));
             DrawShieldMode(config.ShieldDisplay, value => Update(c => c.Target.ShieldDisplay = value));
-            DrawToggle("Show cast name", config.ShowCastName, value => Update(c => c.Target.ShowCastName = value));
-            DrawToggle("Show cast bar", config.ShowCastBar, value => Update(c => c.Target.ShowCastBar = value));
-            DrawToggle("Show cast percentage", config.ShowCastPercentage,
-                value => Update(c => c.Target.ShowCastPercentage = value));
+            if (config.BarStyle == HudBarStyle.Standard)
+            {
+                DrawToggle("Show cast name", config.ShowCastName, value => Update(c => c.Target.ShowCastName = value));
+                DrawToggle("Show cast bar", config.ShowCastBar, value => Update(c => c.Target.ShowCastBar = value));
+                DrawToggle("Show cast percentage", config.ShowCastPercentage,
+                    value => Update(c => c.Target.ShowCastPercentage = value));
+            }
             DrawToggle("Show statuses (first five)", config.ShowStatuses,
                 value => Update(c => c.Target.ShowStatuses = value));
         }
         DrawModuleSizeLayout(HudModuleKind.Target, config);
         DrawModuleAppearance(HudModuleKind.Target, config);
         DrawNativeTargetOverlay(config.NativeHpOverlay);
-        DrawSeparateCastSettings(HudModuleKind.TargetCast, configuration.Current.TargetCast);
+        if (config.BarStyle == HudBarStyle.Standard)
+            DrawSeparateCastSettings(HudModuleKind.TargetCast, configuration.Current.TargetCast);
     }
 
     private void DrawBarStyle(HudModuleKind kind, HudModuleConfiguration module)
@@ -667,11 +679,16 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (module.BarStyle != HudBarStyle.Arc) return;
         var valueFormat = (int)module.ArcValueFormat;
         if (DrawComboSetting($"{kind}.ArcValueFormat", "Value format",
-                "Choose current/total or current only for both HP and MP. Individual HP field switches still apply.",
+                "HP total sits above current HP; MP retains current/total. Current Only hides totals for both. Individual HP switches still apply.",
                 ref valueFormat, ArcValueFormats))
             Update(c => GetModule(c, kind).ArcValueFormat = (ArcValueFormat)valueFormat);
         DrawToggle("Show resource percentages", module.ArcShowPercentages,
             value => Update(c => GetModule(c, kind).ArcShowPercentages = value));
+        var textScale = module.ArcTextScale;
+        if (DrawSliderSetting($"{kind}.ArcTextScale", "Curved bar text scale",
+                "Resizes HP/MP values and percentages independently of the bars. Names and levels keep the module scale.",
+                ref textScale, 0.5f, 2f, "%.2fx"))
+            Update(c => GetModule(c, kind).ArcTextScale = textScale);
         var orientation = (int)module.ArcOrientation;
         if (DrawComboSetting($"{kind}.ArcOrientation", "Orientation",
                 "Auto places the Player arc on the left and Target arc on the right.", ref orientation, ArcOrientations))
@@ -680,7 +697,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (DrawSliderSetting($"{kind}.ArcHeight", "Arc height", "Vertical editor edges also change this height.",
                 ref height, ArcBarGeometry.MinimumHeight, ArcBarGeometry.MaximumHeight, "%.0f px"))
             Update(c => GetModule(c, kind).ArcHeight = height);
-        DrawMutedText("Values sit on the outer side and percentages on the inner side, mirrored by orientation. Width controls the footprint; Bar height controls tube thickness. Standard and cast bars retain their text alignment setting.");
+        DrawMutedText("Total HP sits upper outer; current HP and MP sit lower outer, with percentages lower inner. Orientation mirrors them. Width controls the footprint; Bar height controls tube thickness.");
         DrawMutedText("Arc mode never attaches casts. Enable the separate cast bar below to place it independently.");
         if (DrawActionButton("Place arc near centre"))
         {
@@ -700,6 +717,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         {
             if (!OpenSection(kind == HudModuleKind.PlayerCast ? "Separate Player cast bar" : "Separate Target cast bar")) return;
             DrawMutedText("Enable for an independent cast module. Configure its position in the unlocked HUD; Layout also lists it separately. When enabled it replaces the Standard module's attached cast. Arc mode always keeps casts separate.");
+            DrawMutedText("Player and Target casts have separate enable switches. Self-targeting can show the same cast in both; unlock to place them apart.");
             DrawToggle("Enable separate cast bar", cast.Enabled,
                 value => Update(c => GetModule(c, kind).Enabled = value));
             if (!cast.Enabled) return;

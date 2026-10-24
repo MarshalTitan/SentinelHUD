@@ -3,7 +3,7 @@ using System.Numerics;
 namespace SentinelHUD.Core;
 
 public readonly record struct ArcReadout(string Name, string Metadata, string Hp,
-    string Mp, string Shield, string Distance, string HpPercentage, string MpPercentage = "");
+    string Mp, string Shield, string Distance, string HpPercentage, string MpPercentage = "", string HpMaximum = "");
 
 /// <summary>Horizontal cross-sections keep every track and partial-fill termination flat.</summary>
 public readonly record struct ArcStripQuad(Vector2 A, Vector2 B, Vector2 C, Vector2 D);

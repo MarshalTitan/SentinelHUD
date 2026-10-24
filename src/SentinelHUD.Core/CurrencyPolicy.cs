@@ -43,6 +43,13 @@ public static class CurrencyPolicy
 
 public static class ArcTextPolicy
 {
+    public static string HpCurrent(uint current, HudModuleConfiguration config, bool visible = true)
+        => visible ? HudFormatting.Number(current, config.NumberFormat) : string.Empty;
+
+    public static string HpMaximum(uint maximum, HudModuleConfiguration config, bool visible = true)
+        => visible && config.ArcValueFormat == ArcValueFormat.CurrentAndTotal
+            ? HudFormatting.Number(maximum, config.NumberFormat) : string.Empty;
+
     public static string Values(uint current, uint maximum, HudModuleConfiguration config,
         bool showCurrent = true, bool showMaximum = true)
         => HudFormatting.HitPoints(current, maximum, showCurrent,

@@ -39,6 +39,8 @@ public sealed class HudRenderer
     private readonly StringBuilder focusTargetLineBuilder = new(192);
     private readonly ArcHudRenderer playerArc = new();
     private readonly ArcHudRenderer targetArc = new();
+    private CastSnapshot playerCastSnapshot;
+    private CastSnapshot targetCastSnapshot;
     private IGameObject? focusTargetTarget;
     private Vector2 headerMinimum;
     private Vector2 headerMaximum;
@@ -174,6 +176,10 @@ public sealed class HudRenderer
         }
 
         var focus = data.FocusTarget;
+        playerCastSnapshot = data.GetCastSnapshot(player);
+        var sameActor = CastSnapshot.SameActor(player?.GameObjectId ?? 0, target?.GameObjectId ?? 0);
+        targetCastSnapshot = CastSnapshot.ForTarget(player?.GameObjectId ?? 0, playerCastSnapshot,
+            target?.GameObjectId ?? 0, sameActor ? playerCastSnapshot : data.GetCastSnapshot(target));
         var targetOfTarget = data.ResolveTargetOfTarget(target);
         focusTargetTarget = data.ResolveTargetOfTarget(focus);
         TargetResolved = target is not null;
@@ -415,7 +421,7 @@ public sealed class HudRenderer
         if (actor is IBattleChara battleChara)
         {
             if (CastPresentationPolicy.ShowAttached(config, configuration.Current.PlayerCast))
-                DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
+                DrawCast(playerCastSnapshot, config, config.ShowCastName, config.ShowCastBar,
                     config.ShowCastPercentage, config.ShowCastRemainingTime);
             if (config.ShowStatuses)
                 DrawStatuses(battleChara);
@@ -452,7 +458,7 @@ public sealed class HudRenderer
         if (actor is IBattleChara battleChara)
         {
             if (CastPresentationPolicy.ShowAttached(config, configuration.Current.TargetCast))
-                DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
+                DrawCast(targetCastSnapshot, config, config.ShowCastName, config.ShowCastBar,
                     config.ShowCastPercentage, false);
             if (config.ShowStatuses)
                 DrawStatuses(battleChara);
@@ -469,7 +475,7 @@ public sealed class HudRenderer
         if (actor.ObjectKind == ObjectKind.Pc && showRole)
             metadata = AppendHeaderPart(metadata, data.GetRoleName(actor));
         var (current, maximum, percentage) = GetHpVisibility(module);
-        var hpText = ArcTextPolicy.Values(character.CurrentHp, character.MaxHp, module, current, maximum);
+        var hpText = ArcTextPolicy.HpCurrent(character.CurrentHp, module, current);
         var mpText = character.MaxMp > 0 && mpMode is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText
             ? ArcTextPolicy.Values(character.CurrentMp, character.MaxMp, module) : string.Empty;
         var shieldText = character.ShieldPercentage > 0 && shieldMode is ShieldDisplayMode.TextOnly or ShieldDisplayMode.BarAndText
@@ -479,7 +485,8 @@ public sealed class HudRenderer
             kind == HudModuleKind.Target && configuration.Current.Target.ShowDistance
                 ? HudFormatting.Distance(data.GetDistance(actor)) : string.Empty,
             ArcTextPolicy.Percentage(character.CurrentHp, character.MaxHp, module, percentage),
-            ArcTextPolicy.Percentage(character.CurrentMp, character.MaxMp, module, mpText.Length > 0));
+            ArcTextPolicy.Percentage(character.CurrentMp, character.MaxMp, module, mpText.Length > 0),
+            ArcTextPolicy.HpMaximum(character.MaxHp, module, maximum));
         var fraction = character.MaxHp == 0 ? 0f : Math.Clamp((float)character.CurrentHp / character.MaxHp, 0f, 1f);
         var shield = shieldMode is ShieldDisplayMode.BarOnly or ShieldDisplayMode.BarAndText
             ? character.ShieldPercentage / 100f : 0f;
@@ -512,7 +519,7 @@ public sealed class HudRenderer
         var mp = isPlayer ? root.Player.MpDisplay : root.Target.MpDisplay;
         var shield = isPlayer ? root.Player.ShieldDisplay : root.Target.ShieldDisplay;
         var (current, maximum, percentage) = GetHpVisibility(module);
-        var hpText = ArcTextPolicy.Values(120000, 150000, module, current, maximum);
+        var hpText = ArcTextPolicy.HpCurrent(120000, module, current);
         var text = new ArcReadout(showName ? (isPlayer ? "Player preview" : "Target preview") : string.Empty,
             showLevel ? "Lv.100" : string.Empty, hpText,
             mp is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText
@@ -520,7 +527,8 @@ public sealed class HudRenderer
             shield is ShieldDisplayMode.TextOnly or ShieldDisplayMode.BarAndText ? "Shield 20%" : string.Empty,
             !isPlayer && root.Target.ShowDistance ? "10.0y" : string.Empty,
             ArcTextPolicy.Percentage(120000, 150000, module, percentage),
-            ArcTextPolicy.Percentage(8000, 10000, module, mp is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText));
+            ArcTextPolicy.Percentage(8000, 10000, module, mp is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText),
+            ArcTextPolicy.HpMaximum(150000, module, maximum));
         var colour = isPlayer ? root.Appearance.PlayerHealth.ToVector4() : root.Appearance.HostileHealth.ToVector4();
         colour = HpColourPolicy.Resolve(isPlayer ? root.Appearance.PlayerHpColourMode : root.Appearance.TargetHpColourMode, 0.8f, colour);
         DrawArc(kind, module, 0.8f, shield is ShieldDisplayMode.BarOnly or ShieldDisplayMode.BarAndText ? 0.2f : 0f,
@@ -540,16 +548,24 @@ public sealed class HudRenderer
     {
         if (root.Locked && !cast.ShowCastBar && !cast.ShowCastName
             && !cast.ShowCastPercentage && !cast.ShowCastRemainingTime) return;
+        var snapshot = kind == HudModuleKind.PlayerCast ? playerCastSnapshot : targetCastSnapshot;
         if (!CastPresentationPolicy.ShowSeparate(cast, root.Locked,
-                actor is IBattleChara { IsCasting: true }, runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty)) return;
-        DrawModule(kind, cast, root, actor, DrawSeparateCastContent, actorRequired: false, transparentBackground: true);
+                snapshot.IsCasting, runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty)) return;
+        DrawModule(kind, cast, root, actor, kind == HudModuleKind.PlayerCast ? DrawPlayerCastContent : DrawTargetCastContent,
+            actorRequired: false, transparentBackground: true);
     }
 
-    private void DrawSeparateCastContent(IGameObject? actor, HudModuleConfiguration module)
+    private void DrawPlayerCastContent(IGameObject? _, HudModuleConfiguration module)
+        => DrawSeparateCastContent(playerCastSnapshot, module);
+
+    private void DrawTargetCastContent(IGameObject? _, HudModuleConfiguration module)
+        => DrawSeparateCastContent(targetCastSnapshot, module);
+
+    private void DrawSeparateCastContent(CastSnapshot snapshot, HudModuleConfiguration module)
     {
         var cast = (CastModuleConfiguration)module;
-        if (actor is IBattleChara { IsCasting: true } battle)
-            DrawCast(battle, cast, cast.ShowCastName, cast.ShowCastBar,
+        if (snapshot.IsCasting)
+            DrawCast(snapshot, cast, cast.ShowCastName, cast.ShowCastBar,
                 cast.ShowCastPercentage, cast.ShowCastRemainingTime);
         else if (!configuration.Current.Locked)
         {
@@ -582,7 +598,7 @@ public sealed class HudRenderer
         if (config.ShowDistance)
             ImGui.TextUnformatted(HudFormatting.Distance(data.GetDistance(actor)));
         if (actor is IBattleChara battleChara)
-            DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
+            DrawCast(data.GetCastSnapshot(battleChara), config, config.ShowCastName, config.ShowCastBar,
                 config.ShowCastPercentage, false);
         DrawFocusTargetTarget(config);
     }
@@ -779,16 +795,16 @@ public sealed class HudRenderer
             $"Shield  {HudFormatting.Shield(character.MaxHp, character.ShieldPercentage)}");
     }
 
-    private void DrawCast(IBattleChara actor, HudModuleConfiguration module,
+    private void DrawCast(CastSnapshot cast, HudModuleConfiguration module,
         bool showName, bool showBar, bool showPercentage, bool showRemainingTime)
     {
-        if (!actor.IsCasting)
+        if (!cast.IsCasting)
             return;
         var headerStart = ImGui.GetCursorScreenPos();
-        var total = actor.TotalCastTime;
-        var current = actor.CurrentCastTime;
-        var fraction = total <= 0f ? 0f : Math.Clamp(current / total, 0f, 1f);
-        var name = showName ? data.GetCastName(actor) : string.Empty;
+        var total = cast.Total;
+        var current = cast.Current;
+        var fraction = cast.Progress;
+        var name = showName ? data.GetCastName(cast) : string.Empty;
         var percentage = showPercentage ? HudFormatting.CastPercentage(current, total) : string.Empty;
         var remaining = showRemainingTime ? HudFormatting.RemainingCastTime(current, total) : string.Empty;
         var overlay = name;
