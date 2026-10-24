@@ -75,12 +75,12 @@ public sealed class CurrencyTrackerRenderer(ITextureProvider? textures)
                     var textX = right && config.Orientation == CurrencyOrientation.Vertical
                         ? start.X + width - entry.TextSize.X : x + iconWidth;
                     ImGui.SetCursorPos(new Vector2(textX, y));
-                    ImGui.PushTextWrapPos(start.X + width);
+                    // ImGui's word-wrap boundary is exclusive at some fractional font sizes.
+                    // Keep a measured single line from wrapping its last word at the exact edge.
+                    ImGui.PushTextWrapPos(start.X + width + 1f);
                     try { ImGui.TextUnformatted(entry.Text); }
                     finally { ImGui.PopTextWrapPos(); }
                     rowHeight = Math.Max(rowHeight, ImGui.GetItemRectSize().Y);
-                    if (right && width >= 600f && scale > 1f && !config.ShowNames && !config.ShowIcons)
-                        Console.WriteLine($"CURRENCY TRACE text={entry.Text}; width={width}; start={start}; measured={entry.TextSize}; rowWidth={rowWidth}; x={textX}; rect={ImGui.GetItemRectMin()} to {ImGui.GetItemRectMax()}; font={ImGui.GetFontSize()}");
                     x += entry.Width + gap;
                     EntryCount++;
                 }

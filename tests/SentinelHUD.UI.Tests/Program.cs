@@ -259,9 +259,8 @@ internal static class Program
                     Check(vertices[vertex].Pos.X <= edge + 2f, "Currency glyphs extend past the right edge.");
                 }
                 // Narrow forced wrapping can leave a partial character's advance unused.
-                // Check glyph flush once ImGui's requested-size font has been baked,
-                // where every full entry fits on one line (as in the arc render checks).
-                if (alignment == CurrencyAlignment.Right && width >= 640f && frame > 0)
+                // Check glyph flush where every full entry fits on one line.
+                if (alignment == CurrencyAlignment.Right && width >= 640f)
                     Check(lastX >= edge - 4f * scale, $"Right alignment leaves an unused gutter: width={width}, scale={scale}, full={full}, orientation={orientation}, icons={showIcons}, last={lastX}, edge={edge}, frame={frame}.");
                 ImGui.End(); ImGui.PopStyleVar(); ImGui.Render();
             }
