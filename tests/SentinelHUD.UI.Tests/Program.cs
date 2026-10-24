@@ -34,7 +34,8 @@ internal static class Program
             Test("Classic native collapse and theme switching retain geometry", TestClassic);
             Test("arc paths, shields and wrapped text render at three widths/scales", TestArcRendering);
             Test("arc islands pass empty space through and preserve bar clicks", TestArcInputs);
-            Console.WriteLine($"{passed}/9 native ImGui UI test groups passed.");
+            Test("currency compact/full layouts wrap at narrow widths", TestCurrencyLayouts);
+            Console.WriteLine($"{passed}/10 native ImGui UI test groups passed.");
             return 0;
         }
         catch (Exception exception)
@@ -112,7 +113,7 @@ internal static class Program
                 renderer.Draw(module, HudModuleKind.Player, scale, 0.8f,
                     frame == 0 ? 0f : frame == 1 ? 0.75f : 1f, 0.3f, 0.6f, true,
                     new ArcReadout("A long combatant name for wrapping", "Lv.100",
-                        "120,000 / 150,000", "8,000 / 10,000", "Shield 30%", "10.0y", "80.0%"),
+                        "120,000 / 150,000", "8,000 / 10,000", "Shield 30%", "10.0y", "80.0%", "80.0%"),
                     new Vector4(0.2f, 0.8f, 0.3f, 1f), new Vector4(0.2f, 0.4f, 1f, 1f),
                     new Vector4(0.2f, 0.6f, 1f, 1f));
                 Check(ImGui.GetCursorScreenPos().Y >= start.Y + 240f * scale,
@@ -124,7 +125,7 @@ internal static class Program
                 Check(orientation == ArcOrientation.Left
                     ? renderer.HpTextBounds.Maximum.X < centre && renderer.HpPercentageBounds.Minimum.X > centre
                     : renderer.HpPercentageBounds.Maximum.X < centre && renderer.HpTextBounds.Minimum.X > centre,
-                    "Bottom outer values and inner percentage are not mirrored correctly.");
+                    "Outer side values and inner side percentage are not mirrored correctly.");
                 Check(renderer.HpTextBounds.Maximum.Y < renderer.MpTextBounds.Minimum.Y,
                     "HP and MP readouts overlap.");
                 var rightEdge = ImGui.GetWindowPos().X + ImGui.GetWindowSize().X - ImGui.GetStyle().WindowPadding.X;
@@ -135,6 +136,13 @@ internal static class Program
                     AssertTextColour(renderer.HpTextBounds, new Vector4(0.2f, 0.8f, 0.3f, 0.8f));
                     AssertTextColour(renderer.HpPercentageBounds, new Vector4(0.2f, 0.8f, 0.3f, 0.8f));
                     AssertTextColour(renderer.MpTextBounds, new Vector4(0.2f, 0.4f, 1f, 0.8f));
+                    AssertTextColour(renderer.MpPercentageBounds, new Vector4(0.2f, 0.4f, 1f, 0.8f));
+                    var fringe = false;
+                    var band = renderer.GetHitBand(12);
+                    var vertices = ImGui.GetWindowDrawList().VtxBuffer;
+                    for (var i = 0; i < vertices.Size; i++)
+                        if ((vertices[i].Col >> 24) == 0 && band.Contains(vertices[i].Pos)) fringe = true;
+                    Check(fringe, "Smooth tube edge has no transparent antialiasing fringe.");
                 }
                 ImGui.End();
                 ImGui.Render();
@@ -203,6 +211,42 @@ internal static class Program
                     if (clicked.Right) rightClicks++;
                 }
                 ImGui.Render();
+            }
+        });
+    }
+
+    private static void TestCurrencyLayouts()
+    {
+        foreach (var width in new[] { 180f, 480f, 640f })
+        foreach (var scale in new[] { 0.75f, 1.5f })
+        foreach (var full in new[] { false, true })
+        foreach (var orientation in new[] { CurrencyOrientation.Horizontal, CurrencyOrientation.Vertical })
+        InContext(() =>
+        {
+            var renderer = new CurrencyTrackerRenderer(null);
+            var config = HudConfigurationDefaults.CreateCurrencyTracker();
+            config.Enabled = true; config.ShowNames = full; config.Orientation = orientation;
+            CurrencyBalance[] balances =
+            [
+                new(new CurrencyDefinition(1, "Gil", 0, null, false), 123456789, null),
+                new(new CurrencyDefinition(90001, "Allagan Tomestone of Mnemonics", 0, 2000, true), 1989, 2000),
+                new(new CurrencyDefinition(90002, "Bicolor Gemstones", 0, 1500, false), 782, 1500),
+                new(new CurrencyDefinition(90003, "Wolf Marks", 0, 20000, false), 7825, 20000),
+            ];
+            for (var frame = 0; frame < 3; frame++)
+            {
+                ImGui.NewFrame();
+                ImGui.SetNextWindowPos(new Vector2(40f, 40f));
+                ImGui.SetNextWindowSize(new Vector2(width, 2000f));
+                ImGui.Begin("Currency layout", ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoInputs);
+                ImGui.SetWindowFontScale(scale);
+                renderer.Draw(config, balances, scale, 0.8f, false);
+                Check(renderer.EntryCount == 4, "Selected currencies disappeared.");
+                Check(renderer.RowCount is >= 1 and <= 4, "Unexpected currency row count.");
+                if (orientation == CurrencyOrientation.Vertical) Check(renderer.RowCount == 4, "Vertical orientation did not stack entries.");
+                var edge = ImGui.GetWindowPos().X + ImGui.GetWindowSize().X - ImGui.GetStyle().WindowPadding.X;
+                Check(ImGui.GetItemRectMax().X <= edge + 1f, "Currency entries overflow the module width.");
+                ImGui.End(); ImGui.Render();
             }
         });
     }

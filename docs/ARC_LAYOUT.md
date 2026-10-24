@@ -1,37 +1,35 @@
-# Optional arcs and separate casts (0.8.6.2)
+# Optional arcs and separate casts (0.8.7.0)
 
-In locked Arc mode, only tight regions along visible HP/MP tracks accept actor clicks. Names, numeric text, percentages and unused space remain click-through to the game. A hidden MP track has no input region. No large rectangular hover outline is drawn. Unlocking retains the full module edit frame. Standard keeps its existing Whole module/Header-only choice and saved preference; Arc uses visible tracks automatically without adding a setting or changing the schema.
+In **HUD Elements > Player** or **Target**, choose **Bar style > Curved / Arc**. Classic exposes the same settings in Player/Target tabs. Standard stays the default, and changing style preserves saved module anchors. **Place arc near centre** remains an explicit optional positioning action.
 
-The lower HP endpoint separates two readouts: HP values on the bottom outside and HP percentage on the bottom inside. Player/Target mirror this placement. MP values sit below HP values, and literal HP/MP labels are omitted. Colours identify each resource. Name/level metadata remains beside the lower inner bar region; text wraps inside the module footprint. Existing scale/width/height settings apply, and the full editor frame includes the footer.
+## Side readouts
 
-Arc tracks and HP/MP/shield fills retain flat horizontal terminations. HP values and percentage use the resolved HP colour, including hostile red and health gradients. MP values use the configured MP colour; shields use Shield colour. Target distance sits under the inner percentage. No new settings or migration are needed for this refinement.
+Player values sit on the outer-left side and percentages on the inner-right; Target mirrors them. HP and MP have separate aligned rows. **Value format** chooses Current/Total or Current Only for both resources. **Show resource percentages** controls percentages; individual HP information switches remain respected. MP text modes retain their normal meaning. Full/Compact number formatting applies, and literal HP/MP labels are omitted.
 
-In **HUD Elements > Player** or **Target**, open **Bar style**, then choose **Curved / Arc**. In Classic use the Player or Target tab. Standard remains the default; changing style never moves the saved module. **Place arc near centre** is an explicit optional positioning action. Unlock the HUD to position the two arcs around your character.
+HP values/percentage follow the resolved HP colour, including hostile red and health-state gradients. MP uses its configured colour, and shields use Shield colour. Names, level/job metadata and distance remain integrated beside the bars. Text wraps outside the full bar contours, and the module grows vertically when needed.
 
-**Auto / mirrored** bows the Player arc on the left and Target arc on the right. Left side and Right side override this independently. HP fills bottom to top; MP, when enabled, is the thinner parallel arc toward the centre. Existing Full/Compact numbers, HP value/percentage toggles, name/job/role/level, MP modes, shield modes, target distance and statuses remain available. Text wraps beside the arc; level remains in the header. Shields use the same integrated blue overlay/extension policy as Standard. HP colours, hostile red and health gradients use the existing resolver.
+## Rendering and interaction
+
+Cached bows retain flat horizontal terminations. Alpha edge fringes smooth the outer contours; cross-strip shading and restrained highlights create a liquid/tube presentation. Dimensions/orientation rebuild geometry only when they change. HP/MP/shield updates reuse the cached paths.
+
+Locked Arc mode accepts clicks only through tight regions along visible HP/MP tracks. Names, numeric text, percentages and unused space stay click-through. Hidden MP has no region, and no large rectangular hover outline is drawn. Standard keeps its saved Whole module/Header-only choice. Unlocking uses the full module edit frame and gives editing priority over actor actions.
 
 | Setting | Arc interpretation |
 |---|---|
-| Module width | Overall horizontal footprint including the text area; fonts do not stretch |
-| Module scale / global scale | Scale arc height, stroke thickness and text |
-| Bar height | HP stroke thickness, capped at 10% of available width so small modules remain legible |
+| Module width | Overall footprint, including the side text areas |
+| Module/global scale | Arc height, thickness and type scale |
+| Bar height | HP tube thickness, capped to fit narrow modules |
 | Arc height | Vertical bow height before scale, 100–600 px |
-| Opacity / border | Apply to the arc tracks, fills, text and optional subtle outline |
-| HP text alignment | Standard/cast-bar alignment; Arc uses mirrored lower outside values and lower inside percentage |
-| Visibility / targeting | Existing conditions; locked Arc targets through visible track regions, Standard retains its saved area choice |
+| Auto orientation | Player left, Target right; explicit Left/Right overrides remain available |
+| Opacity/border | Track, fill, fringe, text and subtle shell outline |
+| HP text alignment | Standard/cast-bar alignment; Arc uses mirrored side placement |
 
-In edit mode, drag the body to move, horizontal edges to change width, vertical edges to change arc height, and corners to change both. Adjust thickness numerically. The editor uses the same origin in locked and unlocked modes. An unresolved actor gets an arc preview; this preview never appears in gameplay.
+In edit mode, drag to move, horizontal edges for width, vertical edges for arc height, and corners for both. Adjust thickness numerically. Unresolved actors get a preview only in edit mode; non-character targets never retain a previous actor's track input regions.
 
 ## Separate cast bars
 
-Player and Target each have a **Separate ... cast bar** section. Enable it, choose cast name/bar/percentage/remaining time and visibility, then unlock and drag its independent frame below the character. Its width, height, scale, opacity and text alignment are independent. **Layout** lists **Player Cast** and **Target Cast** for position reset and appearance tools. Idle edit mode supplies a sample cast. Gameplay shows the module only while its actor is casting and its own visibility condition is satisfied. It can run with the parent HP module disabled.
+Enable **Separate Player cast bar** or **Separate Target cast bar** on its actor page, then unlock to position it beneath the character. Each has independent width, height, scale, opacity, visibility and cast name/progress/percentage/remaining-time controls. **Layout** lists both modules for reset/appearance tools. Gameplay hides idle casts; editing supplies a preview. A separate cast can run with its parent HP module disabled.
 
-Arc modules never contain an attached cast. In Standard, enabling a separate cast suppresses the old attached presentation to prevent duplicates; disabling it restores the parent's existing cast settings. The old name/bar/percentage/time controls on the parent still configure only its Standard attached cast. Separate cast fields are independent and default disabled. Both presentations reuse the existing live cast reader and draw/formatting path; they do not run another cast-tracking service.
+Arcs never attach casts. In Standard, an enabled separate cast suppresses the old attached presentation; disabling it restores the saved Standard cast options. Both use the existing live cast reader/formatter rather than another cast-tracking service.
 
-## Persistence and scope
-
-Schema **13** adds arc preferences and disabled cast configurations using defaults. It retains every existing setting and the protected pre-migration backup. Styles, orientation, dimensions, separate positions and cast preferences survive reload and update. Core is unchanged at package **0.3.1**, source `300703b360a58fb4b73bf7675d31fe8cab4614cd`.
-
-Initial arc support is Player/Target. Focus Target and Target-of-Target remain Standard. Curve samples are cached in two fixed arrays per arc renderer and rebuilt only when dimensions/orientation change. HP/MP/shield changes reuse those paths. Arcs use the existing overlay layer and actor-menu interaction path.
-
-Automated checks exercise migration, serialization, mirrored geometry, bounded resizing, cache reuse, cast visibility/ownership and native ImGui rendering at three widths/scales. Final visual placement/readability, real cast transitions, clicks/native menus and restart persistence need FFXIV live acceptance.
+Schema 14 adds only text-option/currency defaults. Existing preferences, positions and geometry remain saved with the protected migration backup. Core stays at package 0.3.1, source `300703b360a58fb4b73bf7675d31fe8cab4614cd`. Initial arc support remains Player/Target; Focus/ToT stay Standard. Native ImGui tests cover rendering, colours, layout and mouse capture; final appearance, real actor clicks and restart acceptance require the live checklist.

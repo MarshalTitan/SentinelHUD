@@ -19,7 +19,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static readonly string[] HighlightColours = ["Yellow", "Green", "Blue", "White", "Custom"];
     private static readonly string[] DangerColours = ["Red", "Orange", "Yellow", "Custom"];
     private static readonly string[] MarkerStyles = ["Ground Projected", "Camera Facing"];
-    private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target", "Targeting Me Counter", "Player Cast", "Target Cast"];
+    private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target", "Targeting Me Counter", "Player Cast", "Target Cast", "Currency Tracker"];
+    private static readonly string[] ArcValueFormats = ["Current / Total", "Current Only"];
+    private static readonly string[] CurrencyOrientations = ["Horizontal / Wrap", "Vertical"];
     private static readonly string[] BarStyles = ["Standard", "Curved / Arc"];
     private static readonly string[] ArcOrientations = ["Auto / mirrored", "Left side", "Right side"];
     private static readonly string[] ClickableAreas = ["Whole module", "Header / name only"];
@@ -90,6 +92,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private readonly Action drawPluginNotInstalledStatus;
     private readonly ImGuiWindowFlags classicWindowFlags;
     private int selectedLayoutModule;
+    private string currencySearch = string.Empty;
     private bool modernThemeActive;
     private IDisposable? activeClassicStyleScope;
     private bool disposed;
@@ -191,6 +194,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             DrawTab("Target", DrawTarget);
             DrawTab("Focus Target", DrawFocusTarget);
             DrawTab("Target-of-Target", DrawTargetOfTarget);
+            DrawTab("Currency Tracker", DrawCurrencyTracker);
             DrawTab("Awareness", DrawAwareness);
             DrawTab("Encounter Awareness", DrawEncounterAwareness);
             DrawTab("Camera", DrawCamera);
@@ -259,6 +263,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             case SentinelHudModernContentPage.Target: DrawTarget(); break;
             case SentinelHudModernContentPage.FocusTarget: DrawFocusTarget(); break;
             case SentinelHudModernContentPage.TargetOfTarget: DrawTargetOfTarget(); break;
+            case SentinelHudModernContentPage.CurrencyTracker: DrawCurrencyTracker(); break;
             case SentinelHudModernContentPage.Layout: DrawLayout(); break;
             case SentinelHudModernContentPage.Awareness: DrawAwareness(); break;
             case SentinelHudModernContentPage.EncounterAwareness: DrawEncounterAwareness(); break;
@@ -280,6 +285,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 DrawModernSecondaryItem(SentinelHudModernContentPage.Target, "Target");
                 DrawModernSecondaryItem(SentinelHudModernContentPage.FocusTarget, "Focus Target");
                 DrawModernSecondaryItem(SentinelHudModernContentPage.TargetOfTarget, "Target-of-Target");
+                DrawModernSecondaryItem(SentinelHudModernContentPage.CurrencyTracker, "Currency Tracker");
                 ImGui.Spacing();
                 SentinelModernSecondaryNavigation.GroupLabel("Tools");
                 DrawModernSecondaryItem(SentinelHudModernContentPage.Layout, "Layout");
@@ -477,6 +483,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             SentinelHudModernContentPage.Target => ("Target", "Target data, casting information and native target-bar overlay."),
             SentinelHudModernContentPage.FocusTarget => ("Focus Target", "Focus information and the focus target's current target."),
             SentinelHudModernContentPage.TargetOfTarget => ("Target-of-Target", "A compact, independently positioned represented-actor panel."),
+            SentinelHudModernContentPage.CurrencyTracker => ("Currency Tracker", "Selected currencies, live balances and game icons in one compact HUD module."),
             SentinelHudModernContentPage.Layout => ("Layout", "Visual editor, reset tools and appearance-copy actions."),
             SentinelHudModernContentPage.Awareness => ("Awareness", "Self visibility, true-position marker and incoming PvP attention."),
             SentinelHudModernContentPage.EncounterAwareness => ("Encounter Awareness", "Trusted hazard providers and exact-position danger feedback."),
@@ -657,6 +664,13 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 "Standard keeps the existing rectangular layout. Arcs use a mirrored vertical bow.", ref style, BarStyles))
             Update(c => GetModule(c, kind).BarStyle = (HudBarStyle)style);
         if (module.BarStyle != HudBarStyle.Arc) return;
+        var valueFormat = (int)module.ArcValueFormat;
+        if (DrawComboSetting($"{kind}.ArcValueFormat", "Value format",
+                "Choose current/total or current only for both HP and MP. Individual HP field switches still apply.",
+                ref valueFormat, ArcValueFormats))
+            Update(c => GetModule(c, kind).ArcValueFormat = (ArcValueFormat)valueFormat);
+        DrawToggle("Show resource percentages", module.ArcShowPercentages,
+            value => Update(c => GetModule(c, kind).ArcShowPercentages = value));
         var orientation = (int)module.ArcOrientation;
         if (DrawComboSetting($"{kind}.ArcOrientation", "Orientation",
                 "Auto places the Player arc on the left and Target arc on the right.", ref orientation, ArcOrientations))
@@ -665,7 +679,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (DrawSliderSetting($"{kind}.ArcHeight", "Arc height", "Vertical editor edges also change this height.",
                 ref height, ArcBarGeometry.MinimumHeight, ArcBarGeometry.MaximumHeight, "%.0f px"))
             Update(c => GetModule(c, kind).ArcHeight = height);
-        DrawMutedText("Module width controls the footprint; Bar height controls arc thickness. HP values wrap at the bottom outside, with HP percentage at the bottom inside. MP values sit below HP values. Standard and cast bars retain their text alignment setting.");
+        DrawMutedText("Values sit on the outer side and percentages on the inner side, mirrored by orientation. Width controls the footprint; Bar height controls tube thickness. Standard and cast bars retain their text alignment setting.");
         DrawMutedText("Arc mode never attaches casts. Enable the separate cast bar below to place it independently.");
         if (DrawActionButton("Place arc near centre"))
         {
@@ -704,6 +718,70 @@ public sealed class ConfigurationWindow : Window, IDisposable
             DrawModuleAppearance(kind, cast);
         }
         finally { ImGui.PopID(); }
+    }
+
+    private void DrawCurrencyTracker()
+    {
+        var config = configuration.Current.CurrencyTracker;
+        DrawToggle("Enable Currency Tracker", config.Enabled, value => Update(c => c.CurrencyTracker.Enabled = value));
+        DrawToggle("Show names (full mode)", config.ShowNames, value => Update(c => c.CurrencyTracker.ShowNames = value));
+        DrawToggle("Show caps", config.ShowCaps, value => Update(c => c.CurrencyTracker.ShowCaps = value));
+        DrawToggle("Show icons", config.ShowIcons, value => Update(c => c.CurrencyTracker.ShowIcons = value));
+        var orientation = (int)config.Orientation;
+        if (DrawComboSetting("Currency.Orientation", "Orientation", "Horizontal entries wrap to fit the module width.",
+                ref orientation, CurrencyOrientations))
+            Update(c => c.CurrencyTracker.Orientation = (CurrencyOrientation)orientation);
+        var numberFormat = (int)config.NumberFormat;
+        if (DrawComboSetting("Currency.Numbers", "Number format", "Full or compact currency amounts.", ref numberFormat, NumberFormats))
+            Update(c => c.CurrencyTracker.NumberFormat = (HudNumberFormat)numberFormat);
+        var opacity = config.Opacity;
+        if (DrawSliderSetting("Currency.Opacity", "Opacity", "Applies to currency icons and text.", ref opacity, 0.15f, 1f, "%.2f"))
+            Update(c => c.CurrencyTracker.Opacity = opacity);
+        DrawModuleSizeLayout(HudModuleKind.CurrencyTracker, config);
+        var x = config.Layout.AnchorX; var y = config.Layout.AnchorY;
+        if (DrawSliderSetting("Currency.X", "Horizontal position", "Normalized screen position; unlock to drag directly.", ref x, 0f, 1f, "%.3f"))
+            Update(c => c.CurrencyTracker.Layout.AnchorX = x);
+        if (DrawSliderSetting("Currency.Y", "Vertical position", "Normalized screen position; the default is near the bottom.", ref y, 0f, 1f, "%.3f"))
+            Update(c => c.CurrencyTracker.Layout.AnchorY = y);
+        DrawMutedText(renderer.Currencies.State);
+        var catalog = renderer.Currencies.Catalog;
+        if (OpenSection("Selected display order"))
+        {
+            for (var i = 0; i < config.SelectedCurrencies.Count; i++)
+            {
+                var id = config.SelectedCurrencies[i];
+                var definition = catalog.FirstOrDefault(entry => entry.ItemId == id);
+                ImGui.PushID((int)id);
+                ImGui.TextWrapped(definition?.Name ?? $"Unavailable currency #{id}");
+                var up = ImGui.SmallButton("Up"); ImGui.SameLine();
+                var down = ImGui.SmallButton("Down");
+                ImGui.PopID();
+                if (up && i > 0 || down && i + 1 < config.SelectedCurrencies.Count)
+                {
+                    var from = i; var to = up ? i - 1 : i + 1;
+                    Update(c => (c.CurrencyTracker.SelectedCurrencies[from], c.CurrencyTracker.SelectedCurrencies[to])
+                        = (c.CurrencyTracker.SelectedCurrencies[to], c.CurrencyTracker.SelectedCurrencies[from]));
+                    break;
+                }
+            }
+        }
+        if (!OpenSection("Selected currencies")) return;
+        DrawMutedText("Search currencies");
+        ImGui.SetNextItemWidth(Math.Max(80f, ImGui.GetContentRegionAvail().X));
+        ImGui.InputText("##CurrencySearch", ref currencySearch, 128);
+        DrawMutedText("Choose up to 24 currencies. Names, icons and holding caps come from the current game data; company seal caps follow company rank. Gil always shows its current amount only.");
+        foreach (var entry in catalog)
+        {
+            if (currencySearch.Length > 0 && !entry.Name.Contains(currencySearch, StringComparison.OrdinalIgnoreCase)) continue;
+            ImGui.PushID((int)entry.ItemId);
+            DrawToggle(entry.Name, config.SelectedCurrencies.Contains(entry.ItemId), value => Update(c =>
+            {
+                if (!value) c.CurrencyTracker.SelectedCurrencies.Remove(entry.ItemId);
+                else if (c.CurrencyTracker.SelectedCurrencies.Count < CurrencyPolicy.MaximumSelected)
+                    c.CurrencyTracker.SelectedCurrencies.Add(entry.ItemId);
+            }));
+            ImGui.PopID();
+        }
     }
 
     private void DrawFocusTarget()
@@ -1259,8 +1337,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
         var barHeight = module.BarHeight;
         if (DrawSliderSetting(
                 $"{kind}.BarHeight",
-                "Bar height",
-                "Controls HP, MP and cast-bar thickness independently of font scale.",
+                kind == HudModuleKind.CurrencyTracker ? "Entry height" : "Bar height",
+                kind == HudModuleKind.CurrencyTracker ? "Controls currency icon/row height independently of text scale."
+                    : "Controls HP, MP and cast-bar thickness independently of font scale.",
                 ref barHeight,
                 HudSizingPolicy.MinimumBarHeight,
                 HudSizingPolicy.MaximumBarHeight,
@@ -1671,6 +1750,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             HudModuleKind.TargetOfTarget => config.TargetOfTarget,
             HudModuleKind.PlayerCast => config.PlayerCast,
             HudModuleKind.TargetCast => config.TargetCast,
+            HudModuleKind.CurrencyTracker => config.CurrencyTracker,
             _ => config.TargetingMeCounter,
         };
 }

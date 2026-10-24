@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.7.0 - Polished side arcs and Currency Tracker
+
+- Move HP/MP values to the outer side and percentages to the inner side, mirrored for Player/Target. Add Current Only/Current-Total and resource-percentage options without changing Standard settings or adding HP/MP labels.
+- Add continuous alpha-fringed edges, shaded liquid fills and restrained tube highlights while preserving flat caps, cached bows, tight input regions, resource colours and independent casts.
+- Add an opt-in Currency Tracker: game-data currency catalog and icons, selected balances at a 500 ms cadence, holding caps, rank-dependent company-seal caps, ordered multi-selection, compact/full and horizontal-wrapped/vertical layouts. The tracker is click-through during gameplay and uses the normal editor.
+- Schema 14 adds only new defaults and a disabled currency module; existing positions/preferences remain intact. Core remains pinned at 0.3.1. Live balances/icons require in-game acceptance.
+
 ## 0.8.6.2 - Tight arc interactions and lower resource readouts
 
 - Limit locked Player/Target Arc input to narrow bands along each visible HP/MP track. Text, empty interiors and unused module space stay click-through. Hide the rectangular hover outline for arcs; keep the full edit frame when unlocked.

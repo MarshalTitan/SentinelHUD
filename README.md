@@ -2,7 +2,7 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.6.2** · Dalamud API **15** · .NET **10**
+Current release: **0.8.7.0** · Dalamud API **15** · .NET **10**
 
 ## Utility ownership cleanup — 0.8.5.0 / metadata correction 0.8.5.1
 
@@ -13,6 +13,9 @@ HUD no longer contains either game-facing utility engine. Its Convenience page s
 Scoped Anti-AFK and Quest Convenience user PASS reports authorized this separate cleanup. The Quest reward mode was not named and submarine was not separately confirmed; unreported cases remain unverified. Cleanup runtime acceptance remains pending; see [procedure and rollback](docs/UTILITY_CLEANUP.md).
 
 ## Features
+
+- Optional **Currency Tracker**: multiple selected currencies with live amounts, game icons and optional holding caps; compact/full, ordered, horizontal-wrapped or vertical layouts near the screen bottom. See [currency setup](docs/CURRENCY_TRACKER.md).
+- Polished mirrored arcs with values on the outer side, percentages on the inner side, Current Only/Current-Total modes, smoothed edges and subtle liquid/tube shading. Tight track-only input and separate cast modules are retained.
 
 - Optional mirrored **Curved / Arc** Player and Target HP/MP layouts with existing HP, level, shield, colour and gradient options. Standard rectangular modules remain the default. Independent Player and Target cast bars can be positioned below the character in either style. See [arc and cast layout](docs/ARC_LAYOUT.md).
 

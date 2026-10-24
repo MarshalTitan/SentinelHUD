@@ -17,7 +17,7 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
     private static readonly string[] WindowNames = Enumerable.Range(0, MaximumRegions)
         .Select(index => $"HUD editor {index}##SentinelHUD-Editor-{index}")
         .ToArray();
-    private static readonly string[] Labels = ["Player", "Target", "Focus", "Target of Target", "Targeting Me", "Player Cast", "Target Cast"];
+    private static readonly string[] Labels = ["Player", "Target", "Focus", "Target of Target", "Targeting Me", "Player Cast", "Target Cast", "Currencies"];
     private readonly ConfigurationCoordinator<Configuration> configuration = configuration;
     private readonly List<EditRegion> regions = new(MaximumRegions);
     private HudModuleKind? selectedKind;
@@ -219,6 +219,7 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
             HudModuleKind.TargetOfTarget => config.TargetOfTarget,
             HudModuleKind.PlayerCast => config.PlayerCast,
             HudModuleKind.TargetCast => config.TargetCast,
+            HudModuleKind.CurrencyTracker => config.CurrencyTracker,
             _ => config.TargetingMeCounter,
         };
 

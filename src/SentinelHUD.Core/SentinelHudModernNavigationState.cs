@@ -26,6 +26,7 @@ public enum SentinelHudModernContentPage
     Appearance = 10,
     Diagnostics = 11,
     Plugins = 12,
+    CurrencyTracker = 13,
 }
 
 /// <summary>
@@ -108,6 +109,7 @@ public sealed class SentinelHudModernNavigationState
             case SentinelHudModernContentPage.Target:
             case SentinelHudModernContentPage.FocusTarget:
             case SentinelHudModernContentPage.TargetOfTarget:
+            case SentinelHudModernContentPage.CurrencyTracker:
             case SentinelHudModernContentPage.Layout:
                 if (HudPage == page)
                     return false;
@@ -133,3 +135,4 @@ public sealed class SentinelHudModernNavigationState
         }
     }
 }
+

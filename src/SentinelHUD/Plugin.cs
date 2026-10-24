@@ -32,6 +32,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static ICondition Condition { get; private set; } = null!;
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
     [PluginService] internal static IFramework Framework { get; private set; } = null!;
+    [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
 
     private readonly PluginLifetime lifetime;
     private readonly WindowSystem windows = new("SentinelHUD");
@@ -66,6 +67,7 @@ public sealed class Plugin : IDalamudPlugin
         }
 
         var data = new HudDataService(ObjectTable, TargetManager, DataManager);
+        var currencies = new CurrencyDataService(DataManager);
         var highlight = lifetime.Add<ISelfHighlightService>(
             new NativeSelfHighlightService(ClientState, Condition, GameGui, data));
         var positionMarker = new PlayerPositionMarkerRenderer(GameGui);
@@ -106,6 +108,8 @@ public sealed class Plugin : IDalamudPlugin
             encounterAwareness,
             pvpThreatTracker,
             threatCounterFont,
+            currencies,
+            TextureProvider,
             GameGui,
             ClientState,
             Condition,
@@ -230,3 +234,4 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OpenConfiguration() => configurationWindow.OpenAndExpand();
 }
+
