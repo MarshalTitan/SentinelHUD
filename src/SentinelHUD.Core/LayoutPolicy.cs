@@ -117,11 +117,12 @@ public static class LayoutPolicy
         Vector2 startingPosition,
         Vector2 startingSize,
         Vector2 workPosition,
-        Vector2 workSize)
+        Vector2 workSize,
+        float minimumWidth = HudSizingPolicy.MinimumWidth)
     {
         var safeStartingWidth = float.IsFinite(startingWidth)
-            ? Math.Clamp(startingWidth, HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth)
-            : HudSizingPolicy.MinimumWidth;
+            ? Math.Clamp(startingWidth, minimumWidth, HudSizingPolicy.MaximumWidth)
+            : minimumWidth;
         var safeStartingBarHeight = float.IsFinite(startingBarHeight)
             ? Math.Clamp(startingBarHeight, HudSizingPolicy.MinimumBarHeight, HudSizingPolicy.MaximumBarHeight)
             : HudSizingPolicy.DefaultBarHeight;
@@ -136,14 +137,14 @@ public static class LayoutPolicy
         if (edges.HasFlag(EditorResizeEdges.Left))
         {
             var next = Math.Clamp(safeStartingWidth - safeDelta.X,
-                HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth);
+                minimumWidth, HudSizingPolicy.MaximumWidth);
             position.X += safeStartingWidth - next;
             width = next;
         }
         else if (edges.HasFlag(EditorResizeEdges.Right))
         {
             width = Math.Clamp(safeStartingWidth + safeDelta.X,
-                HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth);
+                minimumWidth, HudSizingPolicy.MaximumWidth);
         }
 
         var meterCount = Math.Max(1, renderedBarCount);
@@ -186,3 +187,4 @@ public static class LayoutPolicy
     private static float SanitizeChromeHeight(float value)
         => float.IsFinite(value) ? Math.Max(0f, value) : 0f;
 }
+

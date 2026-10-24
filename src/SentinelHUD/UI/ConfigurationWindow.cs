@@ -22,6 +22,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target", "Targeting Me Counter", "Player Cast", "Target Cast", "Currency Tracker"];
     private static readonly string[] ArcValueFormats = ["Current / Total", "Current Only"];
     private static readonly string[] CurrencyOrientations = ["Horizontal / Wrap", "Vertical"];
+    private static readonly string[] CurrencyAlignments = ["Left", "Right"];
     private static readonly string[] BarStyles = ["Standard", "Curved / Arc"];
     private static readonly string[] ArcOrientations = ["Auto / mirrored", "Left side", "Right side"];
     private static readonly string[] ClickableAreas = ["Whole module", "Header / name only"];
@@ -724,6 +725,34 @@ public sealed class ConfigurationWindow : Window, IDisposable
     {
         var config = configuration.Current.CurrencyTracker;
         DrawToggle("Enable Currency Tracker", config.Enabled, value => Update(c => c.CurrencyTracker.Enabled = value));
+        var catalog = renderer.Currencies.Catalog;
+        DrawMutedText("Find currencies");
+        ImGui.SetNextItemWidth(Math.Max(80f, ImGui.GetContentRegionAvail().X));
+        ImGui.InputTextWithHint("##CurrencySearch", "Search currencies...", ref currencySearch, 128);
+        if (currencySearch.Length > 0 && ImGui.SmallButton("Clear search")) currencySearch = string.Empty;
+        var matches = 0;
+        var listHeight = Math.Clamp(ImGui.GetContentRegionAvail().Y * 0.4f, 140f, 260f);
+        var open = ImGui.BeginChild("##CurrencyChoices", new Vector2(0f, listHeight), true);
+        try
+        {
+            if (open)
+            foreach (var entry in catalog)
+            {
+                if (!CurrencyPolicy.MatchesSearch(entry.Name, currencySearch)) continue;
+                matches++;
+                ImGui.PushID((int)entry.ItemId);
+                DrawToggle(entry.Name, config.SelectedCurrencies.Contains(entry.ItemId), value => Update(c =>
+                {
+                    if (!value) c.CurrencyTracker.SelectedCurrencies.Remove(entry.ItemId);
+                    else if (c.CurrencyTracker.SelectedCurrencies.Count < CurrencyPolicy.MaximumSelected)
+                        c.CurrencyTracker.SelectedCurrencies.Add(entry.ItemId);
+                }));
+                ImGui.PopID();
+            }
+            if (open && matches == 0) DrawMutedText(catalog.Count == 0 ? "Waiting for currency data." : "No currencies match your search.");
+        }
+        finally { ImGui.EndChild(); }
+        DrawMutedText($"{matches} of {catalog.Count} currencies. Choose up to 24; use Selected display order below to reorder them.");
         DrawToggle("Show names (full mode)", config.ShowNames, value => Update(c => c.CurrencyTracker.ShowNames = value));
         DrawToggle("Show caps", config.ShowCaps, value => Update(c => c.CurrencyTracker.ShowCaps = value));
         DrawToggle("Show icons", config.ShowIcons, value => Update(c => c.CurrencyTracker.ShowIcons = value));
@@ -731,6 +760,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (DrawComboSetting("Currency.Orientation", "Orientation", "Horizontal entries wrap to fit the module width.",
                 ref orientation, CurrencyOrientations))
             Update(c => c.CurrencyTracker.Orientation = (CurrencyOrientation)orientation);
+        var alignment = (int)config.Alignment;
+        if (DrawComboSetting("Currency.Alignment", "Alignment", "Right aligns each row; vertical mode also keeps icons in one column.",
+                ref alignment, CurrencyAlignments))
+            Update(c => c.CurrencyTracker.Alignment = (CurrencyAlignment)alignment);
         var numberFormat = (int)config.NumberFormat;
         if (DrawComboSetting("Currency.Numbers", "Number format", "Full or compact currency amounts.", ref numberFormat, NumberFormats))
             Update(c => c.CurrencyTracker.NumberFormat = (HudNumberFormat)numberFormat);
@@ -741,18 +774,26 @@ public sealed class ConfigurationWindow : Window, IDisposable
         var x = config.Layout.AnchorX; var y = config.Layout.AnchorY;
         if (DrawSliderSetting("Currency.X", "Horizontal position", "Normalized screen position; unlock to drag directly.", ref x, 0f, 1f, "%.3f"))
             Update(c => c.CurrencyTracker.Layout.AnchorX = x);
+        if (DrawActionButton("Move to right edge"))
+        {
+            Update(c => c.CurrencyTracker.Layout.AnchorX = 1f);
+            renderer.RequestReposition(HudModuleKind.CurrencyTracker);
+        }
         if (DrawSliderSetting("Currency.Y", "Vertical position", "Normalized screen position; the default is near the bottom.", ref y, 0f, 1f, "%.3f"))
             Update(c => c.CurrencyTracker.Layout.AnchorY = y);
         DrawMutedText(renderer.Currencies.State);
-        var catalog = renderer.Currencies.Catalog;
         if (OpenSection("Selected display order"))
         {
+            if (catalog.Count > 0 && config.SelectedCurrencies.Any(id => !catalog.Any(entry => entry.ItemId == id))
+                && DrawActionButton("Remove unavailable selections"))
+                Update(c => c.CurrencyTracker.SelectedCurrencies.RemoveAll(id => !catalog.Any(entry => entry.ItemId == id)));
             for (var i = 0; i < config.SelectedCurrencies.Count; i++)
             {
                 var id = config.SelectedCurrencies[i];
                 var definition = catalog.FirstOrDefault(entry => entry.ItemId == id);
+                if (definition is null) continue;
                 ImGui.PushID((int)id);
-                ImGui.TextWrapped(definition?.Name ?? $"Unavailable currency #{id}");
+                ImGui.TextWrapped(definition.Name);
                 var up = ImGui.SmallButton("Up"); ImGui.SameLine();
                 var down = ImGui.SmallButton("Down");
                 ImGui.PopID();
@@ -764,23 +805,6 @@ public sealed class ConfigurationWindow : Window, IDisposable
                     break;
                 }
             }
-        }
-        if (!OpenSection("Selected currencies")) return;
-        DrawMutedText("Search currencies");
-        ImGui.SetNextItemWidth(Math.Max(80f, ImGui.GetContentRegionAvail().X));
-        ImGui.InputText("##CurrencySearch", ref currencySearch, 128);
-        DrawMutedText("Choose up to 24 currencies. Names, icons and holding caps come from the current game data; company seal caps follow company rank. Gil always shows its current amount only.");
-        foreach (var entry in catalog)
-        {
-            if (currencySearch.Length > 0 && !entry.Name.Contains(currencySearch, StringComparison.OrdinalIgnoreCase)) continue;
-            ImGui.PushID((int)entry.ItemId);
-            DrawToggle(entry.Name, config.SelectedCurrencies.Contains(entry.ItemId), value => Update(c =>
-            {
-                if (!value) c.CurrencyTracker.SelectedCurrencies.Remove(entry.ItemId);
-                else if (c.CurrencyTracker.SelectedCurrencies.Count < CurrencyPolicy.MaximumSelected)
-                    c.CurrencyTracker.SelectedCurrencies.Add(entry.ItemId);
-            }));
-            ImGui.PopID();
         }
     }
 
@@ -1327,7 +1351,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 "Module width",
                 "Extends bars and text layout without stretching fonts or icons.",
                 ref width,
-                HudSizingPolicy.MinimumWidth,
+                kind == HudModuleKind.CurrencyTracker ? HudSizingPolicy.CurrencyMinimumWidth : HudSizingPolicy.MinimumWidth,
                 HudSizingPolicy.MaximumWidth,
                 "%.0f px"))
         {

@@ -10,6 +10,8 @@ var tests = new (string Name, Action Run)[]
     ("schema thirteen currency/arc upgrade preserves every existing field", CurrencyTests.Migration),
     ("currency selection and settings persist", CurrencyTests.Persistence),
     ("currency amounts caps and unavailable data", CurrencyTests.Formatting),
+    ("current currency catalog exclusions and search", CurrencyTests.CatalogAndSearch),
+    ("narrow right-edge currency layout and persistence", CurrencyTests.NarrowRightLayout),
     ("arc resource value and percentage modes", CurrencyTests.ArcModes),
     ("arc input bands cover only the narrow tracks", ArcTests.InputBands),
     ("flat arc strip caps and fractional fill boundaries", ArcTests.FlatStrips),

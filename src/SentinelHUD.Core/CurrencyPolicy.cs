@@ -1,5 +1,7 @@
 namespace SentinelHUD.Core;
 
+public enum CurrencyAlignment { Left, Right }
+
 public sealed record CurrencyDefinition(uint ItemId, string Name, uint IconId, uint? Cap, bool IsTomestone);
 public sealed record CurrencyBalance(CurrencyDefinition Definition, uint? Amount, uint? Cap);
 
@@ -7,6 +9,13 @@ public static class CurrencyPolicy
 {
     public const int MaximumSelected = 24;
     public const int RefreshMilliseconds = 500;
+    // Tomestones 1/2/3 are the active perennial, uncapped and weekly currencies.
+    // Type 4 is exchange-only; type 0 contains retired currencies.
+    public static bool IsAvailable(uint iconId, bool isTomestone, uint tomestoneType)
+        => iconId != 26154 && (!isTomestone || tomestoneType is >= 1 and <= 3);
+
+    public static bool MatchesSearch(string name, string search)
+        => name.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase);
     public static bool IsCurrency(uint id, uint uiCategory, uint filterGroup, uint stackSize)
         => id > 0 && uiCategory == 63 && filterGroup == 16 && stackSize > 1;
 

@@ -217,15 +217,18 @@ internal static class Program
 
     private static void TestCurrencyLayouts()
     {
-        foreach (var width in new[] { 180f, 480f, 640f })
+        foreach (var width in new[] { 64f, 120f, 180f, 480f, 640f })
         foreach (var scale in new[] { 0.75f, 1.5f })
         foreach (var full in new[] { false, true })
         foreach (var orientation in new[] { CurrencyOrientation.Horizontal, CurrencyOrientation.Vertical })
+        foreach (var alignment in new[] { CurrencyAlignment.Left, CurrencyAlignment.Right })
+        foreach (var showIcons in new[] { false, true })
         InContext(() =>
         {
             var renderer = new CurrencyTrackerRenderer(null);
             var config = HudConfigurationDefaults.CreateCurrencyTracker();
             config.Enabled = true; config.ShowNames = full; config.Orientation = orientation;
+            config.Alignment = alignment; config.ShowIcons = showIcons;
             CurrencyBalance[] balances =
             [
                 new(new CurrencyDefinition(1, "Gil", 0, null, false), 123456789, null),
@@ -238,15 +241,26 @@ internal static class Program
                 ImGui.NewFrame();
                 ImGui.SetNextWindowPos(new Vector2(40f, 40f));
                 ImGui.SetNextWindowSize(new Vector2(width, 2000f));
+                ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
                 ImGui.Begin("Currency layout", ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoInputs);
                 ImGui.SetWindowFontScale(scale);
+                var startVertex = ImGui.GetWindowDrawList().VtxBuffer.Size;
                 renderer.Draw(config, balances, scale, 0.8f, false);
                 Check(renderer.EntryCount == 4, "Selected currencies disappeared.");
                 Check(renderer.RowCount is >= 1 and <= 4, "Unexpected currency row count.");
                 if (orientation == CurrencyOrientation.Vertical) Check(renderer.RowCount == 4, "Vertical orientation did not stack entries.");
                 var edge = ImGui.GetWindowPos().X + ImGui.GetWindowSize().X - ImGui.GetStyle().WindowPadding.X;
                 Check(ImGui.GetItemRectMax().X <= edge + 1f, "Currency entries overflow the module width.");
-                ImGui.End(); ImGui.Render();
+                var vertices = ImGui.GetWindowDrawList().VtxBuffer;
+                var lastX = float.MinValue;
+                for (var vertex = startVertex; vertex < vertices.Size; vertex++)
+                {
+                    lastX = Math.Max(lastX, vertices[vertex].Pos.X);
+                    Check(vertices[vertex].Pos.X <= edge + 2f, "Currency glyphs extend past the right edge.");
+                }
+                if (alignment == CurrencyAlignment.Right)
+                    Check(lastX >= edge - 4f * scale, "Right alignment leaves an unused gutter.");
+                ImGui.End(); ImGui.PopStyleVar(); ImGui.Render();
             }
         });
     }

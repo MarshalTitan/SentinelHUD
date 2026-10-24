@@ -1,4 +1,14 @@
-# Sentinel HUD 0.8.7.0 - Live Test
+# Sentinel HUD 0.8.7.1 - Live Test
+
+## 0.8.7.1 currency search and right-edge layout
+
+- [ ] Update from 0.8.7.0 without deleting configuration. Schema stays 14; every module position, arc option, cast setting, currency selection/order and appearance setting persists. Alignment initially stays Left.
+- [ ] Open Currency Tracker in Modern and Classic. Search is visible at the top. Search for Mnemonics, Mathematics, Poetics, Gil and Wolf Marks; test mixed case, surrounding spaces, no matches and Clear search. Selecting a filtered entry preserves earlier selections and order.
+- [ ] The tomestone choices include only Poetics, Mnemonics and Mathematics. No retired/exchange-only tomestones or Chocobo Training Manuals appear in search, the selected-order list or the HUD. If any were previously selected, Remove unavailable selections frees those selection slots.
+- [ ] Enable Right alignment in Vertical mode. Icons form one column; values finish at the same right edge despite different digit counts/caps. Gain/spend currencies and confirm the column remains aligned.
+- [ ] Use Move to right edge. Icons/values reach the content edge without the old empty padding. Test horizontal wrapping without reversed currency order, names/icons/caps on/off, scales and long full labels.
+- [ ] Reduce module width below 180 px using settings and both editor edges. Verify the 64 px minimum, no clipped/overlapping text, a fixed opposite edge while resizing, and unchanged minimums/behavior for actor modules.
+- [ ] Unlock, move and resize; lock without drift or gameplay input capture. Reload/restart and confirm alignment, width and position persist. Existing arcs, tight arc clicks and independent casts remain unchanged.
 
 ## 0.8.7.0 side arcs and Currency Tracker
 

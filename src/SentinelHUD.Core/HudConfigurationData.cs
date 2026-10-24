@@ -194,6 +194,7 @@ public sealed class CurrencyTrackerConfiguration : HudModuleConfiguration
 {
     public CurrencyTrackerConfiguration() { Enabled = false; ClickToTarget = false; RightClickContextMenu = false; }
     public CurrencyOrientation Orientation { get; set; } = CurrencyOrientation.Horizontal;
+    public CurrencyAlignment Alignment { get; set; } = CurrencyAlignment.Left;
     public bool ShowNames { get; set; }
     public bool ShowCaps { get; set; } = true;
     public bool ShowIcons { get; set; } = true;
@@ -437,6 +438,7 @@ public class HudConfigurationData
 public static class HudSizingPolicy
 {
     public const float MinimumWidth = 180f;
+    public const float CurrencyMinimumWidth = 64f;
     public const float MaximumWidth = 640f;
     public const float MinimumBarHeight = 8f;
     public const float MaximumBarHeight = 34f;
@@ -576,6 +578,7 @@ public static class HudConfigurationMigrator
         NormalizeModule(configuration.CurrencyTracker, HudConfigurationDefaults.CreateCurrencyTracker().Layout);
         configuration.CurrencyTracker.SelectedCurrencies = CurrencyPolicy.NormalizeSelection(configuration.CurrencyTracker.SelectedCurrencies);
         if (!Enum.IsDefined(configuration.CurrencyTracker.Orientation)) configuration.CurrencyTracker.Orientation = CurrencyOrientation.Horizontal;
+        if (!Enum.IsDefined(configuration.CurrencyTracker.Alignment)) configuration.CurrencyTracker.Alignment = CurrencyAlignment.Left;
         NormalizeModule(configuration.FocusTarget, HudConfigurationDefaults.CreateFocusTarget().Layout);
         NormalizeModule(configuration.TargetOfTarget, HudConfigurationDefaults.CreateTargetOfTarget().Layout);
         NormalizeModule(configuration.TargetingMeCounter, HudConfigurationDefaults.CreateTargetingMeCounter().Layout);
@@ -696,7 +699,8 @@ public static class HudConfigurationMigrator
         };
         module.Scale = ClampFinite(module.Scale, 0.6f, 1.8f, 1f);
         module.Opacity = ClampFinite(module.Opacity, 0.15f, 1f, 0.92f);
-        module.Width = ClampFinite(module.Width, HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth, 285f);
+        module.Width = ClampFinite(module.Width, module is CurrencyTrackerConfiguration
+            ? HudSizingPolicy.CurrencyMinimumWidth : HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth, 285f);
         module.BarHeight = ClampFinite(module.BarHeight, HudSizingPolicy.MinimumBarHeight, HudSizingPolicy.MaximumBarHeight, HudSizingPolicy.DefaultBarHeight);
         module.ArcHeight = ClampFinite(module.ArcHeight, ArcBarGeometry.MinimumHeight, ArcBarGeometry.MaximumHeight, 240f);
         if (!Enum.IsDefined(module.BarStyle)) module.BarStyle = HudBarStyle.Standard;
