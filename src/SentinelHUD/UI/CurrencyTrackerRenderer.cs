@@ -79,6 +79,8 @@ public sealed class CurrencyTrackerRenderer(ITextureProvider? textures)
                     try { ImGui.TextUnformatted(entry.Text); }
                     finally { ImGui.PopTextWrapPos(); }
                     rowHeight = Math.Max(rowHeight, ImGui.GetItemRectSize().Y);
+                    if (right && width >= 600f && scale > 1f && !config.ShowNames && !config.ShowIcons)
+                        Console.WriteLine($"CURRENCY TRACE text={entry.Text}; width={width}; start={start}; measured={entry.TextSize}; rowWidth={rowWidth}; x={textX}; rect={ImGui.GetItemRectMin()} to {ImGui.GetItemRectMax()}; font={ImGui.GetFontSize()}");
                     x += entry.Width + gap;
                     EntryCount++;
                 }
