@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Curved Player/Target gameplay input now follows only tight visible bar regions, leaving text and empty space click-through. HP values move to the bottom outside and HP percentage to the bottom inside, mirrored across Player/Target; MP values sit below HP values. Remove HP/MP labels while preserving resource colours, flat caps, full edit handles, separate casts, saved schema 13 settings and Core 0.3.1."
+            --notes "Adds an optional Currency Tracker with selected game-data currencies, live amounts, icons, holding caps, ordering and compact/full horizontal or vertical layouts. Refines mirrored arcs with side readouts, Current Only/Current-Total modes, HP/MP percentage controls, smooth edge fringes, shaded liquid fill and subtle tube gloss. Preserves tight arc input, independent casts, existing settings and Core 0.3.1; schema 14 adds defaults only."
 
       - name: Verify public release asset
         shell: pwsh

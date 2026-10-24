@@ -7,6 +7,10 @@ using System.Globalization;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("schema thirteen currency/arc upgrade preserves every existing field", CurrencyTests.Migration),
+    ("currency selection and settings persist", CurrencyTests.Persistence),
+    ("currency amounts caps and unavailable data", CurrencyTests.Formatting),
+    ("arc resource value and percentage modes", CurrencyTests.ArcModes),
     ("arc input bands cover only the narrow tracks", ArcTests.InputBands),
     ("flat arc strip caps and fractional fill boundaries", ArcTests.FlatStrips),
     ("schema twelve upgrade preserves every existing field", ArcTests.Migration),

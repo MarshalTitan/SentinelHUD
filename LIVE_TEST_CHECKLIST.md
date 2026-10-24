@@ -1,4 +1,19 @@
-# Sentinel HUD 0.8.6.2 - Live Test
+# Sentinel HUD 0.8.7.0 - Live Test
+
+## 0.8.7.0 side arcs and Currency Tracker
+
+- [ ] Update from 0.8.6.2 with the existing configuration. Confirm schema 14 and a schema-v13 backup. All older positions, dimensions, styles, colours, click preferences, casts, awareness, camera and compatibility settings persist. Currency Tracker defaults Off.
+- [ ] Player Arc: HP/MP values sit on the outer-left side and percentages on the inner-right. Target mirrors them. Check Auto and explicit orientations at normal, narrow and enlarged sizes/scales.
+- [ ] Test Current Only and Current/Total for both HP and MP; test Show/Hide resource percentages, independent HP field switches, Full/Compact numbers and unresolved actor previews. No literal HP/MP labels appear.
+- [ ] Inspect smooth outer contours, subtle gloss/shading, clean flat caps, empty/partial/full fills, shields and normal/low opacity. Confirm static/hostile colours and health gradients remain readable in combat.
+- [ ] Confirm locked text/empty space remains click-through and direct bar clicks/native menus work. Unlock, drag/resize both arcs and casts, then lock without drift. Standard Player/Target and Focus/ToT remain usable.
+- [ ] Enable **HUD Elements > Currency Tracker** (Classic: Currency Tracker tab). Select Gil, Mnemonics, Bicolor Gemstones and Wolf Marks. Compare every displayed live amount with the game's Currency window.
+- [ ] Verify the actual game icons and optional names. Toggle Show Caps; holding caps must match the game. Gil stays current-only. Company seals use the character's current rank cap for that company. Weekly tomestone earnings are not mistaken for the holding cap.
+- [ ] Gain/spend currency; confirm updates within about half a second. Change selected currencies and move their Up/Down order; the visible order remains stable.
+- [ ] Test compact/full, horizontal wrapping/vertical orientation, names/icons/caps toggles, Full/Compact number formatting and partial opacity. No entry overlaps or overflows the module width.
+- [ ] Unlock and move the currency module near the screen bottom; resize width/entry height, adjust scale and numeric position, then lock. Gameplay stays click-through with no editor chrome.
+- [ ] Log out/in or change characters. No previous character balance remains visible while the inventory is unavailable; missing values show -- rather than invented zeroes.
+- [ ] Reload and fully restart. Arc text options and all currency selections, order, visibility, placement and appearance persist along with every pre-existing setting.
 
 ## 0.8.6.2 arc click regions and bottom readouts
 

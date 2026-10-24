@@ -11,10 +11,13 @@ public enum HudModuleKind
     TargetingMeCounter,
     PlayerCast,
     TargetCast,
+    CurrencyTracker,
 }
 
 public enum HudBarStyle { Standard, Arc }
 public enum ArcOrientation { Auto, Left, Right }
+public enum ArcValueFormat { CurrentAndTotal, CurrentOnly }
+public enum CurrencyOrientation { Horizontal, Vertical }
 
 public enum SelfHighlightMode
 {
@@ -150,6 +153,8 @@ public abstract class HudModuleConfiguration
     public HudBarStyle BarStyle { get; set; } = HudBarStyle.Standard;
     public ArcOrientation ArcOrientation { get; set; } = ArcOrientation.Auto;
     public float ArcHeight { get; set; } = 240f;
+    public ArcValueFormat ArcValueFormat { get; set; } = ArcValueFormat.CurrentAndTotal;
+    public bool ArcShowPercentages { get; set; } = true;
     public HudTextAlignment HpTextAlignment { get; set; } = HudTextAlignment.Center;
     public HudNumberFormat NumberFormat { get; set; } = HudNumberFormat.Full;
     public bool BorderEnabled { get; set; } = true;
@@ -183,6 +188,16 @@ public sealed class CastModuleConfiguration : HudModuleConfiguration
     public bool ShowCastBar { get; set; } = true;
     public bool ShowCastPercentage { get; set; } = true;
     public bool ShowCastRemainingTime { get; set; } = true;
+}
+
+public sealed class CurrencyTrackerConfiguration : HudModuleConfiguration
+{
+    public CurrencyTrackerConfiguration() { Enabled = false; ClickToTarget = false; RightClickContextMenu = false; }
+    public CurrencyOrientation Orientation { get; set; } = CurrencyOrientation.Horizontal;
+    public bool ShowNames { get; set; }
+    public bool ShowCaps { get; set; } = true;
+    public bool ShowIcons { get; set; } = true;
+    public List<uint> SelectedCurrencies { get; set; } = [1];
 }
 
 public sealed class TargetModuleConfiguration : HudModuleConfiguration
@@ -396,7 +411,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 13;
+    public const int CurrentVersion = 14;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -407,6 +422,7 @@ public class HudConfigurationData
     public TargetModuleConfiguration Target { get; set; } = HudConfigurationDefaults.CreateTarget();
     public CastModuleConfiguration PlayerCast { get; set; } = HudConfigurationDefaults.CreateCast(false);
     public CastModuleConfiguration TargetCast { get; set; } = HudConfigurationDefaults.CreateCast(true);
+    public CurrencyTrackerConfiguration CurrencyTracker { get; set; } = HudConfigurationDefaults.CreateCurrencyTracker();
     public FocusTargetModuleConfiguration FocusTarget { get; set; } = HudConfigurationDefaults.CreateFocusTarget();
     public TargetOfTargetModuleConfiguration TargetOfTarget { get; set; } = HudConfigurationDefaults.CreateTargetOfTarget();
     public TargetingMeCounterConfiguration TargetingMeCounter { get; set; } = HudConfigurationDefaults.CreateTargetingMeCounter();
@@ -429,6 +445,12 @@ public static class HudSizingPolicy
 
 public static class HudConfigurationDefaults
 {
+    public static CurrencyTrackerConfiguration CreateCurrencyTracker() => new()
+    {
+        Enabled = false, ClickToTarget = false, RightClickContextMenu = false, BorderEnabled = false,
+        Width = 480f, Layout = new ModuleLayoutConfiguration { AnchorX = 0.5f, AnchorY = 0.97f },
+    };
+
     public static CastModuleConfiguration CreateCast(bool target) => new()
     {
         Enabled = false,
@@ -494,6 +516,7 @@ public static class HudConfigurationMigrator
         configuration.Target ??= HudConfigurationDefaults.CreateTarget();
         configuration.PlayerCast ??= HudConfigurationDefaults.CreateCast(false);
         configuration.TargetCast ??= HudConfigurationDefaults.CreateCast(true);
+        configuration.CurrencyTracker ??= HudConfigurationDefaults.CreateCurrencyTracker();
         configuration.FocusTarget ??= HudConfigurationDefaults.CreateFocusTarget();
         configuration.TargetOfTarget ??= HudConfigurationDefaults.CreateTargetOfTarget();
         configuration.TargetingMeCounter ??= HudConfigurationDefaults.CreateTargetingMeCounter();
@@ -550,6 +573,9 @@ public static class HudConfigurationMigrator
         NormalizeModule(configuration.Target, HudConfigurationDefaults.CreateTarget().Layout);
         NormalizeModule(configuration.PlayerCast, HudConfigurationDefaults.CreateCast(false).Layout);
         NormalizeModule(configuration.TargetCast, HudConfigurationDefaults.CreateCast(true).Layout);
+        NormalizeModule(configuration.CurrencyTracker, HudConfigurationDefaults.CreateCurrencyTracker().Layout);
+        configuration.CurrencyTracker.SelectedCurrencies = CurrencyPolicy.NormalizeSelection(configuration.CurrencyTracker.SelectedCurrencies);
+        if (!Enum.IsDefined(configuration.CurrencyTracker.Orientation)) configuration.CurrencyTracker.Orientation = CurrencyOrientation.Horizontal;
         NormalizeModule(configuration.FocusTarget, HudConfigurationDefaults.CreateFocusTarget().Layout);
         NormalizeModule(configuration.TargetOfTarget, HudConfigurationDefaults.CreateTargetOfTarget().Layout);
         NormalizeModule(configuration.TargetingMeCounter, HudConfigurationDefaults.CreateTargetingMeCounter().Layout);
@@ -675,6 +701,7 @@ public static class HudConfigurationMigrator
         module.ArcHeight = ClampFinite(module.ArcHeight, ArcBarGeometry.MinimumHeight, ArcBarGeometry.MaximumHeight, 240f);
         if (!Enum.IsDefined(module.BarStyle)) module.BarStyle = HudBarStyle.Standard;
         if (!Enum.IsDefined(module.ArcOrientation)) module.ArcOrientation = ArcOrientation.Auto;
+        if (!Enum.IsDefined(module.ArcValueFormat)) module.ArcValueFormat = ArcValueFormat.CurrentAndTotal;
         module.BorderOpacity = ClampFinite(module.BorderOpacity, 0f, 1f, 0.72f);
         if (!Enum.IsDefined(module.Visibility))
             module.Visibility = ModuleVisibilityCondition.Always;
@@ -793,6 +820,10 @@ public static class HudConfigurationMigrator
                 case 12:
                     // Initializers add opt-in arcs and disabled independent casts. Preserve every old field.
                     version = 13;
+                    break;
+                case 13:
+                    // Schema 14 defaults new arc text options and an opt-in currency module only.
+                    version = 14;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;

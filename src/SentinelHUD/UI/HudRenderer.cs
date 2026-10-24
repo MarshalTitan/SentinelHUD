@@ -28,6 +28,9 @@ public sealed class HudRenderer
     private readonly EncounterAwarenessService encounterAwareness;
     private readonly PvPThreatTracker pvpThreatTracker;
     private readonly IFontHandle threatCounterFont;
+    private readonly CurrencyDataService currencies;
+    private readonly CurrencyTrackerRenderer currencyRenderer;
+    public CurrencyDataService Currencies => currencies;
     private readonly IGameGui gameGui;
     private readonly IClientState clientState;
     private readonly ICondition condition;
@@ -57,6 +60,8 @@ public sealed class HudRenderer
         EncounterAwarenessService encounterAwareness,
         PvPThreatTracker pvpThreatTracker,
         IFontHandle threatCounterFont,
+        CurrencyDataService currencies,
+        ITextureProvider textures,
         IGameGui gameGui,
         IClientState clientState,
         ICondition condition,
@@ -73,6 +78,8 @@ public sealed class HudRenderer
         this.encounterAwareness = encounterAwareness;
         this.pvpThreatTracker = pvpThreatTracker;
         this.threatCounterFont = threatCounterFont;
+        this.currencies = currencies;
+        currencyRenderer = new CurrencyTrackerRenderer(textures);
         this.gameGui = gameGui;
         this.clientState = clientState;
         this.condition = condition;
@@ -140,6 +147,7 @@ public sealed class HudRenderer
         encounterAwareness.Update(config.EncounterAwareness, config.Enabled,
             clientState.IsLoggedIn, clientState.TerritoryType, localPlayer);
         pvpThreatTracker.Update(config.TargetingMeCounter, config.Enabled);
+        currencies.Update(config.CurrencyTracker, config.Enabled, clientState.IsLoggedIn && localPlayer is not null);
     }
 
     public void Draw()
@@ -205,6 +213,9 @@ public sealed class HudRenderer
 
         DrawSeparateCast(HudModuleKind.PlayerCast, config.PlayerCast, config, player, runtime);
         DrawSeparateCast(HudModuleKind.TargetCast, config.TargetCast, config, target, runtime);
+        if (ShouldDrawModule(config.CurrencyTracker, config.Locked, runtime))
+            DrawModule(HudModuleKind.CurrencyTracker, config.CurrencyTracker, config, null,
+                DrawCurrencies, actorRequired: false, transparentBackground: true);
 
         if (config.Locked)
         {
@@ -308,6 +319,7 @@ public sealed class HudRenderer
                 HudModuleKind.TargetOfTarget => "Target of Target##SentinelHUD-TargetOfTarget",
                 HudModuleKind.PlayerCast => "Player Cast##SentinelHUD-PlayerCast",
                 HudModuleKind.TargetCast => "Target Cast##SentinelHUD-TargetCast",
+                HudModuleKind.CurrencyTracker => "Currency Tracker##SentinelHUD-CurrencyTracker",
                 _ => "Targeting Me Counter##SentinelHUD-TargetingMeCounter",
             };
             var began = ImGui.Begin(title, flags);
@@ -455,18 +467,17 @@ public sealed class HudRenderer
         if (actor.ObjectKind == ObjectKind.Pc && showRole)
             metadata = AppendHeaderPart(metadata, data.GetRoleName(actor));
         var (current, maximum, percentage) = GetHpVisibility(module);
-        var hpText = HudFormatting.HitPoints(character.CurrentHp, character.MaxHp,
-            current, maximum, false, module.NumberFormat);
+        var hpText = ArcTextPolicy.Values(character.CurrentHp, character.MaxHp, module, current, maximum);
         var mpText = character.MaxMp > 0 && mpMode is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText
-            ? $"{HudFormatting.Number(character.CurrentMp, module.NumberFormat)} / "
-                + HudFormatting.Number(character.MaxMp, module.NumberFormat) : string.Empty;
+            ? ArcTextPolicy.Values(character.CurrentMp, character.MaxMp, module) : string.Empty;
         var shieldText = character.ShieldPercentage > 0 && shieldMode is ShieldDisplayMode.TextOnly or ShieldDisplayMode.BarAndText
             ? $"Shield {HudFormatting.Shield(character.MaxHp, character.ShieldPercentage)}" : string.Empty;
         var text = new ArcReadout(showName ? actor.Name.TextValue : string.Empty, metadata,
             hpText, mpText, shieldText,
             kind == HudModuleKind.Target && configuration.Current.Target.ShowDistance
                 ? HudFormatting.Distance(data.GetDistance(actor)) : string.Empty,
-            percentage ? HudFormatting.Percentage(character.CurrentHp, character.MaxHp) : string.Empty);
+            ArcTextPolicy.Percentage(character.CurrentHp, character.MaxHp, module, percentage),
+            ArcTextPolicy.Percentage(character.CurrentMp, character.MaxMp, module, mpText.Length > 0));
         var fraction = character.MaxHp == 0 ? 0f : Math.Clamp((float)character.CurrentHp / character.MaxHp, 0f, 1f);
         var shield = shieldMode is ShieldDisplayMode.BarOnly or ShieldDisplayMode.BarAndText
             ? character.ShieldPercentage / 100f : 0f;
@@ -499,17 +510,27 @@ public sealed class HudRenderer
         var mp = isPlayer ? root.Player.MpDisplay : root.Target.MpDisplay;
         var shield = isPlayer ? root.Player.ShieldDisplay : root.Target.ShieldDisplay;
         var (current, maximum, percentage) = GetHpVisibility(module);
-        var hpText = HudFormatting.HitPoints(120000, 150000, current, maximum, false, module.NumberFormat);
+        var hpText = ArcTextPolicy.Values(120000, 150000, module, current, maximum);
         var text = new ArcReadout(showName ? (isPlayer ? "Player preview" : "Target preview") : string.Empty,
             showLevel ? "Lv.100" : string.Empty, hpText,
             mp is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText
-                ? $"{HudFormatting.Number(8000, module.NumberFormat)} / {HudFormatting.Number(10000, module.NumberFormat)}" : string.Empty,
+                ? ArcTextPolicy.Values(8000, 10000, module) : string.Empty,
             shield is ShieldDisplayMode.TextOnly or ShieldDisplayMode.BarAndText ? "Shield 20%" : string.Empty,
-            !isPlayer && root.Target.ShowDistance ? "10.0y" : string.Empty, percentage ? "80.0%" : string.Empty);
+            !isPlayer && root.Target.ShowDistance ? "10.0y" : string.Empty,
+            ArcTextPolicy.Percentage(120000, 150000, module, percentage),
+            ArcTextPolicy.Percentage(8000, 10000, module, mp is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText));
         var colour = isPlayer ? root.Appearance.PlayerHealth.ToVector4() : root.Appearance.HostileHealth.ToVector4();
         colour = HpColourPolicy.Resolve(isPlayer ? root.Appearance.PlayerHpColourMode : root.Appearance.TargetHpColourMode, 0.8f, colour);
         DrawArc(kind, module, 0.8f, shield is ShieldDisplayMode.BarOnly or ShieldDisplayMode.BarAndText ? 0.2f : 0f,
             0.8f, mp is MpDisplayMode.BarOnly or MpDisplayMode.BarAndText, text, colour);
+    }
+
+    private void DrawCurrencies(IGameObject? _, HudModuleConfiguration module)
+    {
+        currencyRenderer.Draw((CurrencyTrackerConfiguration)module, currencies.Snapshot,
+            module.Scale * configuration.Current.GlobalScale, module.Opacity * configuration.Current.GlobalOpacity,
+            !configuration.Current.Locked);
+        renderedMeterCount = currencyRenderer.RowCount;
     }
 
     private void DrawSeparateCast(HudModuleKind kind, CastModuleConfiguration cast, Configuration root,
@@ -1025,6 +1046,7 @@ public sealed class HudRenderer
             HudModuleKind.TargetOfTarget => config.TargetOfTarget,
             HudModuleKind.PlayerCast => config.PlayerCast,
             HudModuleKind.TargetCast => config.TargetCast,
+            HudModuleKind.CurrencyTracker => config.CurrencyTracker,
             _ => config.TargetingMeCounter,
         };
 
@@ -1037,6 +1059,7 @@ public sealed class HudRenderer
             HudModuleKind.TargetOfTarget => HudConfigurationDefaults.CreateTargetOfTarget(),
             HudModuleKind.PlayerCast => HudConfigurationDefaults.CreateCast(false),
             HudModuleKind.TargetCast => HudConfigurationDefaults.CreateCast(true),
+            HudModuleKind.CurrencyTracker => HudConfigurationDefaults.CreateCurrencyTracker(),
             _ => HudConfigurationDefaults.CreateTargetingMeCounter(),
         };
 
