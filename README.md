@@ -2,17 +2,19 @@
 
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
-Current release: **0.8.5.1** · Dalamud API **15** · .NET **10**
+Current release: **0.8.5.1** � Dalamud API **15** � .NET **10**
 
-## Utility ownership cleanup — 0.8.5.0 / metadata correction 0.8.5.1
+## Utility ownership cleanup - 0.8.5.0 / metadata correction 0.8.5.1
 
-Anti-AFK and Quest Convenience now run in **Sentinel Hub**. Update Hub to **0.3.1.0** for current guidance, open `/shub` → Utilities and keep your chosen opt-ins. Existing Hub settings are unchanged; import saved HUD preferences only if needed.
+Anti-AFK and Quest Convenience now run in **Sentinel Hub**. Update Hub to **0.3.1.0** for current guidance, open `/shub`  Utilities and keep your chosen opt-ins. Existing Hub settings are unchanged; import saved HUD preferences only if needed.
 
 HUD no longer contains either game-facing utility engine. Its Convenience page shows retained preferences for import. Schema 12, original preference values and v1 preference/claim/release contracts are retained; no automatic import or enable occurs. Hub 0.2/0.3 ownership contracts remain compatible. Disabling a utility or Hub now turns its actions off with this HUD version. HUD visuals and camera remain independently available.
 
 Scoped Anti-AFK and Quest Convenience user PASS reports authorized this separate cleanup. The Quest reward mode was not named and submarine was not separately confirmed; unreported cases remain unverified. Cleanup runtime acceptance remains pending; see [procedure and rollback](docs/UTILITY_CLEANUP.md).
 
 ## Features
+
+- Optional mirrored **Curved / Arc** Player and Target HP/MP layouts with existing HP, level, shield, colour and gradient options. Standard rectangular modules remain the default. Independent Player and Target cast bars can be positioned below the character in either style. See [arc and cast layout](docs/ARC_LAYOUT.md).
 
 - Sentinel Modern 2 configuration shell from Sentinel Core 0.3.1: one compact draggable application header, a unified full-bleed surface, crisp Font Awesome navigation, text-only category sidebars where needed, responsive settings rows, independently scrolling page content, strengthened animated ambience and reduced-motion-safe transitions. Classic remains fully available and unchanged.
 - Informational Sentinel ecosystem Plugins page: distinguishes Enabled, Installed/Disabled and Not Installed companions, shows installed versions where available, and refreshes through Dalamud's public plugin-state event with a bounded fallback. Every companion remains optional.
@@ -26,10 +28,10 @@ Scoped Anti-AFK and Quest Convenience user PASS reports authorized this separate
 - Optional exact-HP supplement anchored read-only beneath the visible native target HP gauge. It supports both combined `_TargetInfo` and split `_TargetInfoMainTarget` layouts, including Always/Combat Only modes and X/Y fine tuning.
 - Resolution-safe normalized positions with screen-boundary protection and delayed persistent saves.
 - Native, model-conforming self silhouette with Off, Always, Combat Only and Duty Only modes. It follows the animated model, equipment, weapons, mount and ornament without changing any target state.
-- Independent Player Position Marker centred on the local actor's exact world origin. Camera Facing (default) never snaps downward, so it follows elevated platforms and flying mounts while remaining circular at shallow camera angles and extended zoom. Ground Projected retains the opt-in terrain-plane presentation. Both support Off/Always/Combat Only/Duty Only modes, independent colour, 0.01–0.60 size control, opacity and inward border controls. Encounter Awareness changes either style to a separately configured danger colour when that exact point intersects a trusted hazard.
+- Independent Player Position Marker centred on the local actor's exact world origin. Camera Facing (default) never snaps downward, so it follows elevated platforms and flying mounts while remaining circular at shallow camera angles and extended zoom. Ground Projected retains the opt-in terrain-plane presentation. Both support Off/Always/Combat Only/Duty Only modes, independent colour, 0.01-0.60 size control, opacity and inward border controls. Encounter Awareness changes either style to a separately configured danger colour when that exact point intersects a trusted hazard.
 - Encounter Awareness providers: conservative current hostile-cast geometry for standard visible circle/donut/rectangle/cone/line/cross actions, plus optional fail-closed Splatoon geometry IPC. Unknown and encounter-specific mechanics are not guessed.
 - Independent PvP Targeting Me Counter with Frontline-only or all-PvP visibility, optional zero hiding, optional job/detail rows, scalable crisp digits and configurable normal/moderate/high/extreme colours. It requires no PvP Sentinel installation.
-- Optional extended third-person zoom with a configurable 20–100-yalm maximum, automatic restoration, special-camera safeguards and known camera-plugin conflict handling.
+- Optional extended third-person zoom with a configurable 20-100-yalm maximum, automatic restoration, special-camera safeguards and known camera-plugin conflict handling.
 - Saved utility preferences for explicit import into Sentinel Hub; HUD contains no utility action engine.
 - Compact state diagnostics without frame-by-frame logging.
 
@@ -80,7 +82,7 @@ Player casting can independently show the current action name, progress bar, per
 
 Player, Target, Focus Target and Target-of-Target each have independent **Click to Target**, **Right-click native context menu** and **Clickable Area** settings. Direct actors are represented by object ID and re-resolved from the current object table at interaction time. Left-click assigns the current result through Dalamud's supported hard-target property. Right-click passes it to FFXIV's own HUD context-menu path, so the game decides which actions are valid for that actor and situation. Sentinel requests an adjacent on-screen popup position through the current `AgentContext` position facility, then refines it from the visible native `ContextMenu` addon's actual size. HUD modules, bars and awareness visuals continue drawing unchanged; only the transparent actor-input regions pause until the native menu closes. Unlocking removes all gameplay interaction regions and activates the move/resize editor instead.
 
-Focus Target's Target is a compact child row in the Focus Target module. It is resolved fresh from the current Focus Target ID and current object table on every draw; absent actors are hidden rather than retained. On click, the shared actor resolver repeats the complete `current Focus Target → current target ID → current object-table object` lookup before setting the hard target. The full visible row is interactive and wins overlapping input over the parent Focus panel, so player, enemy, NPC and targetable world-object entries use the same final hard-target path as the working Target-of-Target module without retaining a child pointer.
+Focus Target's Target is a compact child row in the Focus Target module. It is resolved fresh from the current Focus Target ID and current object table on every draw; absent actors are hidden rather than retained. On click, the shared actor resolver repeats the complete `current Focus Target  current target ID  current object-table object` lookup before setting the hard target. The full visible row is interactive and wins overlapping input over the parent Focus panel, so player, enemy, NPC and targetable world-object entries use the same final hard-target path as the working Target-of-Target module without retaining a child pointer.
 
 ### Configuration persistence
 
@@ -104,7 +106,7 @@ The current FFXIVClientStructs renderer exposes a fixed `ObjectHighlightColor` p
 
 ### Player Position Marker
 
-The marker begins at the local actor's real world origin. Neither style derives its centre from the animated model, head, feet animation or screen-space bounds. **Camera Facing** projects that exact actor point directly with no terrain ray and draws a compact screen-space circle. Elevated platforms and flying mounts therefore retain their actual vertical level, camera pitch cannot compress the marker into a line, and extended zoom cannot make it unreadably small. The existing 0.01–0.60 radius setting maps deterministically to a 1.0–19.2 px outside radius in this mode. **Ground Projected** alone casts the short downward FFXIVClientStructs collision ray and retains the 24-point terrain-plane disc for users who explicitly prefer a surface-snapped marker.
+The marker begins at the local actor's real world origin. Neither style derives its centre from the animated model, head, feet animation or screen-space bounds. **Camera Facing** projects that exact actor point directly with no terrain ray and draws a compact screen-space circle. Elevated platforms and flying mounts therefore retain their actual vertical level, camera pitch cannot compress the marker into a line, and extended zoom cannot make it unreadably small. The existing 0.01-0.60 radius setting maps deterministically to a 1.0-19.2 px outside radius in this mode. **Ground Projected** alone casts the short downward FFXIVClientStructs collision ray and retains the 24-point terrain-plane disc for users who explicitly prefer a surface-snapped marker.
 
 This presentation follows the current Avarice player-dot principle (project the actor position and draw a screen-space filled circle) while keeping Sentinel's independent conditional visibility, border and danger-provider systems; no Avarice source or runtime dependency is included. The optional contrasting border is drawn inward in both styles, so it never enlarges the configured outside radius. Danger changes only the colour. Terrain collision availability affects only Ground Projected; Camera Facing always uses the live actor origin.
 
@@ -187,3 +189,4 @@ Screenshots will be added after the first in-game layout and colour pass.
 - The native target supplement supports current combined and split stock target layouts and falls back to read-only root bounds if the expected gauge node is unavailable. A future FFXIV node-ID change may require maintenance; diagnostics exposes exactly which lookup failed.
 - Focus Target's Target can only resolve actors currently exposed in the client object table. The row clears immediately when resolution fails, and click-to-target refuses actors that have vanished or are not currently targetable.
 - Live native rendering, terrain collision, camera behavior, controller safety and full restart persistence require in-game testing because automated CI cannot launch FFXIV.
+

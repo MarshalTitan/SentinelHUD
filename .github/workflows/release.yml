@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Removes the retired Questing / Convenience page and migration notices from Modern and Classic after both users copied settings to Sentinel Hub. Existing HUD layouts, camera, saved configuration and compatibility IPC are preserved. Utility actions remain in Hub."
+            --notes "Adds optional mirrored Curved / Arc Player and Target HP/MP layouts plus independently movable Player and Target cast bars. Standard remains the default. Schema 13 preserves existing settings, positions, colours and cast options. Sentinel Core remains pinned to 0.3.1. See LIVE_TEST_CHECKLIST.md for in-game acceptance."
 
       - name: Verify public release asset
         shell: pwsh
@@ -130,3 +130,4 @@ jobs:
           version: ${{ steps.version.outputs.value }}
           tag: ${{ steps.version.outputs.tag }}
           notification-token: ${{ secrets.DALAMUD_CATALOG_TOKEN }}
+

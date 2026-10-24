@@ -9,7 +9,12 @@ public enum HudModuleKind
     FocusTarget,
     TargetOfTarget,
     TargetingMeCounter,
+    PlayerCast,
+    TargetCast,
 }
+
+public enum HudBarStyle { Standard, Arc }
+public enum ArcOrientation { Auto, Left, Right }
 
 public enum SelfHighlightMode
 {
@@ -142,6 +147,9 @@ public abstract class HudModuleConfiguration
     public float Opacity { get; set; } = 0.92f;
     public float Width { get; set; } = 285f;
     public float BarHeight { get; set; } = 20f;
+    public HudBarStyle BarStyle { get; set; } = HudBarStyle.Standard;
+    public ArcOrientation ArcOrientation { get; set; } = ArcOrientation.Auto;
+    public float ArcHeight { get; set; } = 240f;
     public HudTextAlignment HpTextAlignment { get; set; } = HudTextAlignment.Center;
     public HudNumberFormat NumberFormat { get; set; } = HudNumberFormat.Full;
     public bool BorderEnabled { get; set; } = true;
@@ -167,6 +175,14 @@ public sealed class PlayerModuleConfiguration : HudModuleConfiguration
     public bool ShowCastPercentage { get; set; } = true;
     public bool ShowCastRemainingTime { get; set; }
     public bool ShowStatuses { get; set; }
+}
+
+public sealed class CastModuleConfiguration : HudModuleConfiguration
+{
+    public bool ShowCastName { get; set; } = true;
+    public bool ShowCastBar { get; set; } = true;
+    public bool ShowCastPercentage { get; set; } = true;
+    public bool ShowCastRemainingTime { get; set; } = true;
 }
 
 public sealed class TargetModuleConfiguration : HudModuleConfiguration
@@ -380,7 +396,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 12;
+    public const int CurrentVersion = 13;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -389,6 +405,8 @@ public class HudConfigurationData
     public float GlobalOpacity { get; set; } = 1f;
     public PlayerModuleConfiguration Player { get; set; } = HudConfigurationDefaults.CreatePlayer();
     public TargetModuleConfiguration Target { get; set; } = HudConfigurationDefaults.CreateTarget();
+    public CastModuleConfiguration PlayerCast { get; set; } = HudConfigurationDefaults.CreateCast(false);
+    public CastModuleConfiguration TargetCast { get; set; } = HudConfigurationDefaults.CreateCast(true);
     public FocusTargetModuleConfiguration FocusTarget { get; set; } = HudConfigurationDefaults.CreateFocusTarget();
     public TargetOfTargetModuleConfiguration TargetOfTarget { get; set; } = HudConfigurationDefaults.CreateTargetOfTarget();
     public TargetingMeCounterConfiguration TargetingMeCounter { get; set; } = HudConfigurationDefaults.CreateTargetingMeCounter();
@@ -411,6 +429,16 @@ public static class HudSizingPolicy
 
 public static class HudConfigurationDefaults
 {
+    public static CastModuleConfiguration CreateCast(bool target) => new()
+    {
+        Enabled = false,
+        ClickToTarget = false,
+        RightClickContextMenu = false,
+        BorderEnabled = false,
+        Width = 320f,
+        Layout = new ModuleLayoutConfiguration { AnchorX = 0.5f, AnchorY = target ? 0.65f : 0.7f },
+    };
+
     public static PlayerModuleConfiguration CreatePlayer() => new()
     {
         Layout = new ModuleLayoutConfiguration { AnchorX = 0.025f, AnchorY = 0.76f },
@@ -464,6 +492,8 @@ public static class HudConfigurationMigrator
         var sourceVersion = configuration.Version;
         configuration.Player ??= HudConfigurationDefaults.CreatePlayer();
         configuration.Target ??= HudConfigurationDefaults.CreateTarget();
+        configuration.PlayerCast ??= HudConfigurationDefaults.CreateCast(false);
+        configuration.TargetCast ??= HudConfigurationDefaults.CreateCast(true);
         configuration.FocusTarget ??= HudConfigurationDefaults.CreateFocusTarget();
         configuration.TargetOfTarget ??= HudConfigurationDefaults.CreateTargetOfTarget();
         configuration.TargetingMeCounter ??= HudConfigurationDefaults.CreateTargetingMeCounter();
@@ -518,6 +548,8 @@ public static class HudConfigurationMigrator
 
         NormalizeModule(configuration.Player, HudConfigurationDefaults.CreatePlayer().Layout);
         NormalizeModule(configuration.Target, HudConfigurationDefaults.CreateTarget().Layout);
+        NormalizeModule(configuration.PlayerCast, HudConfigurationDefaults.CreateCast(false).Layout);
+        NormalizeModule(configuration.TargetCast, HudConfigurationDefaults.CreateCast(true).Layout);
         NormalizeModule(configuration.FocusTarget, HudConfigurationDefaults.CreateFocusTarget().Layout);
         NormalizeModule(configuration.TargetOfTarget, HudConfigurationDefaults.CreateTargetOfTarget().Layout);
         NormalizeModule(configuration.TargetingMeCounter, HudConfigurationDefaults.CreateTargetingMeCounter().Layout);
@@ -640,6 +672,9 @@ public static class HudConfigurationMigrator
         module.Opacity = ClampFinite(module.Opacity, 0.15f, 1f, 0.92f);
         module.Width = ClampFinite(module.Width, HudSizingPolicy.MinimumWidth, HudSizingPolicy.MaximumWidth, 285f);
         module.BarHeight = ClampFinite(module.BarHeight, HudSizingPolicy.MinimumBarHeight, HudSizingPolicy.MaximumBarHeight, HudSizingPolicy.DefaultBarHeight);
+        module.ArcHeight = ClampFinite(module.ArcHeight, ArcBarGeometry.MinimumHeight, ArcBarGeometry.MaximumHeight, 240f);
+        if (!Enum.IsDefined(module.BarStyle)) module.BarStyle = HudBarStyle.Standard;
+        if (!Enum.IsDefined(module.ArcOrientation)) module.ArcOrientation = ArcOrientation.Auto;
         module.BorderOpacity = ClampFinite(module.BorderOpacity, 0f, 1f, 0.72f);
         if (!Enum.IsDefined(module.Visibility))
             module.Visibility = ModuleVisibilityCondition.Always;
@@ -754,6 +789,10 @@ public static class HudConfigurationMigrator
                     // Schema 12 records only Modern minimize state and expanded dimensions.
                     // Initializers supply the new fields; all prior settings remain untouched.
                     version = 12;
+                    break;
+                case 12:
+                    // Initializers add opt-in arcs and disabled independent casts. Preserve every old field.
+                    version = 13;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;

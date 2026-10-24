@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.8.5.2</Version>
+    <Version>0.8.6.0</Version>
     <AssemblyName>SentinelHUD</AssemblyName>
     <RootNamespace>SentinelHUD</RootNamespace>
     <Author>MTitan</Author>
@@ -25,3 +25,4 @@
     <None Include="../../assets/icon.png" Link="assets/icon.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
+

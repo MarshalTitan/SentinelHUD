@@ -1,4 +1,19 @@
-# Sentinel HUD 0.8.4.5 - Live Test
+# Sentinel HUD 0.8.6.0 - Live Test
+
+## 0.8.6.0 arcs and independent casts
+
+- [ ] Update from 0.8.5.2 without deleting config. Confirm schema 13, the schema-v12 backup and all existing module positions, sizes, colours, interactions, awareness/camera settings and Modern minimize state. Standard remains selected; separate casts remain disabled.
+- [ ] Player and Target Standard: verify the same HP/MP/shields, casts and clicks as before.
+- [ ] Enable Curved / Arc on Player, then Target. Check mirrored Auto and explicit Left/Right, readable names/levels/HP/HP%/MP, Full/Compact values and long-name wrapping. Focus/ToT stay Standard.
+- [ ] Verify friendly/hostile/custom colours, health-state gradient, MP modes, integrated blue shields and shield text, target distance and visibility conditions. Check zero/full HP, overflow shields and a non-character target.
+- [ ] Unlock: drag each arc, resize width horizontally and height vertically/from corners, adjust thickness/scale numerically. Verify previews without a target. Lock/unlock repeatedly without drift; locked mode has no editor chrome.
+- [ ] Confirm left-click targeting, header-only targeting and right-click native menus; input remains suspended while editing or over a native menu.
+- [ ] Enable Separate Player cast bar. Move it beneath the character, resize it independently and test cast name/progress/percentage/remaining time. Moving/resizing either HP arc must not move this bar.
+- [ ] Repeat with Separate Target cast bar; test interruption, completion and target changes. Idle gameplay hides casts; edit mode shows previews. Separate bars work with parent HP modules disabled.
+- [ ] Return either actor to Standard. A separate cast replaces its attached cast without duplication; disabling the separate bar restores its saved Standard cast options.
+- [ ] Set independent cast visibility/opacity/scale and confirm the bar remains readable near screen centre. Move both casts without overlapping each other.
+- [ ] Test Player/Target pages in Modern and Classic at wide, medium and minimum useful widths. Restore/collapse the themed configuration header.
+- [ ] Reload, then fully restart. Verify chosen styles, mirror overrides, arc dimensions, HP positions, independent cast positions/sizes/fields and all older settings persist. Change back to Standard and confirm it is still usable.
 
 ## 0.8.4.5 focused checks
 
@@ -25,7 +40,7 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 ## 0.8.4.3 focused checks
 
 - [ ] Update from 0.8.4.2 without deleting configuration. Verify the version is 0.8.4.3 and the customized positions, widths, heights, colours and feature switches remain unchanged after a full client restart.
-- [ ] At 100% Dalamud UI scale, check wide (1440 × 900), medium (920 × 720) and minimum (720 × 560) configuration sizes. Repeat at your normal UI scale.
+- [ ] At 100% Dalamud UI scale, check wide (1440 � 900), medium (920 � 720) and minimum (720 � 560) configuration sizes. Repeat at your normal UI scale.
 - [ ] Visit General, every HUD page and Layout, both Awareness pages, Camera, Questing / Convenience, Appearance, Diagnostics and Plugins. Wrapped descriptions and long labels remain fully visible; later rows move down; controls stay inside their columns.
 - [ ] In Encounter Awareness, inspect **Treat unclassified visible Splatoon geometry as danger** without enabling it. Its label must wrap clear of its On/Off switch.
 - [ ] In Appearance, **Target / Focus / ToT HP colour mode** wraps without drawing over the combo. The fixed Classic action dock and all navigation remain usable.
@@ -81,7 +96,7 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 - [ ] Open Plugins from the plug icon in the primary rail; confirm the page matches the Sentinel Modern surface, typography, cards and status pills.
 - [ ] Confirm the summary counts installed, enabled, disabled and absent companions accurately without any `Required` warning.
 - [ ] With S Rank Sentinel enabled, confirm its card reports **Enabled** and shows the installed version.
-- [ ] Disable S Rank Sentinel through Dalamud; confirm the card changes to **Installed · Disabled** rather than **Not Installed**.
+- [ ] Disable S Rank Sentinel through Dalamud; confirm the card changes to **Installed � Disabled** rather than **Not Installed**.
 - [ ] Re-enable it and confirm the status returns to **Enabled** without restarting Sentinel HUD.
 - [ ] Confirm an uninstalled listed companion reports **Not Installed**.
 - [ ] Repeat status checks for PvP Sentinel, Classy Sentinel, Sentinel Relay and Sentinel Profiles where installed.
@@ -194,7 +209,7 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 
 - [ ] Place Player and Target panels on exactly the same horizontal line.
 - [ ] Unlock the HUD, then lock it without moving either panel.
-- [ ] Repeat unlock → lock at least five times; neither panel moves or accumulates downward drift.
+- [ ] Repeat unlock  lock at least five times; neither panel moves or accumulates downward drift.
 - [ ] Unlock, move both panels, lock, and confirm their visible module bodies remain aligned.
 - [ ] Reload Sentinel HUD and confirm exact alignment persists.
 - [ ] Restart FFXIV and confirm exact alignment persists.
@@ -214,7 +229,7 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 - [ ] Player Static / Role-Based mode still uses the configured player HP colour.
 - [ ] Target Static / Role-Based mode keeps hostile targets red and friendly targets non-red.
 - [ ] Enable Player Health-State Gradient and confirm near-full HP is green.
-- [ ] Around 60–50% HP, confirm the bar transitions smoothly through yellow.
+- [ ] Around 60-50% HP, confirm the bar transitions smoothly through yellow.
 - [ ] At 35% HP and below, confirm the bar is red.
 - [ ] Enable Target / Focus / ToT Health-State Gradient and confirm hostile targets follow health state instead of remaining fixed red.
 - [ ] Player and Target colour modes remain independent and persist after restart.
@@ -272,7 +287,7 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 - [ ] Click Target; it reselects the actor currently represented by that module.
 - [ ] Click Target-of-Target; the normal hard target becomes that represented actor.
 - [ ] Click Focus Target; the focus actor becomes the normal hard target.
-- [ ] Focus a player, let them target an enemy, and click the Focus Target's Target row; that child actor—not the parent focus actor—is targeted.
+- [ ] Focus a player, let them target an enemy, and click the Focus Target's Target row; that child actor-not the parent focus actor-is targeted.
 - [ ] Change the Focus Target's target and repeat; the newly resolved actor is targeted.
 - [ ] Whole module mode accepts clicks across the visible panel and shows subtle hover feedback.
 - [ ] Header / name only mode accepts clicks only over the header/name region.
@@ -313,7 +328,7 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 - [ ] Vertical resizing changes HP/MP/cast bar height without scaling fonts.
 - [ ] Precision Module Width and Bar Height sliders reflect mouse-resized values.
 - [ ] Lock the HUD; all editor chrome disappears and the exact visual origins remain unchanged.
-- [ ] Repeat unlock → lock at least five times; no panel drifts in any direction.
+- [ ] Repeat unlock  lock at least five times; no panel drifts in any direction.
 - [ ] Reload the plugin and restart FFXIV; positions and mouse-resized widths persist.
 
 ## Target and bar colours
@@ -390,20 +405,20 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 - [ ] In Diagnostics, confirm the progression reports skip request, waiting, detected addon, Yes selected and completion without frame-by-frame log spam.
 - [ ] Finish or leave the cutscene and confirm the service resets cleanly for the next one.
 
-## Quest Rewards — Manual
+## Quest Rewards - Manual
 
 - [ ] Set Quest Reward Selection to Manual and open a choose-one reward screen.
 - [ ] Sentinel makes no selection and does not click Complete.
 - [ ] Guaranteed EXP, gil, items and unlocks remain unaffected.
 
-## Quest Rewards — First Reward
+## Quest Rewards - First Reward
 
 - [ ] Open a reward screen with multiple selectable choices.
 - [ ] The first selectable reward is selected.
 - [ ] The quest completes through the enabled Complete button.
 - [ ] Change/close the reward window during the flow and confirm no stale action reaches a later window.
 
-## Quest Rewards — Current Job
+## Quest Rewards - Current Job
 
 - [ ] On WAR, open a reward with tank/WAR-compatible equipment; the appropriate item is selected.
 - [ ] Change to another combat job and confirm the compatible reward changes.
@@ -412,10 +427,10 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 - [ ] When two compatible rewards exist, confirm narrower job/role compatibility wins, then higher item level, then first source order.
 - [ ] When no compatible equipment exists, the first selectable reward is used and Diagnostics reports `No Job Match -> First Reward`.
 
-## Quest Rewards — Allagan Piece
+## Quest Rewards - Allagan Piece
 
 - [ ] With an Allagan Piece offered, confirm it is selected by stable item data rather than localized display text.
-- [ ] If multiple supported pieces are offered, confirm the greatest `vendor value × quantity` wins.
+- [ ] If multiple supported pieces are offered, confirm the greatest `vendor value � quantity` wins.
 - [ ] With no Allagan Piece offered, the first selectable reward is used and Diagnostics reports `No Allagan Piece -> First Reward`.
 - [ ] Confirm the selected reward name/ID, current job, window detection and selection reason appear in Diagnostics without frame-by-frame log spam.
 

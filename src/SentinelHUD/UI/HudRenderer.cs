@@ -34,11 +34,14 @@ public sealed class HudRenderer
     private readonly DiagnosticBuffer diagnostics;
     private readonly Dictionary<HudModuleKind, LayoutRuntimeState> layoutStates = new();
     private readonly StringBuilder focusTargetLineBuilder = new(192);
+    private readonly ArcHudRenderer playerArc = new();
+    private readonly ArcHudRenderer targetArc = new();
     private IGameObject? focusTargetTarget;
     private Vector2 headerMinimum;
     private Vector2 headerMaximum;
     private bool hasHeaderBounds;
     private int renderedMeterCount;
+    private float meterOpacity = 1f;
     private HudDiagnosticState lastDiagnosticState;
     private bool hasDiagnosticState;
 
@@ -200,6 +203,9 @@ public sealed class HudRenderer
             TargetingMeCounterVisible = true;
         }
 
+        DrawSeparateCast(HudModuleKind.PlayerCast, config.PlayerCast, config, player, runtime);
+        DrawSeparateCast(HudModuleKind.TargetCast, config.TargetCast, config, target, runtime);
+
         if (config.Locked)
         {
             if (!actorInteractions.ShouldSuspendActorInput)
@@ -277,7 +283,8 @@ public sealed class HudRenderer
         ImGui.SetNextWindowSizeConstraints(new Vector2(module.Width, 1f),
             new Vector2(module.Width, float.MaxValue));
         ImGui.SetNextWindowBgAlpha(module.Opacity * root.GlobalOpacity);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, module.BorderEnabled ? 1f : 0f);
+        var arc = kind is HudModuleKind.Player or HudModuleKind.Target && module.BarStyle == HudBarStyle.Arc;
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, module.BorderEnabled && !arc ? 1f : 0f);
         var borderColour = SentinelPalette.HeaderGold;
         borderColour.W = module.BorderOpacity * root.GlobalOpacity;
         ImGui.PushStyleColor(ImGuiCol.Border, borderColour);
@@ -288,7 +295,7 @@ public sealed class HudRenderer
                         | ImGuiWindowFlags.NoDocking | ImGuiWindowFlags.NoNav
                         | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoInputs
                         | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoTitleBar;
-            if (transparentBackground)
+            if (transparentBackground || arc)
                 flags |= ImGuiWindowFlags.NoBackground;
 
             var title = kind switch
@@ -297,6 +304,8 @@ public sealed class HudRenderer
                 HudModuleKind.Target => "Target##SentinelHUD-Target",
                 HudModuleKind.FocusTarget => "Focus Target##SentinelHUD-FocusTarget",
                 HudModuleKind.TargetOfTarget => "Target of Target##SentinelHUD-TargetOfTarget",
+                HudModuleKind.PlayerCast => "Player Cast##SentinelHUD-PlayerCast",
+                HudModuleKind.TargetCast => "Target Cast##SentinelHUD-TargetCast",
                 _ => "Targeting Me Counter##SentinelHUD-TargetingMeCounter",
             };
             var began = ImGui.Begin(title, flags);
@@ -305,10 +314,13 @@ public sealed class HudRenderer
                 ImGui.SetWindowFontScale(module.Scale * root.GlobalScale);
                 hasHeaderBounds = false;
                 renderedMeterCount = 0;
+                meterOpacity = module is CastModuleConfiguration ? module.Opacity * root.GlobalOpacity : 1f;
                 if (began)
                 {
-                    if (actorRequired && actor is null)
-                        SentinelUi.MutedText("No actor resolved — drag this module into place.");
+                    if (actorRequired && actor is null && arc)
+                        DrawArcPreview(kind, module);
+                    else if (actorRequired && actor is null)
+                        SentinelUi.MutedText("No actor resolved - drag this module into place.");
                     else
                         drawContent(actor, module);
                 }
@@ -334,7 +346,8 @@ public sealed class HudRenderer
                 if (!root.Locked)
                 {
                     hudEditor.Register(kind, actualPosition, maximum, module.Width,
-                        module.BarHeight, renderedMeterCount);
+                        module.BarHeight, renderedMeterCount, arc, module.ArcHeight,
+                        module.Scale * root.GlobalScale);
                 }
                 else if (actor is not null && (module.ClickToTarget || module.RightClickContextMenu))
                 {
@@ -364,15 +377,22 @@ public sealed class HudRenderer
         var config = (PlayerModuleConfiguration)baseConfiguration;
         if (actor is not ICharacter character)
             return;
-        DrawCompactHeader(actor, character, config.ShowName, config.ShowJob, config.ShowRole,
-            config.ShowLevel, true);
-        DrawHealth(character, actor, HudModuleKind.Player, config, config.ShieldDisplay);
-        DrawShieldText(character, config.ShieldDisplay);
-        DrawMp(character, config, config.MpDisplay);
+        if (config.BarStyle == HudBarStyle.Arc)
+            DrawActorArc(actor, character, HudModuleKind.Player, config, config.MpDisplay,
+                config.ShieldDisplay, config.ShowName, config.ShowLevel, config.ShowJob, config.ShowRole);
+        else
+        {
+            DrawCompactHeader(actor, character, config.ShowName, config.ShowJob, config.ShowRole,
+                config.ShowLevel, true);
+            DrawHealth(character, actor, HudModuleKind.Player, config, config.ShieldDisplay);
+            DrawShieldText(character, config.ShieldDisplay);
+            DrawMp(character, config, config.MpDisplay);
+        }
         if (actor is IBattleChara battleChara)
         {
-            DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
-                config.ShowCastPercentage, config.ShowCastRemainingTime);
+            if (CastPresentationPolicy.ShowAttached(config, configuration.Current.PlayerCast))
+                DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
+                    config.ShowCastPercentage, config.ShowCastRemainingTime);
             if (config.ShowStatuses)
                 DrawStatuses(battleChara);
         }
@@ -385,11 +405,17 @@ public sealed class HudRenderer
             return;
         if (actor is ICharacter character)
         {
-            DrawCompactHeader(actor, character, config.ShowName, config.ShowJob, config.ShowRole,
-                config.ShowLevel, actor.ObjectKind == ObjectKind.Pc);
-            DrawHealth(character, actor, HudModuleKind.Target, config, config.ShieldDisplay);
-            DrawShieldText(character, config.ShieldDisplay);
-            DrawMp(character, config, config.MpDisplay);
+            if (config.BarStyle == HudBarStyle.Arc)
+                DrawActorArc(actor, character, HudModuleKind.Target, config, config.MpDisplay,
+                    config.ShieldDisplay, config.ShowName, config.ShowLevel, config.ShowJob, config.ShowRole);
+            else
+            {
+                DrawCompactHeader(actor, character, config.ShowName, config.ShowJob, config.ShowRole,
+                    config.ShowLevel, actor.ObjectKind == ObjectKind.Pc);
+                DrawHealth(character, actor, HudModuleKind.Target, config, config.ShieldDisplay);
+                DrawShieldText(character, config.ShieldDisplay);
+                DrawMp(character, config, config.MpDisplay);
+            }
         }
         else if (config.ShowName)
         {
@@ -401,10 +427,100 @@ public sealed class HudRenderer
             ImGui.TextUnformatted(HudFormatting.Distance(data.GetDistance(actor)));
         if (actor is IBattleChara battleChara)
         {
-            DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
-                config.ShowCastPercentage, false);
+            if (CastPresentationPolicy.ShowAttached(config, configuration.Current.TargetCast))
+                DrawCast(battleChara, config, config.ShowCastName, config.ShowCastBar,
+                    config.ShowCastPercentage, false);
             if (config.ShowStatuses)
                 DrawStatuses(battleChara);
+        }
+    }
+
+    private void DrawActorArc(IGameObject actor, ICharacter character, HudModuleKind kind,
+        HudModuleConfiguration module, MpDisplayMode mpMode, ShieldDisplayMode shieldMode,
+        bool showName, bool showLevel, bool showJob, bool showRole)
+    {
+        var headerStart = ImGui.GetCursorScreenPos();
+        // Wrapped header keeps long target names and levels inside the clickable module bounds.
+        if (showName) ImGui.TextWrapped(actor.Name.TextValue);
+        var metadata = showLevel ? $"Lv.{character.Level}" : string.Empty;
+        if (actor.ObjectKind == ObjectKind.Pc && showJob && data.GetJob(actor) is { } job)
+            metadata = AppendHeaderPart(metadata, job.Abbreviation);
+        if (actor.ObjectKind == ObjectKind.Pc && showRole)
+            metadata = AppendHeaderPart(metadata, data.GetRoleName(actor));
+        if (metadata.Length > 0) ImGui.TextWrapped(metadata);
+        if (showName || metadata.Length > 0) CaptureHeader(headerStart);
+        var (current, maximum, percentage) = GetHpVisibility(module);
+        var text = HudFormatting.HitPoints(character.CurrentHp, character.MaxHp,
+            current, maximum, percentage, module.NumberFormat);
+        if (mpMode is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText && character.MaxMp > 0)
+            text += $"\nMP {HudFormatting.Number(character.CurrentMp, module.NumberFormat)} / "
+                + HudFormatting.Number(character.MaxMp, module.NumberFormat);
+        if (shieldMode is ShieldDisplayMode.TextOnly or ShieldDisplayMode.BarAndText && character.ShieldPercentage > 0)
+            text += $"\nShield {HudFormatting.Shield(character.MaxHp, character.ShieldPercentage)}";
+        var fraction = character.MaxHp == 0 ? 0f : Math.Clamp((float)character.CurrentHp / character.MaxHp, 0f, 1f);
+        var shield = shieldMode is ShieldDisplayMode.BarOnly or ShieldDisplayMode.BarAndText
+            ? character.ShieldPercentage / 100f : 0f;
+        DrawArc(kind, module, fraction, shield,
+            character.MaxMp == 0 ? 0f : (float)character.CurrentMp / character.MaxMp,
+            character.MaxMp > 0 && mpMode is MpDisplayMode.BarOnly or MpDisplayMode.BarAndText,
+            text, ResolveHealthColour(actor, kind, fraction));
+    }
+
+    private void DrawArc(HudModuleKind kind, HudModuleConfiguration module, float hp, float shield,
+        float mp, bool showMp, string text, Vector4 colour)
+    {
+        var root = configuration.Current;
+        (kind == HudModuleKind.Player ? playerArc : targetArc).Draw(module, kind,
+            module.Scale * root.GlobalScale, module.Opacity * root.GlobalOpacity,
+            hp, shield, mp, showMp, text, colour,
+            root.Appearance.Mp.ToVector4(), root.Appearance.Shield.ToVector4());
+    }
+
+    private void DrawArcPreview(HudModuleKind kind, HudModuleConfiguration module)
+    {
+        var root = configuration.Current;
+        var isPlayer = kind == HudModuleKind.Player;
+        var showName = isPlayer ? root.Player.ShowName : root.Target.ShowName;
+        var showLevel = isPlayer ? root.Player.ShowLevel : root.Target.ShowLevel;
+        var headerStart = ImGui.GetCursorScreenPos();
+        if (showName) ImGui.TextWrapped(isPlayer ? "Player preview" : "Target preview");
+        if (showLevel) ImGui.TextWrapped("Lv.100");
+        if (showName || showLevel) CaptureHeader(headerStart);
+        var mp = isPlayer ? root.Player.MpDisplay : root.Target.MpDisplay;
+        var shield = isPlayer ? root.Player.ShieldDisplay : root.Target.ShieldDisplay;
+        var (current, maximum, percentage) = GetHpVisibility(module);
+        var text = HudFormatting.HitPoints(120000, 150000, current, maximum, percentage, module.NumberFormat);
+        if (mp is MpDisplayMode.TextOnly or MpDisplayMode.BarAndText) text += "\nMP 8,000 / 10,000";
+        if (shield is ShieldDisplayMode.TextOnly or ShieldDisplayMode.BarAndText) text += "\nShield 20%";
+        var colour = isPlayer ? root.Appearance.PlayerHealth.ToVector4() : root.Appearance.HostileHealth.ToVector4();
+        DrawArc(kind, module, 0.8f, shield is ShieldDisplayMode.BarOnly or ShieldDisplayMode.BarAndText ? 0.2f : 0f,
+            0.8f, mp is MpDisplayMode.BarOnly or MpDisplayMode.BarAndText, text, colour);
+    }
+
+    private void DrawSeparateCast(HudModuleKind kind, CastModuleConfiguration cast, Configuration root,
+        IGameObject? actor, RuntimeVisibilityState runtime)
+    {
+        if (root.Locked && !cast.ShowCastBar && !cast.ShowCastName
+            && !cast.ShowCastPercentage && !cast.ShowCastRemainingTime) return;
+        if (!CastPresentationPolicy.ShowSeparate(cast, root.Locked,
+                actor is IBattleChara { IsCasting: true }, runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty)) return;
+        DrawModule(kind, cast, root, actor, DrawSeparateCastContent, actorRequired: false, transparentBackground: true);
+    }
+
+    private void DrawSeparateCastContent(IGameObject? actor, HudModuleConfiguration module)
+    {
+        var cast = (CastModuleConfiguration)module;
+        if (actor is IBattleChara { IsCasting: true } battle)
+            DrawCast(battle, cast, cast.ShowCastName, cast.ShowCastBar,
+                cast.ShowCastPercentage, cast.ShowCastRemainingTime);
+        else if (!configuration.Current.Locked)
+        {
+            var text = cast.ShowCastName ? "Cast preview" : string.Empty;
+            if (cast.ShowCastPercentage) text += " 62%";
+            if (cast.ShowCastRemainingTime) text += " 1.1s";
+            if (cast.ShowCastBar) DrawMeter(0.62f, 0f, cast.BarHeight, text,
+                cast.HpTextAlignment, SentinelPalette.AccentBlue, Vector4.Zero);
+            else ImGui.TextWrapped(text.Length > 0 ? text : "Cast preview (all fields off)");
         }
     }
 
@@ -630,6 +746,7 @@ public sealed class HudRenderer
     {
         if (!actor.IsCasting)
             return;
+        var headerStart = ImGui.GetCursorScreenPos();
         var total = actor.TotalCastTime;
         var current = actor.CurrentCastTime;
         var fraction = total <= 0f ? 0f : Math.Clamp(current / total, 0f, 1f);
@@ -638,9 +755,9 @@ public sealed class HudRenderer
         var remaining = showRemainingTime ? HudFormatting.RemainingCastTime(current, total) : string.Empty;
         var overlay = name;
         if (percentage.Length > 0)
-            overlay = overlay.Length == 0 ? percentage : $"{overlay} — {percentage}";
+            overlay = overlay.Length == 0 ? percentage : $"{overlay} - {percentage}";
         if (remaining.Length > 0)
-            overlay = overlay.Length == 0 ? remaining : $"{overlay} — {remaining}";
+            overlay = overlay.Length == 0 ? remaining : $"{overlay} - {remaining}";
         if (showBar)
         {
             DrawMeter(fraction, 0f, module.BarHeight, overlay, module.HpTextAlignment,
@@ -648,8 +765,11 @@ public sealed class HudRenderer
         }
         else if (overlay.Length > 0)
         {
+            ImGui.PushStyleVar(ImGuiStyleVar.Alpha, meterOpacity);
             ImGui.TextUnformatted(overlay);
+            ImGui.PopStyleVar();
         }
+        if (module is CastModuleConfiguration && (showBar || overlay.Length > 0)) CaptureHeader(headerStart);
     }
 
     private void DrawMeter(float fraction, float shieldFraction, float height,
@@ -663,6 +783,9 @@ public sealed class HudRenderer
         ImGui.Dummy(size);
         var drawList = ImGui.GetWindowDrawList();
         var background = new Vector4(0.045f, 0.05f, 0.065f, 0.92f);
+        background.W *= meterOpacity;
+        fillColour.W *= meterOpacity;
+        shieldColour.W *= meterOpacity;
         drawList.AddRectFilled(minimum, maximum, ImGui.ColorConvertFloat4ToU32(background), 2f);
 
         var shieldLayout = ShieldBarPolicy.Calculate(fraction, shieldFraction);
@@ -682,7 +805,7 @@ public sealed class HudRenderer
             drawList.AddRectFilled(new Vector2(hpEnd, minimum.Y),
                 new Vector2(extensionEnd, maximum.Y), ImGui.ColorConvertFloat4ToU32(shieldColour), 2f);
         }
-        drawList.AddRect(minimum, maximum, 0xA0000000, 2f);
+        drawList.AddRect(minimum, maximum, (uint)(160f * meterOpacity) << 24, 2f);
         if (overlay.Length == 0)
             return;
 
@@ -696,8 +819,8 @@ public sealed class HudRenderer
         var textPosition = new Vector2(Math.Max(minimum.X + 3f, textX),
             minimum.Y + ((height - textSize.Y) * 0.5f));
         drawList.PushClipRect(minimum, maximum, true);
-        drawList.AddText(textPosition + Vector2.One, 0xD0000000, overlay);
-        drawList.AddText(textPosition, 0xFFF5F5F5, overlay);
+        drawList.AddText(textPosition + Vector2.One, (uint)(208f * meterOpacity) << 24, overlay);
+        drawList.AddText(textPosition, ((uint)(255f * meterOpacity) << 24) | 0x00F5F5F5, overlay);
         drawList.PopClipRect();
     }
 
@@ -805,7 +928,7 @@ public sealed class HudRenderer
     private void AppendFocusTargetPart(string value)
     {
         if (focusTargetLineBuilder.Length > 0)
-            focusTargetLineBuilder.Append(" — ");
+            focusTargetLineBuilder.Append(" - ");
         focusTargetLineBuilder.Append(value);
     }
 
@@ -885,6 +1008,8 @@ public sealed class HudRenderer
             HudModuleKind.Target => config.Target,
             HudModuleKind.FocusTarget => config.FocusTarget,
             HudModuleKind.TargetOfTarget => config.TargetOfTarget,
+            HudModuleKind.PlayerCast => config.PlayerCast,
+            HudModuleKind.TargetCast => config.TargetCast,
             _ => config.TargetingMeCounter,
         };
 
@@ -895,6 +1020,8 @@ public sealed class HudRenderer
             HudModuleKind.Target => HudConfigurationDefaults.CreateTarget(),
             HudModuleKind.FocusTarget => HudConfigurationDefaults.CreateFocusTarget(),
             HudModuleKind.TargetOfTarget => HudConfigurationDefaults.CreateTargetOfTarget(),
+            HudModuleKind.PlayerCast => HudConfigurationDefaults.CreateCast(false),
+            HudModuleKind.TargetCast => HudConfigurationDefaults.CreateCast(true),
             _ => HudConfigurationDefaults.CreateTargetingMeCounter(),
         };
 
@@ -918,3 +1045,4 @@ public sealed class HudRenderer
         NativeTargetOverlayMode NativeTargetMode, bool NativeTargetActive, string NativeTargetState,
         bool CameraEnabled, bool CameraActive, string CameraState);
 }
+

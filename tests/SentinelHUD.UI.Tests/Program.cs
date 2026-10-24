@@ -32,7 +32,8 @@ internal static class Program
             Test("minimized reload and command reopening restore expanded dimensions", TestReload);
             Test("minimized Core header dragging retains expanded size", TestDragging);
             Test("Classic native collapse and theme switching retain geometry", TestClassic);
-            Console.WriteLine($"{passed}/7 native ImGui UI test groups passed.");
+            Test("arc paths, shields and wrapped text render at three widths/scales", TestArcRendering);
+            Console.WriteLine($"{passed}/8 native ImGui UI test groups passed.");
             return 0;
         }
         catch (Exception exception)
@@ -84,6 +85,41 @@ internal static class Program
                 return window;
         }
         throw new InvalidOperationException("Missing native window: " + name + "/" + child);
+    }
+
+    private static void TestArcRendering()
+    {
+        foreach (var width in new[] { 180f, 320f, 640f })
+        foreach (var scale in new[] { 0.65f, 1f, 1.75f })
+        foreach (var orientation in new[] { ArcOrientation.Left, ArcOrientation.Right })
+        InContext(() =>
+        {
+            var renderer = new ArcHudRenderer();
+            var module = new PlayerModuleConfiguration
+            {
+                BarStyle = HudBarStyle.Arc, Width = width, ArcOrientation = orientation,
+                ArcHeight = 240f, BarHeight = 34f,
+            };
+            for (var frame = 0; frame < 3; frame++)
+            {
+                ImGui.NewFrame();
+                ImGui.SetNextWindowPos(new Vector2(40f, 40f));
+                ImGui.SetNextWindowSize(new Vector2(width, 240f * scale + 200f));
+                ImGui.Begin("Arc rendering test", ImGuiWindowFlags.NoSavedSettings);
+                ImGui.SetWindowFontScale(scale);
+                var start = ImGui.GetCursorScreenPos();
+                renderer.Draw(module, HudModuleKind.Player, scale, 0.8f,
+                    frame == 0 ? 0f : frame == 1 ? 0.75f : 1f, 0.3f, 0.6f, true,
+                    "120,000 / 150,000 - 80.0%\nMP 8,000 / 10,000\nShield 30%",
+                    new Vector4(0.2f, 0.8f, 0.3f, 1f), new Vector4(0.2f, 0.4f, 1f, 1f),
+                    new Vector4(0.2f, 0.6f, 1f, 1f));
+                Check(ImGui.GetCursorScreenPos().Y >= start.Y + 240f * scale,
+                    "Arc rendering did not reserve its full height.");
+                ImGui.End();
+                ImGui.Render();
+                Check(ImGui.GetDrawData().TotalVtxCount > 0, "Arc paths produced no render data.");
+            }
+        });
     }
 
     private static unsafe void TestGeometry()

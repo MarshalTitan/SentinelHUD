@@ -19,7 +19,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static readonly string[] HighlightColours = ["Yellow", "Green", "Blue", "White", "Custom"];
     private static readonly string[] DangerColours = ["Red", "Orange", "Yellow", "Custom"];
     private static readonly string[] MarkerStyles = ["Ground Projected", "Camera Facing"];
-    private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target", "Targeting Me Counter"];
+    private static readonly string[] ModuleNames = ["Player", "Target", "Focus Target", "Target of Target", "Targeting Me Counter", "Player Cast", "Target Cast"];
+    private static readonly string[] BarStyles = ["Standard", "Curved / Arc"];
+    private static readonly string[] ArcOrientations = ["Auto / mirrored", "Left side", "Right side"];
     private static readonly string[] ClickableAreas = ["Whole module", "Header / name only"];
     private static readonly string[] ModuleVisibilityModes = ["Always", "Combat Only", "Duty Only", "Combat or Duty"];
     private static readonly string[] ShieldModes = ["Off", "Text Only", "Bar Only", "Bar + Text"];
@@ -531,7 +533,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         => DrawPluginStatus("Enabled", SentinelModernPillTone.Enabled);
 
     private void DrawPluginDisabledStatus()
-        => DrawPluginStatus("Installed · Disabled", SentinelModernPillTone.Neutral);
+        => DrawPluginStatus("Installed � Disabled", SentinelModernPillTone.Neutral);
 
     private void DrawPluginNotInstalledStatus()
         => DrawPluginStatus("Not Installed", SentinelModernPillTone.Neutral);
@@ -539,7 +541,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static string PluginStatusText(SentinelCompanionState state) => state switch
     {
         SentinelCompanionState.Enabled => "Enabled",
-        SentinelCompanionState.InstalledDisabled => "Installed · Disabled",
+        SentinelCompanionState.InstalledDisabled => "Installed � Disabled",
         _ => "Not Installed",
     };
 
@@ -587,6 +589,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
     {
         var config = configuration.Current.Player;
         DrawModuleVisibility(HudModuleKind.Player, config);
+        DrawBarStyle(HudModuleKind.Player, config);
         if (OpenSection("Information"))
         {
             DrawToggle("Show character name", config.ShowName, value => Update(c => c.Player.ShowName = value));
@@ -612,12 +615,14 @@ public sealed class ConfigurationWindow : Window, IDisposable
         }
         DrawModuleSizeLayout(HudModuleKind.Player, config);
         DrawModuleAppearance(HudModuleKind.Player, config);
+        DrawSeparateCastSettings(HudModuleKind.PlayerCast, configuration.Current.PlayerCast);
     }
 
     private void DrawTarget()
     {
         var config = configuration.Current.Target;
         DrawModuleVisibility(HudModuleKind.Target, config);
+        DrawBarStyle(HudModuleKind.Target, config);
         if (OpenSection("Information"))
         {
             DrawToggle("Show target name", config.ShowName, value => Update(c => c.Target.ShowName = value));
@@ -641,6 +646,64 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawModuleSizeLayout(HudModuleKind.Target, config);
         DrawModuleAppearance(HudModuleKind.Target, config);
         DrawNativeTargetOverlay(config.NativeHpOverlay);
+        DrawSeparateCastSettings(HudModuleKind.TargetCast, configuration.Current.TargetCast);
+    }
+
+    private void DrawBarStyle(HudModuleKind kind, HudModuleConfiguration module)
+    {
+        if (!OpenSection("Bar style")) return;
+        var style = (int)module.BarStyle;
+        if (DrawComboSetting($"{kind}.BarStyle", "Layout style",
+                "Standard keeps the existing rectangular layout. Arcs use a mirrored vertical bow.", ref style, BarStyles))
+            Update(c => GetModule(c, kind).BarStyle = (HudBarStyle)style);
+        if (module.BarStyle != HudBarStyle.Arc) return;
+        var orientation = (int)module.ArcOrientation;
+        if (DrawComboSetting($"{kind}.ArcOrientation", "Orientation",
+                "Auto places the Player arc on the left and Target arc on the right.", ref orientation, ArcOrientations))
+            Update(c => GetModule(c, kind).ArcOrientation = (ArcOrientation)orientation);
+        var height = module.ArcHeight;
+        if (DrawSliderSetting($"{kind}.ArcHeight", "Arc height", "Vertical editor edges also change this height.",
+                ref height, ArcBarGeometry.MinimumHeight, ArcBarGeometry.MaximumHeight, "%.0f px"))
+            Update(c => GetModule(c, kind).ArcHeight = height);
+        DrawMutedText("Module width controls the horizontal footprint; Bar height controls arc thickness, capped to fit narrow modules. Scale changes arc height, thickness and text. HP text wraps beside the arc; rectangular text alignment applies to Standard and cast bars.");
+        DrawMutedText("Arc mode never attaches casts. Enable the separate cast bar below to place it independently.");
+        if (DrawActionButton("Place arc near centre"))
+        {
+            Update(c => GetModule(c, kind).Layout = new ModuleLayoutConfiguration
+            {
+                AnchorX = ArcBarGeometry.IsRight(module.ArcOrientation, kind) ? 0.64f : 0.36f,
+                AnchorY = 0.42f,
+            });
+            renderer.RequestReposition(kind);
+        }
+    }
+
+    private void DrawSeparateCastSettings(HudModuleKind kind, CastModuleConfiguration cast)
+    {
+        ImGui.PushID(kind.ToString());
+        try
+        {
+            if (!OpenSection(kind == HudModuleKind.PlayerCast ? "Separate Player cast bar" : "Separate Target cast bar")) return;
+            DrawMutedText("Enable for an independent cast module. Configure its position in the unlocked HUD; Layout also lists it separately. When enabled it replaces the Standard module's attached cast. Arc mode always keeps casts separate.");
+            DrawToggle("Enable separate cast bar", cast.Enabled,
+                value => Update(c => GetModule(c, kind).Enabled = value));
+            if (!cast.Enabled) return;
+            var visibility = (int)cast.Visibility;
+            if (DrawComboSetting($"{kind}.Visibility", "Show when", "Visible only during a cast in gameplay; edit mode supplies a preview.",
+                    ref visibility, ModuleVisibilityModes))
+                Update(c => GetModule(c, kind).Visibility = (ModuleVisibilityCondition)visibility);
+            DrawToggle("Show cast name", cast.ShowCastName,
+                value => Update(c => ((CastModuleConfiguration)GetModule(c, kind)).ShowCastName = value));
+            DrawToggle("Show cast bar", cast.ShowCastBar,
+                value => Update(c => ((CastModuleConfiguration)GetModule(c, kind)).ShowCastBar = value));
+            DrawToggle("Show cast percentage", cast.ShowCastPercentage,
+                value => Update(c => ((CastModuleConfiguration)GetModule(c, kind)).ShowCastPercentage = value));
+            DrawToggle("Show remaining cast time", cast.ShowCastRemainingTime,
+                value => Update(c => ((CastModuleConfiguration)GetModule(c, kind)).ShowCastRemainingTime = value));
+            DrawModuleSizeLayout(kind, cast);
+            DrawModuleAppearance(kind, cast);
+        }
+        finally { ImGui.PopID(); }
     }
 
     private void DrawFocusTarget()
@@ -1069,7 +1132,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (renderer.NativeActorContextMenuVisible)
         {
             ImGui.TextWrapped($"Native menu position: {renderer.ActorContextMenuPosition.X:0}, {renderer.ActorContextMenuPosition.Y:0}");
-            ImGui.TextWrapped($"Native menu size: {renderer.ActorContextMenuSize.X:0} × {renderer.ActorContextMenuSize.Y:0}");
+            ImGui.TextWrapped($"Native menu size: {renderer.ActorContextMenuSize.X:0} � {renderer.ActorContextMenuSize.Y:0}");
         }
         ImGui.TextWrapped($"Target-of-target visible / resolved: {renderer.TargetOfTargetVisible} / {renderer.TargetOfTargetResolved}");
         ImGui.TextWrapped($"Self highlight mode / active: {config.SelfHighlight.Mode} / {renderer.SelfHighlightActive}");
@@ -1092,7 +1155,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (renderer.NativeTargetOverlayActive)
         {
             ImGui.TextWrapped($"Native target anchor: {renderer.NativeTargetOverlayAnchor.X:0.0}, {renderer.NativeTargetOverlayAnchor.Y:0.0}");
-            ImGui.TextWrapped($"Native target bounds: {renderer.NativeTargetOverlaySize.X:0.0} × {renderer.NativeTargetOverlaySize.Y:0.0}");
+            ImGui.TextWrapped($"Native target bounds: {renderer.NativeTargetOverlaySize.X:0.0} � {renderer.NativeTargetOverlaySize.Y:0.0}");
         }
         ImGui.TextWrapped($"Extended zoom enabled / active: {config.Camera.Enabled} / {renderer.CameraZoomActive}");
         ImGui.TextWrapped($"Extended zoom state: {renderer.CameraZoomState}");
@@ -1111,7 +1174,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
             && ImGui.TreeNode($"Observed hard targeters ({renderer.PvPThreat.TargeterCount})"))
         {
             foreach (var targeter in renderer.PvPThreat.Targeters)
-                DrawWrappedBullet($"{targeter.JobAbbreviation} — {targeter.Name}, {targeter.Distance:0.0}y");
+                DrawWrappedBullet($"{targeter.JobAbbreviation} - {targeter.Name}, {targeter.Distance:0.0}y");
             ImGui.TreePop();
         }
         if (DrawActionButton("Clear diagnostic history"))
@@ -1604,6 +1667,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
             HudModuleKind.Target => config.Target,
             HudModuleKind.FocusTarget => config.FocusTarget,
             HudModuleKind.TargetOfTarget => config.TargetOfTarget,
+            HudModuleKind.PlayerCast => config.PlayerCast,
+            HudModuleKind.TargetCast => config.TargetCast,
             _ => config.TargetingMeCounter,
         };
 }
+

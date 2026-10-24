@@ -17,7 +17,7 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
     private static readonly string[] WindowNames = Enumerable.Range(0, MaximumRegions)
         .Select(index => $"HUD editor {index}##SentinelHUD-Editor-{index}")
         .ToArray();
-    private static readonly string[] Labels = ["Player", "Target", "Focus", "Target of Target", "Targeting Me"];
+    private static readonly string[] Labels = ["Player", "Target", "Focus", "Target of Target", "Targeting Me", "Player Cast", "Target Cast"];
     private readonly ConfigurationCoordinator<Configuration> configuration = configuration;
     private readonly List<EditRegion> regions = new(MaximumRegions);
     private HudModuleKind? selectedKind;
@@ -28,17 +28,19 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
     private float dragStartWidth;
     private float dragStartBarHeight;
     private int dragStartBarCount;
+    private float dragStartArcHeight;
     private EditorResizeEdges resizeEdges;
 
     public void BeginFrame() => regions.Clear();
 
     public void Register(HudModuleKind kind, Vector2 minimum, Vector2 maximum, float configuredWidth,
-        float configuredBarHeight, int renderedBarCount)
+        float configuredBarHeight, int renderedBarCount, bool arc = false,
+        float arcHeight = 240f, float scale = 1f)
     {
         if (regions.Count >= MaximumRegions || maximum.X <= minimum.X || maximum.Y <= minimum.Y)
             return;
         regions.Add(new EditRegion(kind, minimum, maximum, configuredWidth, configuredBarHeight,
-            renderedBarCount));
+            renderedBarCount, arc, arcHeight, scale));
     }
 
     public void Draw()
@@ -89,6 +91,7 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
                     dragStartWidth = region.ConfiguredWidth;
                     dragStartBarHeight = region.ConfiguredBarHeight;
                     dragStartBarCount = region.RenderedBarCount;
+                    dragStartArcHeight = region.ArcHeight;
                 }
 
                 if (activeKind == region.Kind && ImGui.IsItemActive())
@@ -117,14 +120,18 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
         var viewport = ImGui.GetMainViewport();
         if (resizeEdges != EditorResizeEdges.None)
         {
-            var result = LayoutPolicy.ResizeFromEdges(dragStartWidth, dragStartBarHeight,
-                dragStartBarCount, resizeEdges, delta, dragStartPosition, dragStartSize,
-                viewport.WorkPos, viewport.WorkSize);
+            var result = region.Arc
+                ? ArcBarGeometry.Resize(dragStartWidth, dragStartArcHeight, region.Scale,
+                    resizeEdges, delta, dragStartPosition, dragStartSize, viewport.WorkPos, viewport.WorkSize)
+                : LayoutPolicy.ResizeFromEdges(dragStartWidth, dragStartBarHeight,
+                    dragStartBarCount, resizeEdges, delta, dragStartPosition, dragStartSize,
+                    viewport.WorkPos, viewport.WorkSize);
             configuration.Update(config =>
             {
                 var module = GetModule(config, region.Kind);
                 module.Width = result.Width;
-                module.BarHeight = result.BarHeight;
+                if (region.Arc) module.ArcHeight = result.BarHeight;
+                else module.BarHeight = result.BarHeight;
                 module.Layout.AnchorX = result.Layout.AnchorX;
                 module.Layout.AnchorY = result.Layout.AnchorY;
             }, TimeSpan.FromMilliseconds(650));
@@ -210,6 +217,8 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
             HudModuleKind.Target => config.Target,
             HudModuleKind.FocusTarget => config.FocusTarget,
             HudModuleKind.TargetOfTarget => config.TargetOfTarget,
+            HudModuleKind.PlayerCast => config.PlayerCast,
+            HudModuleKind.TargetCast => config.TargetCast,
             _ => config.TargetingMeCounter,
         };
 
@@ -219,5 +228,9 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
         Vector2 Maximum,
         float ConfiguredWidth,
         float ConfiguredBarHeight,
-        int RenderedBarCount);
+        int RenderedBarCount,
+        bool Arc,
+        float ArcHeight,
+        float Scale);
 }
+
