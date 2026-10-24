@@ -53,6 +53,11 @@ public sealed class CurrencyDataService(IDataManager data)
         EnsureCatalog();
         var result = new List<CurrencyBalance>(config.SelectedCurrencies.Count);
         var inventory = playerAvailable ? InventoryManager.Instance() : null;
+        if (inventory != null)
+        {
+            var wallet = inventory->GetInventoryContainer(InventoryType.Currency);
+            if (wallet == null || !wallet->IsLoaded) inventory = null;
+        }
         foreach (var id in config.SelectedCurrencies)
         {
             if (!definitions.TryGetValue(id, out var definition)) continue;
