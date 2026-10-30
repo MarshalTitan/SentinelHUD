@@ -1,4 +1,23 @@
-# Sentinel HUD 0.8.7.2 - Live Test
+# Sentinel HUD 0.8.8.0 - Live Test
+
+## 0.8.8.0 Encounter Colors and Sentinel Encounter Overlay
+
+- [ ] Upgrade from 0.8.7.2 without deleting config. Confirm schema 15 and the normal schema-v14 backup. All old positions, styles, colors, marker/danger flags, cast preferences, currency/order, camera, convenience and configuration-window values persist. Native colors, shared palette and overlay default Off.
+- [ ] Modern and Classic Encounter Awareness: open Encounter Colors/Shared Encounter Palette/Sentinel Encounter Overlay at narrow/medium/wide widths. RGBA/HEX edits, seven presets, toggles, slot pickers, sliders and scoped reset buttons remain reachable without overlap.
+- [ ] With Splatoon disabled/uninstalled, enable native recoloring. With Chroma loaded, Sentinel reports Paused; disable Chroma to test the native writer. Missing native signatures/layouts must show Not Available and leave other HUD features usable without repeated errors.
+- [ ] Set hostile Blue, intensity 1 and alpha 1; create a fresh enemy ground telegraph. Confirm Native status Ready/Active and the changed native tint/geometry. Existing omens from before enabling remain alone. Confirm unrelated spell/art effects retain their own rendering.
+- [ ] Leave friendly recoloring Off and confirm supported friendly omens retain normal appearance. Enable it with Green; test a native friendly telegraph/ground-target preview. Note bespoke/persistent ability effects that use another rendering path.
+- [ ] Enable cast transition with Red warning tint. Observe a supported single visible hostile cast blending Blue through Orange toward Red. Multiple simultaneous casts with the same omen/unknown links retain static hostile tint instead of borrowing unrelated progress. Test cast completion/cancel and target changes.
+- [ ] Change color/intensity/alpha while a tracked omen is visible; test Off, HUD master Off, territory change, logout and unload. Native tint ownership must release cleanly. No stale pointer access, long-lived recolor or repeated exception is acceptable.
+- [ ] Enable the shared palette; set every slot distinctly. Custom bindings retain custom colors until opted in. Select different slots for native hostile/friendly/warning and test circle/ring/line. Palette Off falls back to saved custom colors; editing a custom color/preset switches that binding to Custom.
+- [ ] Opt the position marker into palette Safe/Danger. Confirm normal/unsafe colors while radius/style/opacity/modes and existing detection still work. Opt out and verify the old presets/custom colors. Player outline and actor HP/MP/cast colors remain independent.
+- [ ] Without Splatoon, status is Splatoon Integration: Not Available; native colors and old HUD modules still work. With Splatoon loaded, status becomes Ready automatically; no HTTP server or extra renderer is required.
+- [ ] Enable Sentinel Encounter Overlay. Draw player circle, target ring and target line. Check radius/opacity/thickness/labels, actor following, line X/Z/Y orientation/height, palette/custom colors and target changes/clear. Try all three simultaneously.
+- [ ] Clear test elements, wait 15 seconds, disable overlay/HUD, change territory, log out and unload. Only Sentinel-owned elements disappear. Other Splatoon drawings stay intact. With trust-all geometry enabled, owned test circles must not feed back as danger-dot hazards.
+- [ ] Disable/reload Splatoon during a test and reconnect. Status degrades/recovers without errors or crashes. Any remaining test lifetime is bounded; a HUD restart never restores transient test shapes.
+- [ ] Check Standard and curved Player/Target, Focus/ToT, separate casts, click-through, marker/outline, currency, camera and existing awareness during combat. Confirm no new per-frame stalls. Reload/restart and verify all old/new settings, enabled choices and overrides persist.
+
+Detailed setup, limitations, request API and source/ABI boundary: docs/ENCOUNTER_VISUALS.md.
 
 ## 0.8.7.2 lower arc text and target casts
 

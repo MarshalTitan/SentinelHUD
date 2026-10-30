@@ -25,7 +25,7 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
         bool isLoggedIn,
         bool isInCombat,
         bool isInDuty,
-        bool isInDanger)
+        bool isInDanger, EncounterPaletteConfiguration? palette = null)
     {
         IsActive = false;
         UsedTerrainProjection = false;
@@ -93,7 +93,7 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
             return;
         }
 
-        var colour = PlayerPositionMarkerPolicy.ResolveColour(configuration, isInDanger);
+        var colour = PlayerPositionMarkerPolicy.ResolveColour(configuration, isInDanger, palette);
         var drawn = configuration.Style switch
         {
             PlayerPositionMarkerStyle.CameraFacing => DrawCameraFacing(configuration, centreScreen, colour),
@@ -217,3 +217,4 @@ public sealed class PlayerPositionMarkerRenderer(IGameGui gameGui)
     private static bool IsFinite(Vector3 value)
         => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
 }
+

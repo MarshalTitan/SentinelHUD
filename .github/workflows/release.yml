@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Lowers curved resource readouts, separates upper outer total HP from lower outer current HP and lower inner percentage, and adds independent Curved bar text scale. Reads frame-local cast snapshots from native Character cast data; self-targeting shares the Player cast snapshot while Player/Target cast modules keep independent enable, visibility and positions. Arc pages show the actual separate cast controls near Bar style. Preserves smooth tube rendering, flat caps, track-only input, Standard, currency settings, schema 14 and Core 0.3.1."
+            --notes "Adds opt-in native AoE omen colors with hostile/friendly controls, RGBA/HEX/presets, intensity/alpha and warning transitions for uniquely matched visible casts. Adds an optional shared encounter palette and opt-in Safe/Danger position-marker colors. Adds a Sentinel-owned Splatoon drawing bridge with scoped, expiring player-circle/target-ring/target-line tests and an extensible request API. No encounter script library or replacement renderer. Schema 15 preserves old settings; all new systems default Off. Core stays 0.3.1. Native visual/game lifecycle acceptance is documented in LIVE_TEST_CHECKLIST.md."
 
       - name: Verify public release asset
         shell: pwsh

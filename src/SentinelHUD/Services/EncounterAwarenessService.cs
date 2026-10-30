@@ -383,6 +383,8 @@ internal sealed class SplatoonDangerProvider : IEncounterDangerProvider
             var unclassified = 0;
             foreach (var item in snapshot.items)
             {
+                // Debug/owned overlay drawings are not external danger evidence, even in trust-all mode.
+                if (EncounterOverlayPolicy.IsOwnedNamespace(item.Namespace)) continue;
                 var semanticallyDangerous = item.source.Equals("danger", StringComparison.OrdinalIgnoreCase)
                     || item.Namespace.StartsWith("SentinelHUD.Danger", StringComparison.OrdinalIgnoreCase);
                 if (!semanticallyDangerous && !trustUnclassifiedGeometry)
@@ -456,3 +458,4 @@ internal sealed class SplatoonDangerProvider : IEncounterDangerProvider
         }
     }
 }
+

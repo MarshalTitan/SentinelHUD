@@ -18,7 +18,7 @@ internal static class CurrencyTests
         var before = JsonSerializer.SerializeToNode(source)!.AsObject();
         Strip(before); before["Version"] = 13;
         var restored = HudConfigurationMigrator.Normalize(JsonSerializer.Deserialize<HudConfigurationData>(before.ToJsonString())!);
-        Check(restored.Version == 14 && !restored.CurrencyTracker.Enabled);
+        Check(restored.Version == HudConfigurationData.CurrentVersion && !restored.CurrencyTracker.Enabled);
         Check(restored.Player.ArcValueFormat == ArcValueFormat.CurrentAndTotal && restored.Player.ArcShowPercentages);
         var after = JsonSerializer.SerializeToNode(restored)!.AsObject();
         Strip(before); Strip(after); Check(JsonNode.DeepEquals(before, after));
@@ -88,7 +88,7 @@ internal static class CurrencyTests
         var before = JsonSerializer.SerializeToNode(old)!.AsObject();
         before["CurrencyTracker"]!.AsObject().Remove("Alignment");
         var upgraded = HudConfigurationMigrator.Normalize(JsonSerializer.Deserialize<HudConfigurationData>(before.ToJsonString())!);
-        Check(upgraded.Version == 14 && upgraded.CurrencyTracker.Alignment == CurrencyAlignment.Left);
+        Check(upgraded.Version == HudConfigurationData.CurrentVersion && upgraded.CurrencyTracker.Alignment == CurrencyAlignment.Left);
         var after = JsonSerializer.SerializeToNode(upgraded)!.AsObject();
         after["CurrencyTracker"]!.AsObject().Remove("Alignment");
         Check(JsonNode.DeepEquals(before, after));

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.8.0 - Encounter Colors and Sentinel Encounter Overlay
+
+- Add opt-in native omen tinting with independent hostile/friendly RGBA/HEX/presets, intensity/alpha and staged cast-warning transitions for uniquely matched visible casts. Native factory/destruction hooks, guarded resource mapping and bounded ownership restore only Sentinel-owned values. Missing interop pauses only the new feature; Chroma coexistence pauses the native writer.
+- Add an optional six-slot Danger/Warning/Safe/Friendly/Target/Objective palette. Native/overlay colors opt in per binding and retain custom fallbacks. The position marker can opt into Safe/Danger while preserving its own visibility, geometry, opacity and detection settings.
+- Add a public-API Splatoon drawing bridge: Sentinel owns intent/style/lifetime; Splatoon renders. Include actor-following player circle/target ring and current-target line tests, radius/thickness/opacity/labels, per-element colors, scoped clear and 15-second expiry. Native coloring has no Splatoon dependency.
+- Add validated, bounded Circle/Ring/Line/Label requests for future encounter logic, with explicit removal and finite expiry. No encounter scripts or replacement renderer. Owned/debug geometry is excluded from danger-dot feedback.
+- Schema 15 adds only disabled visual defaults and preserves all old settings, including arcs/casts/currency/camera/window state. Core remains exactly 0.3.1. Document native ABI/source boundaries and actual in-game acceptance in docs/ENCOUNTER_VISUALS.md and LIVE_TEST_CHECKLIST.md.
+
 ## 0.8.7.2 - Lower arc text, split HP and target cast data
 
 - Place resource rows near the lower end of each arc. Total HP is a separate upper outer readout; current HP is lower outer and HP percentage lower inner. Target mirrors Player. Current Only/maximum visibility omits the upper number; MP retains its existing number format.

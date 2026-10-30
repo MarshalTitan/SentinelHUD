@@ -33,6 +33,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
     [PluginService] internal static IFramework Framework { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
+    [PluginService] internal static IGameInteropProvider GameInterop { get; private set; } = null!;
 
     private readonly PluginLifetime lifetime;
     private readonly WindowSystem windows = new("SentinelHUD");
@@ -79,6 +80,7 @@ public sealed class Plugin : IDalamudPlugin
         var hudEditor = new HudEditorInteractionRenderer(configuration);
         var encounterAwareness = lifetime.Add(new EncounterAwarenessService(
             ObjectTable, DataManager, PluginInterface));
+        var encounterVisuals = lifetime.Add(new EncounterVisualService(ObjectTable, DataManager, PluginInterface, GameInterop));
         lifetime.Add(new AntiAfkHubBridge(
             PluginInterface, () => configuration.Current.Convenience.PreventAfkDisconnect));
         var pvpThreatTracker = new PvPThreatTracker(
@@ -106,6 +108,7 @@ public sealed class Plugin : IDalamudPlugin
             hudEditor,
             cameraZoom,
             encounterAwareness,
+            encounterVisuals,
             pvpThreatTracker,
             threatCounterFont,
             currencies,
