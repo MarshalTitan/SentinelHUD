@@ -332,6 +332,7 @@ public sealed class SelfHighlightConfiguration
 
 public sealed class PlayerPositionMarkerConfiguration
 {
+    public bool UseEncounterPalette { get; set; }
     // Kept as a migration bridge for schema-v2 configurations.
     public bool Enabled { get; set; }
     public SelfHighlightMode Mode { get; set; } = SelfHighlightMode.Off;
@@ -361,6 +362,9 @@ public sealed class PlayerPositionMarkerConfiguration
 
 public sealed class EncounterAwarenessConfiguration
 {
+    public EncounterPaletteConfiguration Palette { get; set; } = new();
+    public NativeOmenColourConfiguration NativeColours { get; set; } = new();
+    public EncounterOverlayConfiguration Overlay { get; set; } = new();
     public bool Enabled { get; set; }
     public bool NativeDetectionEnabled { get; set; } = true;
     public bool SplatoonIntegrationEnabled { get; set; }
@@ -413,7 +417,7 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 14;
+    public const int CurrentVersion = 15;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
@@ -527,6 +531,7 @@ public static class HudConfigurationMigrator
         configuration.PlayerPositionMarker ??= new PlayerPositionMarkerConfiguration();
         configuration.Camera ??= new ExtendedCameraZoomConfiguration();
         configuration.EncounterAwareness ??= new EncounterAwarenessConfiguration();
+        EncounterColourPolicy.Normalize(configuration.EncounterAwareness);
         configuration.Convenience ??= new ConvenienceConfiguration();
         configuration.Appearance ??= new HudAppearanceConfiguration();
         configuration.Appearance.ModernWindow ??= new ModernWindowConfiguration();
@@ -830,6 +835,10 @@ public static class HudConfigurationMigrator
                 case 13:
                     // Schema 14 defaults new arc text options and an opt-in currency module only.
                     version = 14;
+                    break;
+                case 14:
+                    // New visual systems are opt-in. Initializers preserve every existing module value.
+                    version = 15;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;

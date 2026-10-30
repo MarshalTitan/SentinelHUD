@@ -26,6 +26,7 @@ public sealed class HudRenderer
     private readonly HudEditorInteractionRenderer hudEditor;
     private readonly IExtendedCameraZoomService cameraZoom;
     private readonly EncounterAwarenessService encounterAwareness;
+    public EncounterVisualService EncounterVisuals { get; }
     private readonly PvPThreatTracker pvpThreatTracker;
     private readonly IFontHandle threatCounterFont;
     private readonly CurrencyDataService currencies;
@@ -60,6 +61,7 @@ public sealed class HudRenderer
         HudEditorInteractionRenderer hudEditor,
         IExtendedCameraZoomService cameraZoom,
         EncounterAwarenessService encounterAwareness,
+        EncounterVisualService encounterVisuals,
         PvPThreatTracker pvpThreatTracker,
         IFontHandle threatCounterFont,
         CurrencyDataService currencies,
@@ -78,6 +80,7 @@ public sealed class HudRenderer
         this.hudEditor = hudEditor;
         this.cameraZoom = cameraZoom;
         this.encounterAwareness = encounterAwareness;
+        EncounterVisuals = encounterVisuals;
         this.pvpThreatTracker = pvpThreatTracker;
         this.threatCounterFont = threatCounterFont;
         this.currencies = currencies;
@@ -148,6 +151,10 @@ public sealed class HudRenderer
         selfHighlight.Update(config.SelfHighlight, config.Enabled);
         encounterAwareness.Update(config.EncounterAwareness, config.Enabled,
             clientState.IsLoggedIn, clientState.TerritoryType, localPlayer);
+        EncounterVisuals.Update(config.EncounterAwareness,
+            config.Enabled && clientState.IsLoggedIn && localPlayer is not null
+            && !condition[ConditionFlag.BetweenAreas] && !condition[ConditionFlag.BetweenAreas51],
+            clientState.IsLoggedIn ? clientState.TerritoryType : 0, localPlayer, data.Target);
         pvpThreatTracker.Update(config.TargetingMeCounter, config.Enabled);
         currencies.Update(config.CurrencyTracker, config.Enabled, clientState.IsLoggedIn && localPlayer is not null);
     }
@@ -165,7 +172,7 @@ public sealed class HudRenderer
 
         positionMarker.Draw(config.PlayerPositionMarker, config.Enabled, player,
             runtime.IsLoggedIn, runtime.IsInCombat, runtime.IsInDuty,
-            encounterAwareness.IsPlayerInDanger);
+            encounterAwareness.IsPlayerInDanger, config.EncounterAwareness.Palette);
         nativeTargetOverlay.Draw(config.Target.NativeHpOverlay, config.Enabled,
             runtime.IsLoggedIn, runtime.IsInCombat, target);
 

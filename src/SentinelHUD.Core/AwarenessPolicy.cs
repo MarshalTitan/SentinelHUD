@@ -88,7 +88,7 @@ public static class PlayerPositionMarkerPolicy
         => style == PlayerPositionMarkerStyle.GroundProjected;
 
     public static Vector4 ResolveColour(PlayerPositionMarkerConfiguration configuration,
-        bool isDanger = false)
+        bool isDanger = false, EncounterPaletteConfiguration? palette = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var colour = isDanger && configuration.DangerDetectionEnabled
@@ -101,6 +101,9 @@ public static class PlayerPositionMarkerPolicy
             HighlightColourPreset.Custom => configuration.CustomColour.ToVector4(),
             _ => Vector4.One,
         };
+        if (configuration.UseEncounterPalette && palette is { Enabled: true })
+            colour = palette.Get(isDanger && configuration.DangerDetectionEnabled
+                ? EncounterColourRole.Danger : EncounterColourRole.Safe).ToVector4();
         colour.W = Math.Clamp(configuration.Opacity, 0.1f, 1f);
         return colour;
     }
@@ -242,3 +245,4 @@ public sealed class CameraZoomPersistencePolicy
     private static bool NearlyEqual(float left, float right)
         => Math.Abs(left - right) < 0.01f;
 }
+

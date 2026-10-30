@@ -17,6 +17,8 @@
     <Compile Include="../../src/SentinelHUD/UI/ArcHudRenderer.cs" Link="Consumer/ArcHudRenderer.cs" />
     <Compile Include="../../src/SentinelHUD/UI/ActorInputRegionRenderer.cs" Link="Consumer/ActorInputRegionRenderer.cs" />
     <Compile Include="../../src/SentinelHUD/UI/CurrencyTrackerRenderer.cs" Link="Consumer/CurrencyTrackerRenderer.cs" />
+    <Compile Include="../../src/SentinelHUD/Services/NativeOmenMemory.cs" Link="Consumer/NativeOmenMemory.cs" />
+    <Compile Include="../../src/SentinelHUD/Services/SplatoonElementContract.cs" Link="Consumer/SplatoonElementContract.cs" />
     <Reference Include="SentinelCore" HintPath="$(PluginOutput)SentinelCore.dll" Private="true" />
     <Reference Include="SentinelCore.UI" HintPath="$(PluginOutput)SentinelCore.UI.dll" Private="true" />
     <Reference Include="Dalamud" HintPath="$(DalamudLibPath)Dalamud.dll" Private="true" />

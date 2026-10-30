@@ -7,6 +7,13 @@ using System.Globalization;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("schema fourteen encounter defaults preserve every existing setting", EncounterVisualTests.Migration),
+    ("encounter palette opt-in and independent custom fallbacks", EncounterVisualTests.Palette),
+    ("native hostile friendly gating, intensity and warning transition", EncounterVisualTests.Transition),
+    ("native colour lease respects a different writer", EncounterVisualTests.Ownership),
+    ("native omen destruction, address reuse and lifetime limits", EncounterVisualTests.Lifetimes),
+    ("cast links require unique visible omen association", EncounterVisualTests.CastLinks),
+    ("encounter input validation, bounds and owned namespaces", EncounterVisualTests.Validation),
     ("arc text scale, split HP and previous-setting preservation", ArcRefinementTests.Preferences),
     ("shared self-target casts and independent actor cast routing", ArcRefinementTests.CastRouting),
     ("schema thirteen currency/arc upgrade preserves every existing field", CurrencyTests.Migration),

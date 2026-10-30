@@ -23,6 +23,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
     private static readonly string[] ArcValueFormats = ["Current + Total", "Current Only"];
     private static readonly string[] CurrencyOrientations = ["Horizontal / Wrap", "Vertical"];
     private static readonly string[] CurrencyAlignments = ["Left", "Right"];
+    private static readonly string[] EncounterRoles = ["Danger", "Warning", "Safe", "Friendly", "Target", "Objective"];
+    private static readonly string[] EncounterPresets = ["Choose preset...", "Red", "Orange", "Yellow", "Green", "Blue", "Purple", "Pink"];
     private static readonly string[] BarStyles = ["Standard", "Curved / Arc"];
     private static readonly string[] ArcOrientations = ["Auto / mirrored", "Left side", "Right side"];
     private static readonly string[] ClickableAreas = ["Whole module", "Header / name only"];
@@ -986,7 +988,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 Update(c => c.PlayerPositionMarker.BorderThickness = thickness);
             DrawMutedText("The border is drawn inward and does not increase the configured radius.");
         }
-        var markerPreview = PlayerPositionMarkerPolicy.ResolveColour(marker);
+        var markerPreview = PlayerPositionMarkerPolicy.ResolveColour(marker, false, configuration.Current.EncounterAwareness.Palette);
         ImGui.TextUnformatted("Marker preview:");
         ImGui.SameLine();
         ImGui.ColorButton("Position marker preview##SentinelHUD", markerPreview);
@@ -1080,7 +1082,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawSectionHeader("General");
         DrawToggle("Enable Encounter Awareness", encounter.Enabled,
             value => Update(c => c.EncounterAwareness.Enabled = value));
-        ImGui.TextWrapped("Hazards are isolated behind providers. The marker tests the local player's actual world-position point against cached world-space geometry.");
+        ImGui.TextWrapped("Hazards are isolated behind providers. The marker tests the local player's actual world-position point against cached geometry. Native colors and Sentinel overlay drawing have independent switches below.");
 
         ImGui.Spacing();
         DrawSectionHeader("Player Danger");
@@ -1102,7 +1104,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                     ref custom))
                 Update(c => c.PlayerPositionMarker.CustomDangerColour.Set(new Vector4(custom, 1f)));
         }
-        var dangerPreview = PlayerPositionMarkerPolicy.ResolveColour(marker, true);
+        var dangerPreview = PlayerPositionMarkerPolicy.ResolveColour(marker, true, encounter.Palette);
         ImGui.TextUnformatted("Danger preview:");
         ImGui.SameLine();
         ImGui.ColorButton("Danger preview##SentinelHUD", dangerPreview);
@@ -1131,6 +1133,123 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawMutedText($"Status: {renderer.EncounterSplatoonState}");
         ImGui.TextWrapped($"Active encounter: {renderer.ActiveEncounter}");
         ImGui.TextWrapped($"Current trusted hazards: {renderer.EncounterHazardCount}");
+        DrawEncounterVisuals();
+    }
+
+    private void DrawEncounterVisuals()
+    {
+        var encounter = configuration.Current.EncounterAwareness;
+        var visuals = renderer.EncounterVisuals;
+        if (OpenSection("Encounter Colors"))
+        {
+            var native = encounter.NativeColours;
+            DrawToggle("Enable Native AoE Recoloring", native.Enabled,
+                value => Update(c => c.EncounterAwareness.NativeColours.Enabled = value));
+            DrawMutedText($"Native AoE recolouring: {visuals.NativeState}");
+            DrawMutedText("Applies to newly observed native omens. Native colours, overlay drawings and hazard detection have independent enable switches.");
+            DrawEncounterBinding("Hostile", "Hostile AoE color", native.Hostile, c => c.EncounterAwareness.NativeColours.Hostile);
+            DrawToggle("Enable Friendly AoE Recoloring", native.RecolourFriendly,
+                value => Update(c => c.EncounterAwareness.NativeColours.RecolourFriendly = value));
+            DrawEncounterBinding("Friendly", "Friendly / non-hostile AoE color", native.Friendly, c => c.EncounterAwareness.NativeColours.Friendly);
+            var intensity = native.Intensity; var opacity = native.Opacity;
+            if (DrawSliderSetting("Encounter.Native.Intensity", "AoE intensity", "RGB brightness multiplier.", ref intensity, 0.1f, 2f, "%.2fx"))
+                Update(c => c.EncounterAwareness.NativeColours.Intensity = intensity);
+            if (DrawSliderSetting("Encounter.Native.Opacity", "AoE alpha", "Multiplies the native resource alpha.", ref opacity, 0f, 1f, "%.2f"))
+                Update(c => c.EncounterAwareness.NativeColours.Opacity = opacity);
+            DrawToggle("Enable Cast Warning Transition", native.CastWarningTransition,
+                value => Update(c => c.EncounterAwareness.NativeColours.CastWarningTransition = value));
+            DrawEncounterBinding("CastWarning", "Cast warning color", native.CastWarning, c => c.EncounterAwareness.NativeColours.CastWarning);
+            DrawMutedText("Matched hostile casts blend through orange toward the warning color. Ambiguous or unavailable cast links retain the hostile color.");
+            if (DrawActionButton("Reset Native Colors to Defaults"))
+                Update(c => c.EncounterAwareness.NativeColours = new NativeOmenColourConfiguration());
+        }
+        if (OpenSection("Shared Encounter Palette"))
+        {
+            DrawToggle("Enable shared encounter palette", encounter.Palette.Enabled,
+                value => Update(c => c.EncounterAwareness.Palette.Enabled = value));
+            DrawMutedText("Each supported element can opt into a palette slot or retain its custom color.");
+            foreach (var role in Enum.GetValues<EncounterColourRole>())
+            {
+                var captured = role;
+                DrawEncounterColour("Palette." + role, EncounterRoles[(int)role], encounter.Palette.Get(role),
+                    (c, value) => c.EncounterAwareness.Palette.Get(captured).Set(value));
+            }
+            DrawToggle("Position marker uses encounter palette (Safe / Danger)", configuration.Current.PlayerPositionMarker.UseEncounterPalette,
+                value => Update(c => c.PlayerPositionMarker.UseEncounterPalette = value));
+            if (DrawActionButton("Reset Encounter Palette")) Update(c => c.EncounterAwareness.Palette = new EncounterPaletteConfiguration());
+        }
+        if (OpenSection("Sentinel Encounter Overlay"))
+        {
+            var overlay = encounter.Overlay;
+            DrawToggle("Enable Sentinel Encounter Overlay", overlay.Enabled,
+                value => Update(c => c.EncounterAwareness.Overlay.Enabled = value));
+            DrawMutedText($"Splatoon Integration: {visuals.OverlayState}");
+            DrawMutedText(visuals.OverlayDetail);
+            DrawMutedText("Splatoon renders Sentinel-owned elements; the tests expire after 15 seconds and clear on territory change or disable.");
+            var radius = overlay.Radius; var thickness = overlay.Thickness; var opacity = overlay.Opacity;
+            if (DrawSliderSetting("Encounter.Overlay.Radius", "Test radius", "World units (yalms).", ref radius, 0.1f, 50f, "%.1f"))
+                Update(c => c.EncounterAwareness.Overlay.Radius = radius);
+            if (DrawSliderSetting("Encounter.Overlay.Thickness", "Line / ring thickness", "Screen pixels.", ref thickness, 0.5f, 12f, "%.1f px"))
+                Update(c => c.EncounterAwareness.Overlay.Thickness = thickness);
+            if (DrawSliderSetting("Encounter.Overlay.Opacity", "Overlay opacity", null, ref opacity, 0f, 1f, "%.2f"))
+                Update(c => c.EncounterAwareness.Overlay.Opacity = opacity);
+            DrawToggle("Show test labels", overlay.ShowLabels, value => Update(c => c.EncounterAwareness.Overlay.ShowLabels = value));
+            DrawEncounterBinding("PlayerCircle", "Player circle color", overlay.PlayerCircle, c => c.EncounterAwareness.Overlay.PlayerCircle);
+            DrawEncounterBinding("TargetRing", "Target ring color", overlay.TargetRing, c => c.EncounterAwareness.Overlay.TargetRing);
+            DrawEncounterBinding("TargetLine", "Objective line color", overlay.TargetLine, c => c.EncounterAwareness.Overlay.TargetLine);
+            ImGui.TextUnformatted("Encounter Overlay Test");
+            ImGui.BeginDisabled(!overlay.Enabled || !visuals.OverlayReady);
+            try
+            {
+                if (DrawActionButton("Draw test circle around player")) visuals.Test(EncounterOverlayTest.PlayerCircle);
+                if (DrawActionButton("Draw test target ring")) visuals.Test(EncounterOverlayTest.TargetRing);
+                if (DrawActionButton("Draw test line to target")) visuals.Test(EncounterOverlayTest.TargetLine);
+            }
+            finally { ImGui.EndDisabled(); }
+            if (DrawActionButton("Clear test elements")) visuals.ClearTests();
+            DrawMutedText(visuals.TestState);
+            if (DrawActionButton("Reset Encounter Overlay Settings"))
+                Update(c => c.EncounterAwareness.Overlay = new EncounterOverlayConfiguration());
+        }
+    }
+
+    private void DrawEncounterBinding(string id, string label, EncounterColourBinding binding,
+        Func<Configuration, EncounterColourBinding> getBinding)
+    {
+        ImGui.PushID("Encounter." + id);
+        try
+        {
+            DrawToggle(label + ": use encounter palette", binding.Source == EncounterColourSource.Palette,
+                value => Update(c => getBinding(c).Source = value ? EncounterColourSource.Palette : EncounterColourSource.Custom));
+            if (binding.Source == EncounterColourSource.Palette)
+            {
+                var role = (int)binding.Role;
+                if (DrawComboSetting(id + ".Role", "Palette slot", null, ref role, EncounterRoles))
+                    Update(c => getBinding(c).Role = (EncounterColourRole)role);
+                if (!configuration.Current.EncounterAwareness.Palette.Enabled)
+                    DrawMutedText("The shared palette is off; the saved custom color is used.");
+            }
+            DrawEncounterColour(id, label + " (custom)", binding.Custom, (c, value) =>
+            { getBinding(c).Source = EncounterColourSource.Custom; getBinding(c).Custom.Set(value); });
+        }
+        finally { ImGui.PopID(); }
+    }
+
+    private void DrawEncounterColour(string id, string label, SerializableColour colour, Action<Configuration, Vector4> setter)
+    {
+        var next = colour.ToVector4(); var changed = false;
+        const ImGuiColorEditFlags flags = ImGuiColorEditFlags.DisplayHex | ImGuiColorEditFlags.AlphaBar;
+        if (modernThemeActive)
+            DrawResponsiveSettingsRow("Encounter.Colour." + id, label, "RGBA picker / HEX input",
+                () => changed = ImGui.ColorEdit4("##Value", ref next, flags), 230f, ImGuiHelpers.GlobalScale);
+        else changed = ImGui.ColorEdit4(label + "##Encounter." + id, ref next, flags);
+        if (changed) Update(c => setter(c, next));
+        var preset = 0;
+        if (DrawComboSetting("Encounter.Preset." + id, "Preset", null, ref preset, EncounterPresets) && preset > 0)
+        {
+            var value = EncounterColourPolicy.Preset(preset - 1);
+            Update(c => setter(c, value));
+        }
     }
 
     private void DrawCamera()

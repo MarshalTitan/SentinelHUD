@@ -36,7 +36,9 @@ internal static class Program
             Test("arc upper totals, lower values and independent text scaling", TestArcResourceText);
             Test("arc islands pass empty space through and preserve bar clicks", TestArcInputs);
             Test("currency compact/full layouts wrap at narrow widths", TestCurrencyLayouts);
-            Console.WriteLine($"{passed}/11 native ImGui UI test groups passed.");
+            Test("native omen ABI memory validation and colour restoration", EncounterInteropTests.Memory);
+            Test("Splatoon public API mapping, lifetime and scoped removal", EncounterInteropTests.SplatoonContract);
+            Console.WriteLine($"{passed}/13 native ImGui UI test groups passed.");
             return 0;
         }
         catch (Exception exception)

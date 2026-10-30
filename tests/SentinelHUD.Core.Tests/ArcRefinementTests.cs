@@ -15,7 +15,7 @@ internal static class ArcRefinementTests
         old.CurrencyTracker.SelectedCurrencies = [25, 1, 28];
         var before = JsonSerializer.SerializeToNode(old)!.AsObject(); Strip(before);
         var restored = HudConfigurationMigrator.Normalize(JsonSerializer.Deserialize<HudConfigurationData>(before.ToJsonString())!);
-        Check(restored.Version == 14 && restored.Player.ArcTextScale == 1f && restored.Target.ArcTextScale == 1f);
+        Check(restored.Version == HudConfigurationData.CurrentVersion && restored.Player.ArcTextScale == 1f && restored.Target.ArcTextScale == 1f);
         var after = JsonSerializer.SerializeToNode(restored)!.AsObject(); Strip(after);
         Check(JsonNode.DeepEquals(before, after));
         restored.Player.ArcTextScale = 1.7f; restored.Target.ArcTextScale = 0.6f;
