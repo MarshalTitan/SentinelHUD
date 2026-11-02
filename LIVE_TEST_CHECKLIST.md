@@ -1,4 +1,8 @@
-# Sentinel HUD 0.8.9.1 - Live Test
+# Sentinel HUD 0.8.9.2 - Live Test
+
+## 0.8.9.2 Helper-canvas regression
+
+Repeat the reported Achievements overlap with Respect Native Windows On: exposed lower arc/text/input must remain. Verify no-open-window HUD visibility, accepted bounds sources and ignored-helper reasons in Diagnostics. Saved settings stay intact. See [the focused live checks](docs/NATIVE_UI_OCCLUSION.md).
 
 ## 0.8.9.1 Native window layering
 

@@ -1,3 +1,9 @@
+# 0.8.9.2 - Reject native helper canvases
+
+- Correct the overbroad window admission path behind the reported exposed-HUD disappearance with Respect Native Windows enabled. Generic collision nodes and viewport-sized root/frame fallbacks no longer become screen-wide occluders.
+- Read verified visible Window-component/owned collision bounds directly. Use guarded fallbacks for recognized panels/popups, with a real full-screen Map exception. Keep the existing partial drawing/input subtraction and all settings/layouts intact; schema stays 16 and Core stays 0.3.1.
+- Add accepted bounds sources and ignored-helper rejection reasons to Diagnostics, plus regression coverage for full-screen helpers alongside a partially overlapping Achievements panel. Actual in-game confirmation remains pending; see docs/NATIVE_UI_OCCLUSION.md.
+
 # 0.8.9.1 - Native window occlusion
 
 - Respect native FFXIV windows by default: subtract native window rectangles from gameplay drawing scissors and actor/editor input regions. Preserve all portions outside the overlapping windows without re-rendering modules or changing existing geometry.

@@ -6,7 +6,7 @@ Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It
 
 Optional **Encounter Colors / Sentinel Encounter Overlay** adds native omen tinting, a shared opt-in palette and Sentinel-owned Splatoon test drawings. All new features start Off; Splatoon remains the world-space renderer. See [setup, source boundary and in-game checks](docs/ENCOUNTER_VISUALS.md).
 
-Current release: **0.8.9.1** · Dalamud API **15** · .NET **10**
+Current release: **0.8.9.2** · Dalamud API **15** · .NET **10**
 
 ## Utility ownership cleanup — 0.8.5.0 / metadata correction 0.8.5.1
 

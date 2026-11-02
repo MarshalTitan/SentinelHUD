@@ -61,6 +61,42 @@ internal static class NativeUiOcclusionTests
         foreach (var name in new[] { "_ParameterWidget", "_TargetInfo", "_ActionBar", "ChatLogPanel_0", "NamePlate", "FlyText", "ScreenLog", "" })
             Check(!NativeUiWindowPolicy.IsWindow(name, true, true));
         Check(!NativeUiWindowPolicy.IsWindow("ActorInWorld", false, false));
+        Check(!NativeUiWindowPolicy.IsWindow("InvisibleInputHelper", false, true));
+        foreach (var helper in new[] { "FadeMiddleBack", "FadeFront", "ScreenInfo_Countdown", "ScreenLogLarge", "ScreenFilter" })
+            Check(!NativeUiWindowPolicy.IsWindow(helper, true, true));
+    }
+
+    public static void BoundsEvidence()
+    {
+        var viewport = new ScreenRectangle(0f, 0f, 2048f, 803f);
+        var achievement = new ScreenRectangle(16f, 72f, 700f, 550f);
+        Check(!Select(new("InvisibleInputHelper", false, null, viewport, viewport), out _, out _));
+        Check(!Select(new("FadeMiddleBack", true, viewport, viewport, viewport), out _, out _));
+        Check(!Select(new("ContextMenu", false, null, viewport, viewport), out _, out _));
+        Check(NativeUiWindowPolicy.TryBounds(new("ContextMenu", false, null, viewport, viewport), viewport,
+            out _, out _, out var rejection) == false && rejection == NativeUiBoundsRejection.UnsafeCanvasFallback);
+        Check(Select(new("Achievement", true, achievement, viewport, viewport), out var selected, out var source));
+        Check(selected == achievement && source == NativeUiBoundsSource.WindowFrame);
+        Check(!Select(new("Achievement", true, viewport, viewport, viewport), out _, out _));
+        Check(!Select(new("UnknownCanvasFrame", true, viewport, viewport, viewport), out _, out _));
+        Check(Select(new("Achievement", true, viewport, achievement, viewport), out selected, out source));
+        Check(selected == achievement && source == NativeUiBoundsSource.WindowCollision);
+        var mask = new NativeUiOcclusionMask(); mask.Add(selected);
+        Check(mask.Contains(new Vector2(560f, 500f)) && !mask.Contains(new Vector2(560f, 700f)));
+        Check(Select(new("Achievement", false, null, viewport, achievement), out selected, out source));
+        Check(selected == achievement && source == NativeUiBoundsSource.NamedPanelOrPopupRoot);
+        Check(Select(new("NewNativeWindow", true, achievement, viewport, viewport), out selected, out source));
+        Check(selected == achievement && source == NativeUiBoundsSource.WindowFrame);
+        Check(Select(new("AreaMap", true, viewport, viewport, viewport), out selected, out source));
+        Check(selected == viewport && source == NativeUiBoundsSource.WindowFrame); // Real full-screen panel stays valid.
+        Check(!Select(new("UnknownAddon", false, null, achievement, achievement), out _, out _));
+        Check(!Select(new("NewNativeWindow", true, new(-1000f, 0f, -800f, 400f), viewport, viewport), out _, out _));
+        var popup = new ScreenRectangle(600f, 100f, 850f, 460f);
+        Check(Select(new("ContextMenu", false, null, popup, viewport), out selected, out source) && selected == popup);
+        Check(Select(new("ContextSub", false, null, null, popup), out selected, out source) && selected == popup);
+
+        bool Select(NativeUiWindowEvidence evidence, out ScreenRectangle rectangle, out NativeUiBoundsSource selectedSource)
+            => NativeUiWindowPolicy.TryBounds(evidence, viewport, out rectangle, out selectedSource, out _);
     }
     public static void Persistence()
     {

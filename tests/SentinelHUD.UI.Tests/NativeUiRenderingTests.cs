@@ -79,6 +79,45 @@ internal static class NativeUiRenderingTests
         ImGui.Render();
     });
 
+    public static void HelperCanvas() => Context(() =>
+    {
+        var viewport = new ScreenRectangle(0f, 0f, 1000f, 800f);
+        var panel = new ScreenRectangle(20f, 60f, 550f, 400f);
+        var mask = new NativeUiOcclusionMask();
+        NativeUiWindowEvidence[] evidence =
+        [
+            new("InvisibleInputHelper", false, null, viewport, viewport),
+            new("FadeMiddleBack", true, viewport, viewport, viewport),
+            new("UnknownCanvasFrame", true, viewport, viewport, viewport),
+            new("Achievement", true, panel, viewport, viewport),
+        ];
+        foreach (var item in evidence)
+            if (NativeUiWindowPolicy.TryBounds(item, viewport, out var bounds, out _, out _)) mask.Add(bounds);
+        Check(mask.Blockers.Count == 1 && mask.Blockers[0] == panel, "Generic helper became a screen-wide blocker");
+        var clipper = new NativeUiDrawClipper { Mask = mask };
+        var renderer = new ArcHudRenderer();
+        var module = new PlayerModuleConfiguration { BarStyle = HudBarStyle.Arc, Width = 320f, ArcHeight = 240f };
+        var io = ImGui.GetIO();
+        for (var frame = 0; frame < 5; frame++)
+        {
+            io.AddMousePosEvent(430f, 550f); ImGui.NewFrame();
+            ImGui.SetNextWindowPos(new(400f, 290f)); ImGui.SetNextWindowSize(new(320f, 450f));
+            ImGui.Begin("Arc behind Achievement", ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoSavedSettings);
+            var draw = ImGui.GetWindowDrawList();
+            renderer.Draw(module, HudModuleKind.Player, 1f, 1f, 1f, 0f, 1f, true,
+                new ArcReadout("Player", "Lv.100", "44,996", "10,000", "", "", "100.0%"),
+                Vector4.One, Vector4.One, Vector4.One);
+            ImGui.End();
+            Check(clipper.Apply(draw), "Expected partial panel overlap was not clipped");
+            Check(draw.CmdBuffer.Any(cmd => cmd.ElemCount > 0 && cmd.ClipRect.W > 550f), "Lower visible arc was discarded");
+            ActorInputRegionRenderer.Draw("Lower uncovered region", new(410f, 520f), new(460f, 580f), true, false, mask);
+            ImGui.Render();
+        }
+        Check(io.WantCaptureMouse, "Full-screen helper disabled uncovered actor input");
+        mask.Clear();
+        Check(mask.Blockers.Count == 0 && !mask.Contains(new Vector2(430f, 550f)), "Closing windows left a stale blocker");
+    });
+
     public static void Editor() => Context(() =>
     {
         using var configuration = new ConfigurationCoordinator<SentinelHUD.Configuration>(new MemoryStore(),
