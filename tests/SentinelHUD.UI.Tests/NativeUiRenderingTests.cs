@@ -122,6 +122,10 @@ internal static class NativeUiRenderingTests
     {
         var mask = new NativeUiOcclusionMask(); mask.Add(new(150f, 100f, 250f, 220f));
         var io = ImGui.GetIO(); var clicks = 0; var rightClicks = 0;
+        var fractional = new NativeUiOcclusionMask(); fractional.Add(new(40.25f, 40f, 360f, 280f));
+        var partition = new NativeUiInputPartition();
+        Check(partition.Split(new(40f, 40f), new(360f, 280f), fractional).Count == 0,
+            "Subpixel input fragment can expand back into native window");
         Settle(new(60f, 60f)); Check(io.WantCaptureMouse, "Visible actor region is not interactive");
         io.AddMouseButtonEvent(0, true); Frame(new(60f, 60f));
         io.AddMouseButtonEvent(0, false); Frame(new(60f, 60f));

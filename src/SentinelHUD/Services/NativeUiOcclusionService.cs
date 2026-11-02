@@ -42,7 +42,7 @@ public sealed unsafe class NativeUiOcclusionService : IDisposable
         {
             var stage = AtkStage.Instance();
             if (stage is null || stage->RaptureAtkUnitManager is null)
-            { candidates.Clear(); State = "Native UI unavailable"; return; }
+            { candidates.Clear(); Interlocked.Exchange(ref dirty, 1); State = "Native UI unavailable"; return; }
             var manager = &stage->RaptureAtkUnitManager->AtkUnitManager;
             var now = Environment.TickCount64;
             if (Interlocked.Exchange(ref dirty, 0) != 0 || now >= nextDiscovery)
