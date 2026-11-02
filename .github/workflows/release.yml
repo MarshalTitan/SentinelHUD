@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes "Adds opt-in native AoE omen colors with hostile/friendly controls, RGBA/HEX/presets, intensity/alpha and warning transitions for uniquely matched visible casts. Adds an optional shared encounter palette and opt-in Safe/Danger position-marker colors. Adds a Sentinel-owned Splatoon drawing bridge with scoped, expiring player-circle/target-ring/target-line tests and an extensible request API. No encounter script library or replacement renderer. Schema 15 preserves old settings; all new systems default Off. Core stays 0.3.1. Native visual/game lifecycle acceptance is documented in LIVE_TEST_CHECKLIST.md."
+            --notes-file docs/THREAT_DEATHS_RELEASE.md
 
       - name: Verify public release asset
         shell: pwsh
@@ -130,4 +130,3 @@ jobs:
           version: ${{ steps.version.outputs.value }}
           tag: ${{ steps.version.outputs.tag }}
           notification-token: ${{ secrets.DALAMUD_CATALOG_TOKEN }}
-

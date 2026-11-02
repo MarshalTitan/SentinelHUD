@@ -85,6 +85,7 @@ public sealed class Plugin : IDalamudPlugin
             PluginInterface, () => configuration.Current.Convenience.PreventAfkDisconnect));
         var pvpThreatTracker = new PvPThreatTracker(
             ClientState, Condition, ObjectTable, PartyList, DataManager);
+        lifetime.Add(new ThreatDeathIpc(PluginInterface, ClientState, pvpThreatTracker.DeathHistory));
         var threatCounterGlyphs = FontAtlasBuildToolkitUtilities.ToGlyphRange(
             "0123456789", false, false);
         var threatCounterFont = lifetime.Add(PluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(
@@ -237,4 +238,3 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OpenConfiguration() => configurationWindow.OpenAndExpand();
 }
-
