@@ -17,7 +17,7 @@ public sealed record ObservedPvPTargeter(
     uint JobId,
     string JobAbbreviation,
     float Distance,
-    PvPThreatObservationSource Source);
+    PvPThreatObservationSource Source) : IThreatTargeter;
 
 public sealed record PvPThreatSnapshot(
     DateTime CapturedAtUtc,
@@ -47,6 +47,7 @@ public sealed record PvPThreatSnapshot(
 
 public sealed class PvPThreatTracker
 {
+    public ThreatDeathHistory DeathHistory { get; } = new();
     private const float NearbyRadius = 18f;
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromMilliseconds(125);
 
@@ -82,6 +83,7 @@ public sealed class PvPThreatTracker
     {
         if (!hudEnabled || !config.Enabled)
         {
+            ResetDeathHistory();
             SetInactive(hudEnabled
                 ? "Targeting Me Counter is disabled."
                 : "Sentinel HUD is disabled.");
@@ -104,12 +106,14 @@ public sealed class PvPThreatTracker
         }
         if (!isPvP)
         {
+            ResetDeathHistory();
             SetInactive("Counter is inactive outside PvP content.", false, false, mode);
             return;
         }
 
         if (config.PvPVisibility == PvPThreatVisibility.FrontlineOnly && !isFrontline)
         {
+            ResetDeathHistory();
             SetInactive("Visibility is Frontline Only and the current PvP duty is not Frontline.",
                 true, false, mode);
             return;
@@ -128,6 +132,8 @@ public sealed class PvPThreatTracker
         }
         if (local.IsDead || local.CurrentHp == 0)
         {
+            // Seal the last live sample before the counter discards Current.
+            DeathHistory.Finish(now, clientState.TerritoryType, local.EntityId, mode);
             SetInactive("Local player is dead; the observation set was cleared for respawn.",
                 true, isFrontline, mode);
             return;
@@ -273,6 +279,12 @@ public sealed class PvPThreatTracker
             pvpMode,
             $"{classification} Currently observed enemy hard targets={snapshotTargeters.Length}; "
             + $"nearby enemies/allies within {NearbyRadius:0}y={nearbyEnemies}/{nearbyFriendlies}.");
+        DeathHistory.Observe(capturedAtUtc, snapshotTargeters, classificationAuthoritative ? "BattalionTeam" : "NativeHostileFlagFallback");
+    }
+
+    private void ResetDeathHistory()
+    {
+        if (Current.Active || DeathHistory.Deaths.Count != 0 || DeathHistory.HasSamples) DeathHistory.Reset();
     }
 
     private void CaptureRoster(IPlayerCharacter local)

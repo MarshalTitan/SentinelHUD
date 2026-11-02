@@ -7,6 +7,7 @@ using System.Globalization;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("bounded post-death PvP history and zero-allocation unchanged sampling", ThreatDeathTests.Run),
     ("schema fourteen encounter defaults preserve every existing setting", EncounterVisualTests.Migration),
     ("encounter palette opt-in and independent custom fallbacks", EncounterVisualTests.Palette),
     ("native hostile friendly gating, intensity and warning transition", EncounterVisualTests.Transition),

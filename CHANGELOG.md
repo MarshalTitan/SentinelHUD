@@ -1,3 +1,10 @@
+# 0.8.9.0
+
+- Preserve up to 30 seconds of compressed Targeting Me observations before death; reuse the existing 125 ms scan.
+- Publish a bounded versioned read-only deaths-only contract for Sentinel Hub, with final sample freshness and per-life identity tokens.
+- Reset across respawn/territory/logout/disabled states, keep four completed snapshots in RAM, and add allocation/lifecycle regression coverage.
+- Keep all existing counter, encounter visual and other HUD behaviour unchanged. See docs/THREAT_DEATHS.md for evidence limits and game acceptance.
+
 # Changelog
 
 ## 0.8.8.0 - Encounter Colors and Sentinel Encounter Overlay
