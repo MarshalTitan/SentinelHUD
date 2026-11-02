@@ -16,6 +16,10 @@
     <Compile Include="../../src/SentinelHUD/UI/ModernWindowPresentation.cs" Link="Consumer/ModernWindowPresentation.cs" />
     <Compile Include="../../src/SentinelHUD/UI/ArcHudRenderer.cs" Link="Consumer/ArcHudRenderer.cs" />
     <Compile Include="../../src/SentinelHUD/UI/ActorInputRegionRenderer.cs" Link="Consumer/ActorInputRegionRenderer.cs" />
+    <Compile Include="../../src/SentinelHUD/UI/NativeUiInputPartition.cs" Link="Consumer/NativeUiInputPartition.cs" />
+    <Compile Include="../../src/SentinelHUD/UI/NativeUiDrawClipper.cs" Link="Consumer/NativeUiDrawClipper.cs" />
+    <Compile Include="../../src/SentinelHUD/UI/HudEditorInteractionRenderer.cs" Link="Consumer/HudEditorInteractionRenderer.cs" />
+    <Compile Include="../../src/SentinelHUD/Configuration.cs" Link="Consumer/Configuration.cs" />
     <Compile Include="../../src/SentinelHUD/UI/CurrencyTrackerRenderer.cs" Link="Consumer/CurrencyTrackerRenderer.cs" />
     <Compile Include="../../src/SentinelHUD/Services/NativeOmenMemory.cs" Link="Consumer/NativeOmenMemory.cs" />
     <Compile Include="../../src/SentinelHUD/Services/SplatoonElementContract.cs" Link="Consumer/SplatoonElementContract.cs" />

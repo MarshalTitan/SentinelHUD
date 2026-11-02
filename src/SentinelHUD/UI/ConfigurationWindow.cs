@@ -341,6 +341,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawToggle("Enable Sentinel HUD", configuration.Current.Enabled, value => Update(c => c.Enabled = value));
         if (DrawToggle("Lock HUD", configuration.Current.Locked, value => Update(c => c.Locked = value)))
             renderer.RequestRepositionAll();
+        DrawToggle("Respect Native Windows", configuration.Current.RespectNativeWindows,
+            value => Update(c => c.RespectNativeWindows = value));
+        DrawMutedText("Native menus cover only overlapping HUD graphics and input regions. Configuration stays a normal plugin window.");
 
         DrawResponsiveSettingsRow(
             "SentinelHUD.GlobalScale",
@@ -578,6 +581,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
         DrawToggle("Enable Sentinel HUD", config.Enabled, value => Update(c => c.Enabled = value));
         if (DrawToggle("Lock HUD", config.Locked, value => Update(c => c.Locked = value)))
             renderer.RequestRepositionAll();
+        DrawToggle("Respect Native Windows", config.RespectNativeWindows,
+            value => Update(c => c.RespectNativeWindows = value));
 
         var globalScale = config.GlobalScale;
         if (ImGui.SliderFloat("Global scale", ref globalScale, 0.65f, 1.75f, "%.2fx"))
@@ -1358,6 +1363,18 @@ public sealed class ConfigurationWindow : Window, IDisposable
         if (configurationStore.BackupPath is not null)
             ImGui.TextWrapped($"Migration/recovery backup: {configurationStore.BackupPath}");
         ImGui.TextWrapped($"HUD enabled / locked: {config.Enabled} / {config.Locked}");
+        ImGui.Separator();
+        ImGui.TextUnformatted("Native UI Occlusion");
+        ImGui.TextWrapped($"Respect Native Windows: {config.RespectNativeWindows}; {renderer.NativeUiOcclusion.State}");
+        ImGui.TextWrapped($"Visible blocking addons: {renderer.NativeUiOcclusion.Windows.Count}; cached candidates: {renderer.NativeUiOcclusion.CandidateCount}");
+        ImGui.TextWrapped($"Clipped gameplay modules: {renderer.NativeUiClippedModules}; shared marker/text/editor layers: {renderer.NativeUiClippedSharedLayers}");
+        ImGui.TextWrapped($"Discovery passes: {renderer.NativeUiOcclusion.DiscoveryCount} (lifecycle invalidation + 1 second fallback)");
+        foreach (var window in renderer.NativeUiOcclusion.Windows)
+        {
+            var r = window.Bounds;
+            ImGui.TextUnformatted($"{window.Name}: [{r.Left:0}, {r.Top:0}] - [{r.Right:0}, {r.Bottom:0}]");
+        }
+        ImGui.Separator();
         ImGui.TextWrapped($"Sentinel ecosystem status: {ecosystemStatus.StateDescription}");
         ImGui.TextWrapped($"Player module visible: {renderer.PlayerVisible}");
         ImGui.TextWrapped($"Target visible / resolved: {renderer.TargetVisible} / {renderer.TargetResolved}");

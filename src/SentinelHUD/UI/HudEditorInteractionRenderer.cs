@@ -20,6 +20,7 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
     private static readonly string[] Labels = ["Player", "Target", "Focus", "Target of Target", "Targeting Me", "Player Cast", "Target Cast", "Currencies"];
     private readonly ConfigurationCoordinator<Configuration> configuration = configuration;
     private readonly List<EditRegion> regions = new(MaximumRegions);
+    private readonly NativeUiInputPartition partition = new();
     private HudModuleKind? selectedKind;
     private HudModuleKind? activeKind;
     private Vector2 dragStartMouse;
@@ -43,23 +44,32 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
             renderedBarCount, arc, arcHeight, scale));
     }
 
-    public void Draw()
+    public void Draw(NativeUiOcclusionMask? nativeUi = null)
     {
+        var blocked = nativeUi?.Contains(ImGui.GetMousePos()) == true;
+        if (blocked) activeKind = null;
         for (var index = 0; index < regions.Count; index++)
-            Draw(regions[index], index);
+        {
+            var region = regions[index];
+            var pieces = partition.Split(region.Minimum, region.Maximum, nativeUi);
+            var hovered = false;
+            for (var part = 0; part < pieces.Count; part++)
+                hovered |= Draw(region, partition.Name(WindowNames[index], part), pieces[part], blocked);
+            DrawAffordances(region, hovered || activeKind == region.Kind);
+        }
     }
 
-    private void Draw(EditRegion region, int index)
+    private bool Draw(EditRegion region, string name, ScreenRectangle visible, bool blocked)
     {
-        var size = region.Maximum - region.Minimum;
-        ImGui.SetNextWindowPos(region.Minimum, ImGuiCond.Always);
+        var size = new Vector2(visible.Width, visible.Height);
+        ImGui.SetNextWindowPos(new Vector2(visible.Left, visible.Top), ImGuiCond.Always);
         ImGui.SetNextWindowSize(size, ImGuiCond.Always);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, Vector2.One);
         try
         {
-            const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
+            var flags = ImGuiWindowFlags.NoDecoration
                                            | ImGuiWindowFlags.NoMove
                                            | ImGuiWindowFlags.NoSavedSettings
                                            | ImGuiWindowFlags.NoDocking
@@ -67,39 +77,40 @@ public sealed class HudEditorInteractionRenderer(ConfigurationCoordinator<Config
                                            | ImGuiWindowFlags.NoFocusOnAppearing
                                            | ImGuiWindowFlags.NoBringToFrontOnFocus
                                            | ImGuiWindowFlags.NoBackground;
-            var began = ImGui.Begin(WindowNames[index], flags);
+            if (blocked) flags |= ImGuiWindowFlags.NoInputs;
+            var began = ImGui.Begin(name, flags);
             try
             {
                 if (!began)
-                    return;
+                    return false;
 
                 ImGui.InvisibleButton("##EditModule", size);
-                var hovered = ImGui.IsItemHovered();
+                var hovered = !blocked && ImGui.IsItemHovered();
                 var mouse = ImGui.GetMousePos();
                 var hoveredEdges = GetResizeEdges(region, mouse);
                 if (hovered)
                     ImGui.SetMouseCursor(GetCursor(hoveredEdges));
 
-                if (ImGui.IsItemActivated())
+                if (!blocked && ImGui.IsItemActivated())
                 {
                     selectedKind = region.Kind;
                     activeKind = region.Kind;
                     resizeEdges = hoveredEdges;
                     dragStartMouse = mouse;
                     dragStartPosition = region.Minimum;
-                    dragStartSize = size;
+                    dragStartSize = region.Maximum - region.Minimum;
                     dragStartWidth = region.ConfiguredWidth;
                     dragStartBarHeight = region.ConfiguredBarHeight;
                     dragStartBarCount = region.RenderedBarCount;
                     dragStartArcHeight = region.ArcHeight;
                 }
 
-                if (activeKind == region.Kind && ImGui.IsItemActive())
+                if (!blocked && activeKind == region.Kind && ImGui.IsItemActive())
                     ApplyDrag(region, mouse - dragStartMouse);
                 else if (activeKind == region.Kind && !ImGui.IsMouseDown(ImGuiMouseButton.Left))
                     activeKind = null;
 
-                DrawAffordances(region, hovered || activeKind == region.Kind);
+                return hovered;
             }
             finally
             {

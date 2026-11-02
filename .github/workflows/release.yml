@@ -104,7 +104,7 @@ jobs:
             --repo '${{ github.repository }}' `
             --target '${{ github.sha }}' `
             --title "Sentinel HUD ${{ steps.version.outputs.value }}" `
-            --notes-file docs/THREAT_DEATHS_RELEASE.md
+            --notes-file docs/NATIVE_UI_RELEASE.md
 
       - name: Verify public release asset
         shell: pwsh

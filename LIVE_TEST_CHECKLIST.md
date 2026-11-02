@@ -1,4 +1,8 @@
-# Sentinel HUD 0.8.8.0 - Live Test
+# Sentinel HUD 0.8.9.1 - Live Test
+
+## 0.8.9.1 Native window layering
+
+Run the complete overlapping-window, input, context-menu, edit-mode, viewport/scale and restart checklist in [docs/NATIVE_UI_OCCLUSION.md](docs/NATIVE_UI_OCCLUSION.md). Automated coverage does not replace actual FFXIV addon/control acceptance.
 
 ## 0.8.8.0 Encounter Colors and Sentinel Encounter Overlay
 

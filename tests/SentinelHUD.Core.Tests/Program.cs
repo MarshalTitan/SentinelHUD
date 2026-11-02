@@ -7,6 +7,9 @@ using System.Globalization;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("native window rectangle subtraction and union coverage", NativeUiOcclusionTests.Geometry),
+    ("native panel classification excludes persistent HUD and world", NativeUiOcclusionTests.Windows),
+    ("schema fifteen native-window default preserves every previous setting", NativeUiOcclusionTests.Persistence),
     ("bounded post-death PvP history and zero-allocation unchanged sampling", ThreatDeathTests.Run),
     ("schema fourteen encounter defaults preserve every existing setting", EncounterVisualTests.Migration),
     ("encounter palette opt-in and independent custom fallbacks", EncounterVisualTests.Palette),
