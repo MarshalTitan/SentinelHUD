@@ -1372,7 +1372,13 @@ public sealed class ConfigurationWindow : Window, IDisposable
         foreach (var window in renderer.NativeUiOcclusion.Windows)
         {
             var r = window.Bounds;
-            ImGui.TextUnformatted($"{window.Name}: [{r.Left:0}, {r.Top:0}] - [{r.Right:0}, {r.Bottom:0}]");
+            ImGui.TextUnformatted($"{window.Name} ({window.Source}): [{r.Left:0}, {r.Top:0}] - [{r.Right:0}, {r.Bottom:0}]");
+        }
+        if (renderer.NativeUiOcclusion.Rejected.Count > 0 && ImGui.TreeNode("Ignored native helpers / unsafe bounds"))
+        {
+            foreach (var ignored in renderer.NativeUiOcclusion.Rejected)
+                ImGui.TextUnformatted($"{ignored.Name}: {ignored.Reason}");
+            ImGui.TreePop();
         }
         ImGui.Separator();
         ImGui.TextWrapped($"Sentinel ecosystem status: {ecosystemStatus.StateDescription}");

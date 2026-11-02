@@ -1,4 +1,17 @@
-# Native UI window occlusion - 0.8.9.1
+# Native UI window occlusion - 0.8.9.2
+
+## 0.8.9.2 correction after live feedback
+
+Live feedback on 0.8.9.1 showed HUD sections outside Achievements disappearing when Respect Native Windows was enabled. The first adapter accepted generic collision-node metadata as window evidence and used GetWindowBounds, which may fall back to an addon's entire root canvas. That was unsafe for helpers that do not paint a normal window. The exact runtime helper name was not captured in the report; the fix removes that broad admission path rather than asserting a specific addon caused it.
+
+0.8.9.2 reads the bounds of a verified visible AtkComponentWindow node, with its owned collision node as a fallback. Generic collision-only addons no longer qualify. Known frameless panels/popups may use bounded collision/root rectangles; viewport-sized fallback and unknown frame canvases are rejected. A verified full-screen Map retains its actual full-screen behavior. A tight collision rectangle wins over an oversized frame wrapper. No native nodes are modified and the drawing/input subtraction algorithm is retained.
+
+Diagnostics now lists each accepted bounds source and an expandable ignored-helper list with rejection reasons. The synthetic regression combines a full-screen helper canvas and a partially overlapping Achievements panel: the upper overlapped arc is clipped and the lower arc/input remain available. This does not constitute an in-game PASS.
+
+- [ ] Update to 0.8.9.2, turn Respect Native Windows On (saved Off remains Off), and verify HUD is visible with no native windows open.
+- [ ] Repeat the reported Achievements placement over the upper arc. Lower exposed arc and values/percentages stay visible; only the overlapping part is hidden. Close Achievements and confirm the full arc returns.
+- [ ] Test Saddlebag, Inventory, Character, Map, Duty and Currency windows, native controls, actor context menus and unlocked editing. If anything still disappears, record Diagnostics > Native UI Occlusion accepted names/sources/bounds and ignored-helper reasons.
+- [ ] Confirm no settings/layout reset. Schema stays 16 and Core stays 0.3.1.
 
 **General > Respect Native Windows** defaults **On**, in Modern and Classic. Native FFXIV menus visually cover only the Sentinel gameplay pixels beneath their rectangular window bounds. Sentinel remains visible and interactive outside those bounds. Turn this setting Off to compare the previous rendering behavior. The configuration window is outside the clipping scope.
 
@@ -18,7 +31,7 @@ Primary references: [IUiBuilder](https://github.com/goatcorp/Dalamud/blob/master
 
 ## Window detection and performance
 
-Discovery reads the native manager's bounded loaded-unit list on addon PostSetup/PreFinalize invalidation, with a once-per-second fallback for already-loaded metadata. It selects native window/window-collision metadata plus known popup/tooltip types, excluding persistent HUD surfaces (underscore HUD names, chat log, nameplates, fly text, etc.). This is not a fixed inventory-only whitelist. Candidate IDs/names are cached; native pointers are resolved afresh and never retained across frames. Only candidate readiness, visibility, alpha, root visibility and native GetWindowBounds are refreshed each draw, so normal moves, resizing, hiding and closing do not wait for the discovery timer. Main viewport origin is added to client-space native bounds for windowed/multi-monitor play.
+Discovery reads the native manager's bounded loaded-unit list on addon PostSetup/PreFinalize invalidation, with a once-per-second fallback for already-loaded metadata. Candidate IDs/names are cached; native pointers are resolved afresh and never retained across frames. Readiness, visibility, alpha and bounds are refreshed each draw, so normal moves, resizing, hiding and closing do not wait for the timer. Window components must have the Window type and visible ancestors. Bounds are read directly from selected nodes, not the broad native GetWindowBounds root fallback. Any verified bounded native frame can qualify; only the frameless fallback uses recognized panel/popup names. Persistent HUD surfaces, fades, screen helpers and unsafe viewport-sized fallbacks are excluded. Main viewport origin is added to client-space native bounds for windowed/multi-monitor play.
 
 Native window rectangles are clipped to the viewport and combined without replacing overlapping windows with an oversized enclosing box. Rectangle/command/input buffers and generated fragment names reuse capacity. Unaffected module lists are skipped; repeated command scissors reuse their split result. No per-frame logs, texture captures, render hooks or world-object scans are added.
 
@@ -26,7 +39,7 @@ The mask uses window rectangles, not per-pixel native artwork: transparent margi
 
 ## Diagnostics and persistence
 
-Open **Diagnostics > Native UI Occlusion** for the setting/state, visible blocking addon count, cached candidate count, addon names and bounds, discovery passes, clipped gameplay module count and shared-layer count. Shared layers combine marker/text/editor drawing, so their count is separate from module windows. No native pointers are shown or persisted.
+Open **Diagnostics > Native UI Occlusion** for the setting/state, visible blocking addon count, cached candidate count, addon names/bounds/sources, ignored-helper rejection reasons, discovery passes, clipped gameplay module count and shared-layer count. Shared layers combine marker/text/editor drawing, so their count is separate from module windows. No native pointers are shown or persisted.
 
 Schema 16 adds only RespectNativeWindows=true. Existing false choices round-trip; all prior HUD positions/styles/scales, arcs/casts, currency selections, encounter colors, camera, convenience and plugin-window settings are preserved. The protected configuration store keeps its standard schema-v15 migration backup. Core stays exactly 0.3.1.
 

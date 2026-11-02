@@ -42,7 +42,8 @@ internal static class Program
             Test("native-window shared-list clipping preserves foreign drawing", NativeUiRenderingTests.SharedLists);
             Test("native-window input priority and restored interaction", NativeUiRenderingTests.Input);
             Test("native-window editor drag resize and input priority", NativeUiRenderingTests.Editor);
-            Console.WriteLine($"{passed}/17 native ImGui UI test groups passed.");
+            Test("full-screen helper canvases cannot hide lower arc or input", NativeUiRenderingTests.HelperCanvas);
+            Console.WriteLine($"{passed}/18 native ImGui UI test groups passed.");
             return 0;
         }
         catch (Exception exception)
