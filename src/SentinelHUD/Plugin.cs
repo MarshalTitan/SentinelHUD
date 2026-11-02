@@ -31,6 +31,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IClientState ClientState { get; private set; } = null!;
     [PluginService] internal static ICondition Condition { get; private set; } = null!;
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
+    [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
     [PluginService] internal static IFramework Framework { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static IGameInteropProvider GameInterop { get; private set; } = null!;
@@ -78,6 +79,7 @@ public sealed class Plugin : IDalamudPlugin
         var actorContextMenus = new ActorContextMenuService(actorResolver, GameGui);
         var actorInteractions = new ActorInteractionRenderer(actorTargeting, actorContextMenus);
         var hudEditor = new HudEditorInteractionRenderer(configuration);
+        var nativeUiOcclusion = lifetime.Add(new NativeUiOcclusionService(AddonLifecycle));
         var encounterAwareness = lifetime.Add(new EncounterAwarenessService(
             ObjectTable, DataManager, PluginInterface));
         var encounterVisuals = lifetime.Add(new EncounterVisualService(ObjectTable, DataManager, PluginInterface, GameInterop));
@@ -107,6 +109,7 @@ public sealed class Plugin : IDalamudPlugin
             nativeTargetOverlay,
             actorInteractions,
             hudEditor,
+            nativeUiOcclusion,
             cameraZoom,
             encounterAwareness,
             encounterVisuals,

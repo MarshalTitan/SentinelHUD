@@ -24,6 +24,10 @@ public sealed class HudRenderer
     private readonly NativeTargetHpOverlayRenderer nativeTargetOverlay;
     private readonly ActorInteractionRenderer actorInteractions;
     private readonly HudEditorInteractionRenderer hudEditor;
+    public NativeUiOcclusionService NativeUiOcclusion { get; }
+    private readonly NativeUiDrawClipper nativeUiClipper = new();
+    public int NativeUiClippedModules { get; private set; }
+    public int NativeUiClippedSharedLayers { get; private set; }
     private readonly IExtendedCameraZoomService cameraZoom;
     private readonly EncounterAwarenessService encounterAwareness;
     public EncounterVisualService EncounterVisuals { get; }
@@ -59,6 +63,7 @@ public sealed class HudRenderer
         NativeTargetHpOverlayRenderer nativeTargetOverlay,
         ActorInteractionRenderer actorInteractions,
         HudEditorInteractionRenderer hudEditor,
+        NativeUiOcclusionService nativeUiOcclusion,
         IExtendedCameraZoomService cameraZoom,
         EncounterAwarenessService encounterAwareness,
         EncounterVisualService encounterVisuals,
@@ -78,6 +83,8 @@ public sealed class HudRenderer
         this.nativeTargetOverlay = nativeTargetOverlay;
         this.actorInteractions = actorInteractions;
         this.hudEditor = hudEditor;
+        NativeUiOcclusion = nativeUiOcclusion;
+        nativeUiClipper.Mask = nativeUiOcclusion.Mask;
         this.cameraZoom = cameraZoom;
         this.encounterAwareness = encounterAwareness;
         EncounterVisuals = encounterVisuals;
@@ -161,9 +168,28 @@ public sealed class HudRenderer
 
     public void Draw()
     {
+        actorInteractions.RefreshContextMenuState();
+        var viewport = ImGui.GetMainViewport();
+        var config = configuration.Current;
+        NativeUiOcclusion.Update(config.RespectNativeWindows && config.Enabled
+            && clientState.IsLoggedIn && !gameGui.GameUiHidden, viewport.Pos, viewport.Size);
+        NativeUiClippedModules = 0; NativeUiClippedSharedLayers = 0;
+        var background = ImGui.GetBackgroundDrawList();
+        var foreground = ImGui.GetForegroundDrawList();
+        var firstBackgroundIndex = (uint)background.IdxBuffer.Size;
+        var firstForegroundIndex = (uint)foreground.IdxBuffer.Size;
+        try { DrawGameplay(); }
+        finally
+        {
+            if (nativeUiClipper.Apply(background, firstBackgroundIndex)) NativeUiClippedSharedLayers++;
+            if (nativeUiClipper.Apply(foreground, firstForegroundIndex)) NativeUiClippedSharedLayers++;
+        }
+    }
+
+    private void DrawGameplay()
+    {
         var config = configuration.Current;
         actorInteractions.BeginFrame();
-        actorInteractions.RefreshContextMenuState();
         hudEditor.BeginFrame();
         ResetVisibilityState();
         var runtime = GetRuntimeVisibilityState();
@@ -233,11 +259,11 @@ public sealed class HudRenderer
         if (config.Locked)
         {
             if (!actorInteractions.ShouldSuspendActorInput)
-                actorInteractions.Draw();
+                actorInteractions.Draw(NativeUiOcclusion.Mask);
         }
         else
         {
-            hudEditor.Draw();
+            hudEditor.Draw(NativeUiOcclusion.Mask);
         }
         RecordState(config);
     }
@@ -338,6 +364,7 @@ public sealed class HudRenderer
                 _ => "Targeting Me Counter##SentinelHUD-TargetingMeCounter",
             };
             var began = ImGui.Begin(title, flags);
+            var moduleDrawList = ImGui.GetWindowDrawList();
             try
             {
                 ImGui.SetWindowFontScale(module.Scale * root.GlobalScale);
@@ -400,6 +427,9 @@ public sealed class HudRenderer
             finally
             {
                 ImGui.End();
+                if (NativeUiOcclusion.Mask.Intersects(ScreenRectangle.FromPositionSize(
+                    desiredPosition, state.LastContentSize)) && nativeUiClipper.Apply(moduleDrawList))
+                    NativeUiClippedModules++;
             }
         }
         finally

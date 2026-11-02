@@ -1,10 +1,12 @@
 # Sentinel HUD
 
+Gameplay overlays now respect native FFXIV windows through overlap-only clipping. **General > Respect Native Windows** defaults On; configuration remains a normal plugin window. See [native window behavior, diagnostics and live checks](docs/NATIVE_UI_OCCLUSION.md).
+
 Sentinel HUD is a modular Dalamud enhancement layer for the normal FFXIV HUD. It provides compact player, target, focus-target and target-of-target panels whose modules and individual fields can be enabled independently. It does not attempt to replace the full native HUD.
 
 Optional **Encounter Colors / Sentinel Encounter Overlay** adds native omen tinting, a shared opt-in palette and Sentinel-owned Splatoon test drawings. All new features start Off; Splatoon remains the world-space renderer. See [setup, source boundary and in-game checks](docs/ENCOUNTER_VISUALS.md).
 
-Current release: **0.8.8.0** · Dalamud API **15** · .NET **10**
+Current release: **0.8.9.1** · Dalamud API **15** · .NET **10**
 
 ## Utility ownership cleanup — 0.8.5.0 / metadata correction 0.8.5.1
 

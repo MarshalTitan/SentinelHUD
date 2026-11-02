@@ -1,3 +1,10 @@
+# 0.8.9.1 - Native window occlusion
+
+- Respect native FFXIV windows by default: subtract native window rectangles from gameplay drawing scissors and actor/editor input regions. Preserve all portions outside the overlapping windows without re-rendering modules or changing existing geometry.
+- Cover Standard/Arc Player/Target, Focus/ToT and inline focus-target rows, independent casts, threat counter, currencies, position marker, supplementary native-target text and editor chrome. Keep configuration separate and preserve native actor context menus.
+- Cache candidate addon IDs/names through lifecycle invalidation plus a 1-second fallback; refresh only candidate visibility/bounds every draw. Do not retain addon pointers, modify native windows, add render hooks, or use world-object occlusion.
+- Add General Respect Native Windows and Diagnostics Native UI Occlusion with names, bounds, discovery passes and clipping counts. Schema 16 preserves all prior settings; Core remains pinned to 0.3.1. Include geometry, persistence and real ImGui rendering/input/editor tests. In-game acceptance remains documented in docs/NATIVE_UI_OCCLUSION.md.
+
 # 0.8.9.0
 
 - Preserve up to 30 seconds of compressed Targeting Me observations before death; reuse the existing 125 ms scan.

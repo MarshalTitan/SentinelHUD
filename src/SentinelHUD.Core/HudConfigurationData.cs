@@ -417,13 +417,14 @@ public sealed class ExtendedCameraZoomConfiguration
 
 public class HudConfigurationData
 {
-    public const int CurrentVersion = 15;
+    public const int CurrentVersion = 16;
 
     public int Version { get; set; } = CurrentVersion;
     public bool Enabled { get; set; } = true;
     public bool Locked { get; set; } = true;
     public float GlobalScale { get; set; } = 1f;
     public float GlobalOpacity { get; set; } = 1f;
+    public bool RespectNativeWindows { get; set; } = true;
     public PlayerModuleConfiguration Player { get; set; } = HudConfigurationDefaults.CreatePlayer();
     public TargetModuleConfiguration Target { get; set; } = HudConfigurationDefaults.CreateTarget();
     public CastModuleConfiguration PlayerCast { get; set; } = HudConfigurationDefaults.CreateCast(false);
@@ -839,6 +840,10 @@ public static class HudConfigurationMigrator
                 case 14:
                     // New visual systems are opt-in. Initializers preserve every existing module value.
                     version = 15;
+                    break;
+                case 15:
+                    // Native window clipping is a new default only; preserve all existing HUD settings.
+                    version = 16;
                     break;
                 default:
                     version = HudConfigurationData.CurrentVersion;

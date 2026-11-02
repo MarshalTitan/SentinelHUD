@@ -38,7 +38,11 @@ internal static class Program
             Test("currency compact/full layouts wrap at narrow widths", TestCurrencyLayouts);
             Test("native omen ABI memory validation and colour restoration", EncounterInteropTests.Memory);
             Test("Splatoon public API mapping, lifetime and scoped removal", EncounterInteropTests.SplatoonContract);
-            Console.WriteLine($"{passed}/13 native ImGui UI test groups passed.");
+            Test("native-window scissors preserve geometry and partial visibility", NativeUiRenderingTests.Commands);
+            Test("native-window shared-list clipping preserves foreign drawing", NativeUiRenderingTests.SharedLists);
+            Test("native-window input priority and restored interaction", NativeUiRenderingTests.Input);
+            Test("native-window editor drag resize and input priority", NativeUiRenderingTests.Editor);
+            Console.WriteLine($"{passed}/17 native ImGui UI test groups passed.");
             return 0;
         }
         catch (Exception exception)
@@ -228,6 +232,7 @@ internal static class Program
             var leftClicks = 0;
             var rightClicks = 0;
             var fullRectangle = false;
+            var nativeUi = new NativeUiOcclusionMask();
             var mp = true;
             for (var i = 0; i < 4; i++) Frame(new Vector2(-100f, -100f));
             var hpBand = renderer.GetHitBand(12);
@@ -240,6 +245,14 @@ internal static class Program
             io.AddMouseButtonEvent(1, true); Frame(hpPoint);
             io.AddMouseButtonEvent(1, false); Frame(hpPoint);
             Check(rightClicks == 1, "Visible HP bar did not deliver exactly one right click.");
+            nativeUi.Add(ScreenRectangle.FromPositionSize(hpPoint - new Vector2(12f), new Vector2(24f)));
+            Settle(hpPoint);
+            Check(!io.WantCaptureMouse, "Native window over HP band still captures actor input.");
+            io.AddMouseButtonEvent(0, true); Frame(hpPoint);
+            io.AddMouseButtonEvent(0, false); Frame(hpPoint);
+            Check(leftClicks == 1, "Occluded HP band still targets actor.");
+            nativeUi.Clear(); Settle(hpPoint);
+            Check(io.WantCaptureMouse, "Closing native window did not restore HP band input.");
             var mpBand = renderer.GetHitBand(ArcHitRegions.BandsPerTrack + 12);
             var mpPoint = (mpBand.Minimum + mpBand.Maximum) * 0.5f;
             Settle(mpPoint); Check(io.WantCaptureMouse, "Visible MP bar is not interactive.");
@@ -272,7 +285,7 @@ internal static class Program
                 {
                     var band = fullRectangle ? new ArcHitBand(new Vector2(40f, 40f), new Vector2(360f, 640f))
                         : renderer.GetHitBand(i);
-                    var clicked = ActorInputRegionRenderer.Draw("Arc input band " + i, band.Minimum, band.Maximum, true, false);
+                    var clicked = ActorInputRegionRenderer.Draw("Arc input band " + i, band.Minimum, band.Maximum, true, false, nativeUi);
                     if (clicked.Left) leftClicks++;
                     if (clicked.Right) rightClicks++;
                 }

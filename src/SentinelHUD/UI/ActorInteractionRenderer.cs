@@ -72,7 +72,7 @@ public sealed class ActorInteractionRenderer(
             reference, allowTargeting, allowContextMenu, priority));
     }
 
-    public void Draw()
+    public void Draw(NativeUiOcclusionMask? nativeUi = null)
     {
         interactions.Sort(static (left, right) => left.Priority.CompareTo(right.Priority));
         var mousePosition = ImGui.GetMousePos();
@@ -88,7 +88,7 @@ public sealed class ActorInteractionRenderer(
             var interaction = interactions[index];
             if (interaction.Contains(mousePosition) && interaction.Priority < winningPriority)
                 continue;
-            Draw(interaction, index);
+            Draw(interaction, index, nativeUi);
         }
     }
 
@@ -104,10 +104,10 @@ public sealed class ActorInteractionRenderer(
         }
     }
 
-    private void Draw(ActorInteraction interaction, int index)
+    private void Draw(ActorInteraction interaction, int index, NativeUiOcclusionMask? nativeUi)
     {
         var click = ActorInputRegionRenderer.Draw(WindowNames[index], interaction.Minimum,
-            interaction.Maximum, interaction.AllowTargeting, interaction.ShowOutline);
+            interaction.Maximum, interaction.AllowTargeting, interaction.ShowOutline, nativeUi);
         if (interaction.AllowTargeting && click.Left) targeting.TryTarget(interaction.Reference);
         if (interaction.AllowContextMenu && click.Right)
         {

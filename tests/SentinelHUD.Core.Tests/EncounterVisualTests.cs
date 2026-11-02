@@ -20,7 +20,7 @@ internal static class EncounterVisualTests
         old.Camera.Enabled = true; old.Appearance.ModernWindow.Minimized = true;
         var before = JsonSerializer.SerializeToNode(old)!.AsObject(); Strip(before); before["Version"] = 14;
         var restored = HudConfigurationMigrator.Normalize(JsonSerializer.Deserialize<HudConfigurationData>(before.ToJsonString())!);
-        Check(restored.Version == 15 && !restored.EncounterAwareness.Palette.Enabled);
+        Check(restored.Version == HudConfigurationData.CurrentVersion && !restored.EncounterAwareness.Palette.Enabled);
         Check(!restored.EncounterAwareness.NativeColours.Enabled && !restored.EncounterAwareness.Overlay.Enabled);
         Check(!restored.PlayerPositionMarker.UseEncounterPalette);
         var after = JsonSerializer.SerializeToNode(restored)!.AsObject(); Strip(before); Strip(after);
