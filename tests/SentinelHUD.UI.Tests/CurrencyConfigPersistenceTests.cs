@@ -13,23 +13,21 @@ internal static class CurrencyConfigPersistenceTests
             Check(config.Current.CurrencyTracker.SelectedCurrencies.SequenceEqual(new uint[] { 1 }),
                 "New configuration must still default to Gil.");
             config.Update(c => c.CurrencyTracker.SelectedCurrencies = [28, 1, 25]);
-            config.Update(c => c.CurrencyTracker.SelectedCurrencies =
-                Array.FindAll(c.CurrencyTracker.SelectedCurrencies, id => id != 1));
+            config.Update(c => c.CurrencyTracker.SetCurrencySelected(1, false));
         }
 
         using (var config = Open(store))
         {
             Check(config.Current.CurrencyTracker.SelectedCurrencies.SequenceEqual(new uint[] { 28, 25 }),
                 "Disabled Gil reappeared or the selected order changed.");
-            config.Update(c => c.CurrencyTracker.SelectedCurrencies =
-                Array.FindAll(c.CurrencyTracker.SelectedCurrencies, id => id != 28));
+            config.Update(c => c.CurrencyTracker.SetCurrencySelected(28, false));
         }
 
         using (var config = Open(store))
         {
             Check(config.Current.CurrencyTracker.SelectedCurrencies.SequenceEqual(new uint[] { 25 }),
                 "A disabled non-Gil currency reappeared.");
-            config.Update(c => c.CurrencyTracker.SelectedCurrencies = []);
+            config.Update(c => c.CurrencyTracker.SetCurrencySelected(25, false));
         }
 
         using (var config = Open(store))

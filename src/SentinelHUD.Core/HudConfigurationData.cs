@@ -201,6 +201,14 @@ public sealed class CurrencyTrackerConfiguration : HudModuleConfiguration
     public bool ShowIcons { get; set; } = true;
     // A saved JSON array must replace the default. Json.NET appends to an initialized mutable list.
     public uint[] SelectedCurrencies { get; set; } = [1];
+
+    public void SetCurrencySelected(uint itemId, bool selected)
+    {
+        if (!selected)
+            SelectedCurrencies = Array.FindAll(SelectedCurrencies, id => id != itemId);
+        else if (SelectedCurrencies.Length < CurrencyPolicy.MaximumSelected && !SelectedCurrencies.Contains(itemId))
+            SelectedCurrencies = [.. SelectedCurrencies, itemId];
+    }
 }
 
 public sealed class TargetModuleConfiguration : HudModuleConfiguration

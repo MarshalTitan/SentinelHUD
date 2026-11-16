@@ -766,13 +766,8 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 if (!CurrencyPolicy.MatchesSearch(entry.Name, currencySearch)) continue;
                 matches++;
                 ImGui.PushID((int)entry.ItemId);
-                DrawToggle(entry.Name, config.SelectedCurrencies.Contains(entry.ItemId), value => Update(c =>
-                {
-                    var selected = c.CurrencyTracker.SelectedCurrencies;
-                    if (!value) c.CurrencyTracker.SelectedCurrencies = Array.FindAll(selected, id => id != entry.ItemId);
-                    else if (selected.Length < CurrencyPolicy.MaximumSelected)
-                        c.CurrencyTracker.SelectedCurrencies = [.. selected, entry.ItemId];
-                }));
+                DrawToggle(entry.Name, config.SelectedCurrencies.Contains(entry.ItemId),
+                    value => Update(c => c.CurrencyTracker.SetCurrencySelected(entry.ItemId, value)));
                 ImGui.PopID();
             }
             if (open && matches == 0) DrawMutedText(catalog.Count == 0 ? "Waiting for currency data." : "No currencies match your search.");
