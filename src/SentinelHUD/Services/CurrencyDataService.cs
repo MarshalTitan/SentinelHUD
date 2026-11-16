@@ -52,7 +52,7 @@ public sealed class CurrencyDataService(IDataManager data)
         if (Environment.TickCount64 < nextRefresh) return;
         nextRefresh = Environment.TickCount64 + CurrencyPolicy.RefreshMilliseconds;
         EnsureCatalog();
-        var result = new List<CurrencyBalance>(config.SelectedCurrencies.Count);
+        var result = new List<CurrencyBalance>(config.SelectedCurrencies.Length);
         var inventory = playerAvailable ? InventoryManager.Instance() : null;
         if (inventory != null)
         {

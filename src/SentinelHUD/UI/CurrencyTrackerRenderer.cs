@@ -94,7 +94,7 @@ public sealed class CurrencyTrackerRenderer(ITextureProvider? textures)
                 ImGui.SetCursorPos(start);
                 ImGui.Dummy(new Vector2(width, Math.Max(1f, y - start.Y - rowGap)));
             }
-            else if (editing) ImGui.TextWrapped(config.SelectedCurrencies.Count == 0
+            else if (editing) ImGui.TextWrapped(config.SelectedCurrencies.Length == 0
                 ? "Currency Tracker: select currencies in settings." : "Currency Tracker: waiting for selected currency data.");
         }
         finally { ImGui.PopStyleVar(); }

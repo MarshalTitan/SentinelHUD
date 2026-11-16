@@ -1,3 +1,7 @@
+# 0.8.9.3 - Keep Currency Tracker selections after restart
+
+- Currency Tracker now keeps disabled currencies disabled after plugin and game restarts. Saved selections replace the initial defaults, including an empty selection. The default for new configurations, currency order, layout and other HUD settings remain unchanged.
+
 # 0.8.9.2 - Reject native helper canvases
 
 - Correct the overbroad window admission path behind the reported exposed-HUD disappearance with Respect Native Windows enabled. Generic collision nodes and viewport-sized root/frame fallbacks no longer become screen-wide occluders.
