@@ -26,6 +26,7 @@
     <Reference Include="SentinelCore" HintPath="$(PluginOutput)SentinelCore.dll" Private="true" />
     <Reference Include="SentinelCore.UI" HintPath="$(PluginOutput)SentinelCore.UI.dll" Private="true" />
     <Reference Include="Dalamud" HintPath="$(DalamudLibPath)Dalamud.dll" Private="true" />
+    <Reference Include="Newtonsoft.Json" HintPath="$(DalamudLibPath)Newtonsoft.Json.dll" Private="true" />
     <Reference Include="Dalamud.Bindings.ImGui" HintPath="$(DalamudLibPath)Dalamud.Bindings.ImGui.dll" Private="true" />
     <None Include="$(DalamudLibPath)cimgui.dll" Link="cimgui.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

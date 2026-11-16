@@ -768,9 +768,10 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 ImGui.PushID((int)entry.ItemId);
                 DrawToggle(entry.Name, config.SelectedCurrencies.Contains(entry.ItemId), value => Update(c =>
                 {
-                    if (!value) c.CurrencyTracker.SelectedCurrencies.Remove(entry.ItemId);
-                    else if (c.CurrencyTracker.SelectedCurrencies.Count < CurrencyPolicy.MaximumSelected)
-                        c.CurrencyTracker.SelectedCurrencies.Add(entry.ItemId);
+                    var selected = c.CurrencyTracker.SelectedCurrencies;
+                    if (!value) c.CurrencyTracker.SelectedCurrencies = Array.FindAll(selected, id => id != entry.ItemId);
+                    else if (selected.Length < CurrencyPolicy.MaximumSelected)
+                        c.CurrencyTracker.SelectedCurrencies = [.. selected, entry.ItemId];
                 }));
                 ImGui.PopID();
             }
@@ -811,8 +812,9 @@ public sealed class ConfigurationWindow : Window, IDisposable
         {
             if (catalog.Count > 0 && config.SelectedCurrencies.Any(id => !catalog.Any(entry => entry.ItemId == id))
                 && DrawActionButton("Remove unavailable selections"))
-                Update(c => c.CurrencyTracker.SelectedCurrencies.RemoveAll(id => !catalog.Any(entry => entry.ItemId == id)));
-            for (var i = 0; i < config.SelectedCurrencies.Count; i++)
+                Update(c => c.CurrencyTracker.SelectedCurrencies = Array.FindAll(c.CurrencyTracker.SelectedCurrencies,
+                    id => catalog.Any(entry => entry.ItemId == id)));
+            for (var i = 0; i < config.SelectedCurrencies.Length; i++)
             {
                 var id = config.SelectedCurrencies[i];
                 var definition = catalog.FirstOrDefault(entry => entry.ItemId == id);
@@ -822,7 +824,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 var up = ImGui.SmallButton("Up"); ImGui.SameLine();
                 var down = ImGui.SmallButton("Down");
                 ImGui.PopID();
-                if (up && i > 0 || down && i + 1 < config.SelectedCurrencies.Count)
+                if (up && i > 0 || down && i + 1 < config.SelectedCurrencies.Length)
                 {
                     var from = i; var to = up ? i - 1 : i + 1;
                     Update(c => (c.CurrencyTracker.SelectedCurrencies[from], c.CurrencyTracker.SelectedCurrencies[to])

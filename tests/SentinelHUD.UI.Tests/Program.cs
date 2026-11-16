@@ -43,7 +43,8 @@ internal static class Program
             Test("native-window input priority and restored interaction", NativeUiRenderingTests.Input);
             Test("native-window editor drag resize and input priority", NativeUiRenderingTests.Editor);
             Test("full-screen helper canvases cannot hide lower arc or input", NativeUiRenderingTests.HelperCanvas);
-            Console.WriteLine($"{passed}/18 native ImGui UI test groups passed.");
+            Test("Dalamud JSON save/reload preserves disabled currencies, empty selection and custom order", CurrencyConfigPersistenceTests.Run);
+            Console.WriteLine($"{passed}/19 HUD UI and configuration test groups passed.");
             return 0;
         }
         catch (Exception exception)

@@ -199,7 +199,8 @@ public sealed class CurrencyTrackerConfiguration : HudModuleConfiguration
     public bool ShowNames { get; set; }
     public bool ShowCaps { get; set; } = true;
     public bool ShowIcons { get; set; } = true;
-    public List<uint> SelectedCurrencies { get; set; } = [1];
+    // A saved JSON array must replace the default. Json.NET appends to an initialized mutable list.
+    public uint[] SelectedCurrencies { get; set; } = [1];
 }
 
 public sealed class TargetModuleConfiguration : HudModuleConfiguration
@@ -583,7 +584,7 @@ public static class HudConfigurationMigrator
         NormalizeModule(configuration.PlayerCast, HudConfigurationDefaults.CreateCast(false).Layout);
         NormalizeModule(configuration.TargetCast, HudConfigurationDefaults.CreateCast(true).Layout);
         NormalizeModule(configuration.CurrencyTracker, HudConfigurationDefaults.CreateCurrencyTracker().Layout);
-        configuration.CurrencyTracker.SelectedCurrencies = CurrencyPolicy.NormalizeSelection(configuration.CurrencyTracker.SelectedCurrencies);
+        configuration.CurrencyTracker.SelectedCurrencies = CurrencyPolicy.NormalizeSelection(configuration.CurrencyTracker.SelectedCurrencies).ToArray();
         if (!Enum.IsDefined(configuration.CurrencyTracker.Orientation)) configuration.CurrencyTracker.Orientation = CurrencyOrientation.Horizontal;
         if (!Enum.IsDefined(configuration.CurrencyTracker.Alignment)) configuration.CurrencyTracker.Alignment = CurrencyAlignment.Left;
         NormalizeModule(configuration.FocusTarget, HudConfigurationDefaults.CreateFocusTarget().Layout);
