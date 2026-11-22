@@ -1070,7 +1070,7 @@ public sealed class ConfigurationWindow : Window, IDisposable
                 value => Update(c => c.TargetingMeCounter.HighColour.Set(value)));
             DrawColour("Extreme", threat.ExtremeColour,
                 value => Update(c => c.TargetingMeCounter.ExtremeColour.Set(value)));
-            DrawMutedText("Preserves PvP Sentinel threat semantics: nearby enemy density can raise the warning level even before every enemy hard-targets you.");
+            DrawMutedText("Nearby enemy density can raise the warning level even before every enemy hard-targets you.");
         }
         if (DrawActionButton("Reset Targeting Me Counter position"))
             renderer.ResetModuleLayout(HudModuleKind.TargetingMeCounter);

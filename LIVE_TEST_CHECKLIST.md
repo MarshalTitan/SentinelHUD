@@ -139,7 +139,7 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 - [ ] In Encounter Awareness, inspect **Treat unclassified visible Splatoon geometry as danger** without enabling it. Its label must wrap clear of its On/Off switch.
 - [ ] In Appearance, **Target / Focus / ToT HP colour mode** wraps without drawing over the combo. The fixed Classic action dock and all navigation remain usable.
 - [ ] In Camera and Layout, paired action buttons move to separate lines when needed. Long individual action labels fit inside the content region.
-- [ ] Plugins lists exactly S Rank Sentinel, PvP Sentinel, Classy Sentinel, Sentinel Relay and Sentinel Profiles. Versions reflect the installed plugins. Disabled entries remain distinct and neutral; absent companions never become dependency errors.
+- [ ] Plugins lists exactly S Rank Sentinel, Classy Sentinel, Sentinel Relay and Sentinel Profiles. Versions reflect the installed plugins. Disabled entries remain distinct and neutral; absent companions never become dependency errors.
 - [ ] Close/reopen configuration and change one companion's enabled state through Dalamud. The Plugins page refreshes within three seconds without HUD actions, installing or enabling companions itself.
 - [ ] Confirm click-to-target, Focus Target's Target, native right-click menus, cast/shield bars and lock/unlock without drift. Existing camera, marker, threat-counter and convenience behavior should match 0.8.4.2.
 
@@ -193,7 +193,7 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 - [ ] Disable S Rank Sentinel through Dalamud; confirm the card changes to **Installed · Disabled** rather than **Not Installed**.
 - [ ] Re-enable it and confirm the status returns to **Enabled** without restarting Sentinel HUD.
 - [ ] Confirm an uninstalled listed companion reports **Not Installed**.
-- [ ] Repeat status checks for PvP Sentinel, Classy Sentinel, Sentinel Relay and Sentinel Profiles where installed.
+- [ ] Repeat status checks for Classy Sentinel, Sentinel Relay and Sentinel Profiles where installed.
 - [ ] Confirm Sentinel HUD, SentinelCore and MINION Frontline Sentinel do not appear as companion cards.
 - [ ] Confirm Sentinel HUD modules and all other features work normally with every companion missing or disabled.
 
@@ -225,7 +225,7 @@ Historical checks for the superseded native-strip implementation. Use the 0.8.4.
 - [ ] Unlock, drag and horizontally resize the counter; lock it and confirm no drift.
 - [ ] Adjust scale, width, opacity, number/job/detail sizes and warning colours; reload and restart FFXIV and confirm persistence.
 - [ ] Enable existing HUD, Awareness, Camera, Encounter and Convenience systems and confirm the counter remains independent.
-- [ ] Run without PvP Sentinel installed; the counter works. Install/enable PvP Sentinel separately and confirm neither plugin is a hard dependency of the other.
+- [ ] Run without PvP Sentinel installed; the counter works. Do not install the retired Frontline plugin; awareness remains independent.
 - [ ] Diagnostics shows PvP mode, classification source, observed players/enemies, nearby enemies/allies, target count, threat level and a bounded targeter list without frame-by-frame log spam.
 
 ## Position Marker

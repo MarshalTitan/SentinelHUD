@@ -48,10 +48,6 @@ public static class SentinelEcosystemRegistry
             "SRankSentinel",
             "S-rank travel, parking, tagging and recovery."),
         new(
-            "PvP Sentinel",
-            "PvPSentinel",
-            "Frontline navigation and automation."),
-        new(
             "Classy Sentinel",
             "ClassySentinel",
             "Controller-friendly gear-set and job launcher."),

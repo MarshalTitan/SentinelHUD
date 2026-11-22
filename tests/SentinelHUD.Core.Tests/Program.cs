@@ -201,29 +201,30 @@ static void TestModernNavigationState()
 
 static void TestSentinelEcosystemRegistry()
 {
-    Equal(5, SentinelEcosystemRegistry.Plugins.Count);
+    Equal(4, SentinelEcosystemRegistry.Plugins.Count);
     True(SentinelEcosystemRegistry.Plugins.Any(plugin => plugin.InternalName == "SRankSentinel"));
-    True(SentinelEcosystemRegistry.Plugins.Any(plugin => plugin.InternalName == "PvPSentinel"));
+    True(SentinelEcosystemRegistry.Plugins.All(plugin => plugin.InternalName != "PvPSentinel"));
     True(SentinelEcosystemRegistry.Plugins.All(plugin => plugin.InternalName != "SentinelHUD"));
     True(SentinelEcosystemRegistry.Plugins.All(plugin => plugin.InternalName != "SentinelCore"));
 
     var statuses = SentinelEcosystemRegistry.Resolve(
     [
         new SentinelPluginObservation("SRankSentinel", true, "0.7.49.0"),
-        new SentinelPluginObservation("pvpsentinel", false, "0.3.2.0"),
+        new SentinelPluginObservation("sentinelrelay", false, "0.5.0.10"),
+        new SentinelPluginObservation("PvPSentinel", true, "0.3.1.24"),
         new SentinelPluginObservation("UnrelatedPlugin", true, "1.0.0"),
     ]);
     Equal(SentinelCompanionState.Enabled, statuses.Single(status => status.Definition.InternalName == "SRankSentinel").State);
     Equal("0.7.49.0", statuses.Single(status => status.Definition.InternalName == "SRankSentinel").Version);
-    Equal(SentinelCompanionState.InstalledDisabled, statuses.Single(status => status.Definition.InternalName == "PvPSentinel").State);
+    Equal(SentinelCompanionState.InstalledDisabled, statuses.Single(status => status.Definition.InternalName == "SentinelRelay").State);
     Equal(SentinelCompanionState.NotInstalled, statuses.Single(status => status.Definition.InternalName == "ClassySentinel").State);
 
     var summary = SentinelEcosystemRegistry.Summarize(statuses);
-    Equal(5, summary.Total);
+    Equal(4, summary.Total);
     Equal(2, summary.Installed);
     Equal(1, summary.Enabled);
     Equal(1, summary.Disabled);
-    Equal("1 Sentinel plugin enabled · 1 installed but disabled · 3 not installed", summary.Description);
+    Equal("1 Sentinel plugin enabled · 1 installed but disabled · 2 not installed", summary.Description);
 
     var allEnabled = SentinelEcosystemRegistry.Resolve(
         SentinelEcosystemRegistry.Plugins.Select(plugin =>
