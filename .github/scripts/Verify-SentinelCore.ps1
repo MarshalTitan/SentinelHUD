@@ -1,11 +1,12 @@
 param(
-    [string]$ExpectedCommit = '2dc7cd22a7337420918a3639f9c91139651ca9e2',
-    [string]$ExpectedTag = 'v0.3.1.1',
-    [string]$ExpectedPackageVersion = '0.3.1.1',
-    [string]$ExpectedUiPackageHash = '4d21d7c868f48fd082e0bcbd42be136a4611dfb6b9e4588dcef5dde7037d6057'
+    [string]$ExpectedCommit = 'ffa1a6ed3c89337bfb901b566b9339e2e229d154',
+    [string]$ExpectedTag = 'v0.4.1.2',
+    [string]$ExpectedPackageVersion = '0.4.1.2',
+    [string]$ExpectedUiPackageHash = 'ee2aec0d063eb1ee1da815de58c58bb2c8ff2199ce395c118c1c3976606a4c1d'
 )
 
 $ErrorActionPreference = 'Stop'
+& (Join-Path $PSScriptRoot 'Prepare-NavigationCore.ps1')
 
 $actualCommit = (git -C external/SentinelCore rev-parse HEAD).Trim()
 if ($actualCommit -ne $ExpectedCommit) {

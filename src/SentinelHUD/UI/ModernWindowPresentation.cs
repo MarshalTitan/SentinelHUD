@@ -48,7 +48,7 @@ internal static class ModernWindowPresentation
         Action<string> selectPage, Action drawPage, Action? drawSecondary, Action? drawDock)
     {
         state.ObserveFrame(ImGui.GetWindowSize() / options.Scale);
-        SentinelModernAppShell.Draw(options with { CollapseTooltip = state.IsMinimized ? "Expand" : "Minimize" },
+        SentinelModernAppShell.Draw(options with { CollapseTooltip = state.IsMinimized ? "Expand" : "Minimize", IsCollapsed = state.IsMinimized },
             shell, navigation, selectPage, state.IsMinimized ? DrawNothing : drawPage,
             state.IsMinimized ? null : drawSecondary, state.IsMinimized ? null : drawDock);
     }

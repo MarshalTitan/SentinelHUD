@@ -52,6 +52,7 @@ jobs:
           $archive = Join-Path $env:RUNNER_TEMP 'dalamud-latest.zip'
           Invoke-WebRequest -Uri 'https://goatcorp.github.io/dalamud-distrib/latest.zip' -OutFile $archive
           Expand-Archive -LiteralPath $archive -DestinationPath $dalamudDir -Force
+          "DALAMUD_HOME=$dalamudDir" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Verify Sentinel Core pin and UI package hash
         shell: pwsh
