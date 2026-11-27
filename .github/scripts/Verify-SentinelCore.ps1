@@ -1,8 +1,8 @@
 param(
-    [string]$ExpectedCommit = 'ffa1a6ed3c89337bfb901b566b9339e2e229d154',
-    [string]$ExpectedTag = 'v0.4.1.2',
-    [string]$ExpectedPackageVersion = '0.4.1.2',
-    [string]$ExpectedUiPackageHash = 'ee2aec0d063eb1ee1da815de58c58bb2c8ff2199ce395c118c1c3976606a4c1d'
+    [string]$ExpectedCommit = '0d59460cc592f1589600e11e4e9e04478667b629',
+    [string]$ExpectedTag = 'v0.4.1.3',
+    [string]$ExpectedPackageVersion = '0.4.1.3',
+    [string]$ExpectedUiPackageHash = 'e24369d5736eb3c10939de6c1e3f7565c06b34943a98dce4df9ec84a9662189c'
 )
 
 $ErrorActionPreference = 'Stop'
