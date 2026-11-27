@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.8.9.5</Version>
+    <Version>0.8.9.6</Version>
     <AssemblyName>SentinelHUD</AssemblyName>
     <RootNamespace>SentinelHUD</RootNamespace>
     <Author>MTitan</Author>
@@ -19,9 +19,9 @@
 
   <ItemGroup>
     <ProjectReference Include="../SentinelHUD.Core/SentinelHUD.Core.csproj" />
-    <PackageReference Include="MarshalTitan.SentinelCore" Version="[0.3.1.1]" />
-    <PackageReference Include="MarshalTitan.SentinelCore.Dalamud" Version="[0.3.1.1]" />
-    <PackageReference Include="MarshalTitan.SentinelCore.UI" Version="[0.3.1.1]" />
+    <PackageReference Include="MarshalTitan.SentinelCore" Version="[0.4.1.2]" />
+    <PackageReference Include="MarshalTitan.SentinelCore.Dalamud" Version="[0.4.1.2]" />
+    <PackageReference Include="MarshalTitan.SentinelCore.UI" Version="[0.4.1.2]" />
     <None Include="../../assets/icon.png" Link="assets/icon.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

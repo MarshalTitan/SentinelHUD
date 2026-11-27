@@ -5,3 +5,5 @@ artifacts/
 .idea/
 *.user
 *.suo
+
+.packages/SentinelCore/v0.4.1.2/
